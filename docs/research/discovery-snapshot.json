@@ -1,0 +1,1739 @@
+{
+  "schemaVersion": 1,
+  "observedDateUtc": "2026-09-13",
+  "scope": "Unauthenticated public discovery only; no paid generation or credential checks.",
+  "documentation": {
+    "indexUrl": "https://docs.nano-gpt.com/llms.txt",
+    "indexedPages": 123,
+    "retrievedPages": 123,
+    "openapiUrl": "https://docs.nano-gpt.com/api-reference/openapi.json",
+    "openapiPathCount": 60,
+    "openapiSha256": "684aa9bfaf467fe65dc4724b93dcd9421e3d13e4ea88a63ae77dfef29c129232"
+  },
+  "catalogs": [
+    {
+      "name": "text",
+      "url": "https://nano-gpt.com/api/v1/models?detailed=true",
+      "status": 200,
+      "bytes": 673708,
+      "count": 606,
+      "keys": [
+        "object",
+        "data"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "inference-net/schematron-v2-small",
+        "inference-net/schematron-v2-turbo",
+        "meta-llama/llama-3.1-405b-instruct",
+        "mistralai/mistral-small-24b-instruct-2501",
+        "lightonai/LightOnOCR-2-1B",
+        "meta/muse-spark-1.3",
+        "meta/muse-spark-1.3-contributor",
+        "inception/mercury-2.5-preview"
+      ],
+      "sha256": "07887277d5ad8232ff64d39d0d2ab1051513256cd3180015a489e5d406353f7b"
+    },
+    {
+      "name": "images",
+      "url": "https://nano-gpt.com/api/v1/images/models",
+      "status": 200,
+      "bytes": 260684,
+      "count": 232,
+      "keys": [
+        "object",
+        "data",
+        "meta"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "birefnet/v2",
+        "sam3-image",
+        "nvidia/cosmos-3-super/text-to-image",
+        "bernini-r/edit-image",
+        "boogu-image",
+        "boogu-image/edit",
+        "openai/gpt-image-2.5/flare/text-to-image",
+        "openai/gpt-image-2.5/flare/edit"
+      ],
+      "sha256": "faf5701ce6d8bd238aac9dec9f754f78c32fc0aa9e25838766db9d65ee159bb1"
+    },
+    {
+      "name": "images-legacy",
+      "url": "https://nano-gpt.com/api/v1/image-models",
+      "status": 200,
+      "bytes": 238795,
+      "count": 232,
+      "keys": [
+        "object",
+        "data",
+        "meta"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "birefnet/v2",
+        "sam3-image",
+        "nvidia/cosmos-3-super/text-to-image",
+        "bernini-r/edit-image",
+        "boogu-image",
+        "boogu-image/edit",
+        "openai/gpt-image-2.5/flare/text-to-image",
+        "openai/gpt-image-2.5/flare/edit"
+      ],
+      "sha256": "ac04940b99c0813b7db6aa1b9db7b6dbd30167bbd24e54a27dbaace95997a3a7"
+    },
+    {
+      "name": "videos",
+      "url": "https://nano-gpt.com/api/v1/video-models?detailed=true",
+      "status": 200,
+      "bytes": 323070,
+      "count": 161,
+      "keys": [
+        "object",
+        "data",
+        "meta"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "minimax/h3-max/multi-angle/image-to-video",
+        "infinitetalk",
+        "bytedance/seedance-2.5",
+        "bytedance/seedance-2.5-turbo",
+        "bytedance/seedance-2.5-spicy",
+        "luma/agent/ray/v3.2",
+        "google/gemini-omni-flash",
+        "google/gemini-omni-flash/v1.1"
+      ],
+      "sha256": "8511afa97d4b6e07122b1d844ffebc9c685fb54592156ae18879aa54fb8e4a51"
+    },
+    {
+      "name": "audio",
+      "url": "https://nano-gpt.com/api/v1/audio-models",
+      "status": 200,
+      "bytes": 61286,
+      "count": 85,
+      "keys": [
+        "object",
+        "data",
+        "meta"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "elevenlabs/music",
+        "elevenlabs/sound-effects/v2",
+        "xai-tts",
+        "ACE-Step-v1.5-Base",
+        "ACE-Step-v1.5-Turbo",
+        "ACE-Step",
+        "ACE-Step-1.5",
+        "HeartMuLa"
+      ],
+      "sha256": "35977b9b8e39c0602f1478639e6e96ef43e2c6a609d7d9aac601d06399a69bb3"
+    },
+    {
+      "name": "embeddings",
+      "url": "https://nano-gpt.com/api/v1/embedding-models",
+      "status": 200,
+      "bytes": 8403,
+      "count": 27,
+      "keys": [
+        "object",
+        "data"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "text-embedding-3-small",
+        "text-embedding-3-large",
+        "text-embedding-ada-002",
+        "BAAI/bge-m3",
+        "BAAI/bge-large-zh-v1.5",
+        "BAAI/bge-large-en-v1.5",
+        "BAAI/bge-base-en-v1.5",
+        "BAAI/bge-reranker-large"
+      ],
+      "sha256": "d18becefa0948ce036b56320f7b45076b67ea58781c0c768cd9c8cfaecb9fea7"
+    },
+    {
+      "name": "moderation",
+      "url": "https://nano-gpt.com/api/v1/moderation-models",
+      "status": 200,
+      "bytes": 1774,
+      "count": 3,
+      "keys": [
+        "object",
+        "data",
+        "meta"
+      ],
+      "cors": "*",
+      "sampleIds": [
+        "omni-moderation-latest",
+        "mistral-moderation-2603",
+        "meta-llama/llama-guard-4-12b"
+      ],
+      "sha256": "c9708c83a695b748434f3e2749c8fef196e0fa37692df2ade69d33c283b7d182"
+    }
+  ],
+  "observedParameterExamples": [
+    {
+      "id": "birefnet/v2",
+      "capabilities": {
+        "image_generation": true,
+        "image_to_image": true,
+        "inpainting": false,
+        "nsfw": false
+      },
+      "supported_parameters": {
+        "resolutions": [
+          "auto"
+        ],
+        "max_images": 1,
+        "max_output_images": 1
+      },
+      "endpoints": "/api/v1/images/models/birefnet/v2/endpoints"
+    },
+    {
+      "id": "bytedance/seedream-v5.0-pro",
+      "capabilities": {
+        "image_generation": true,
+        "image_to_image": true,
+        "inpainting": false,
+        "nsfw": true
+      },
+      "supported_parameters": {
+        "resolutions": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "3:2",
+          "2:3",
+          "4:3",
+          "3:4",
+          "1k",
+          "2k"
+        ],
+        "max_images": 4,
+        "max_output_images": 4,
+        "max_input_images": 10,
+        "input_image_constraints": {
+          "max_items": 10,
+          "route": {
+            "min_width": 8,
+            "min_height": 8,
+            "max_width": 16384,
+            "max_height": 16384,
+            "max_bytes": 31457280,
+            "formats": [
+              "png",
+              "jpeg",
+              "webp"
+            ],
+            "source": "route-preflight",
+            "note": "NanoGPT route-level validation before provider submission."
+          },
+          "provider": {
+            "max_bytes": 10485760,
+            "source": "provider-docs",
+            "note": "Provider model metadata states max input image size: 10MB."
+          }
+        }
+      },
+      "endpoints": "/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints"
+    },
+    {
+      "id": "gpt-image-2",
+      "capabilities": {
+        "image_generation": true,
+        "image_to_image": true,
+        "inpainting": false,
+        "nsfw": false
+      },
+      "supported_parameters": {
+        "resolutions": [
+          "1024x1024",
+          "1024x768",
+          "1024x1536",
+          "1536x1024",
+          "1152x2048",
+          "2048x1152",
+          "2560x1440"
+        ],
+        "max_images": 4,
+        "max_output_images": 4,
+        "max_input_images": 4,
+        "input_image_constraints": {
+          "max_items": 4,
+          "route": {
+            "min_width": 8,
+            "min_height": 8,
+            "max_width": 16384,
+            "max_height": 16384,
+            "max_bytes": 31457280,
+            "formats": [
+              "png",
+              "jpeg",
+              "webp"
+            ],
+            "source": "route-preflight",
+            "note": "NanoGPT route-level validation before provider submission."
+          }
+        }
+      },
+      "endpoints": "/api/v1/images/models/gpt-image-2/endpoints"
+    },
+    {
+      "id": "bytedance/seedance-2.5",
+      "capabilities": {
+        "video_generation": true,
+        "text_to_video": true,
+        "image_to_video": true,
+        "video_to_video": true,
+        "audio_input": true,
+        "audio_generation": false,
+        "nsfw": false
+      },
+      "supported_parameters": {
+        "parameters": {
+          "mode": {
+            "type": "select",
+            "label": "Operation",
+            "description": "Automatically infer the operation from inputs, or explicitly select video extension.",
+            "default": "auto",
+            "options": [
+              {
+                "value": "auto",
+                "label": "Automatic (from inputs)"
+              },
+              {
+                "value": "text-to-video",
+                "label": "Text / references to video"
+              },
+              {
+                "value": "image-to-video",
+                "label": "Image to video"
+              },
+              {
+                "value": "video-edit",
+                "label": "Video edit"
+              },
+              {
+                "value": "video-extend",
+                "label": "Video extend"
+              }
+            ]
+          },
+          "resolution": {
+            "type": "select",
+            "label": "Resolution",
+            "default": "720p",
+            "options": [
+              {
+                "value": "480p",
+                "label": "480p"
+              },
+              {
+                "value": "720p",
+                "label": "720p"
+              },
+              {
+                "value": "1080p",
+                "label": "1080p"
+              },
+              {
+                "value": "4k",
+                "label": "4K"
+              }
+            ],
+            "description": "Output resolution"
+          },
+          "duration": {
+            "type": "select",
+            "label": "Duration",
+            "default": "5",
+            "options": [
+              {
+                "value": "4",
+                "label": "4 seconds"
+              },
+              {
+                "value": "5",
+                "label": "5 seconds"
+              },
+              {
+                "value": "6",
+                "label": "6 seconds"
+              },
+              {
+                "value": "7",
+                "label": "7 seconds"
+              },
+              {
+                "value": "8",
+                "label": "8 seconds"
+              },
+              {
+                "value": "9",
+                "label": "9 seconds"
+              },
+              {
+                "value": "10",
+                "label": "10 seconds"
+              },
+              {
+                "value": "11",
+                "label": "11 seconds"
+              },
+              {
+                "value": "12",
+                "label": "12 seconds"
+              },
+              {
+                "value": "13",
+                "label": "13 seconds"
+              },
+              {
+                "value": "14",
+                "label": "14 seconds"
+              },
+              {
+                "value": "15",
+                "label": "15 seconds"
+              },
+              {
+                "value": "16",
+                "label": "16 seconds"
+              },
+              {
+                "value": "17",
+                "label": "17 seconds"
+              },
+              {
+                "value": "18",
+                "label": "18 seconds"
+              },
+              {
+                "value": "19",
+                "label": "19 seconds"
+              },
+              {
+                "value": "20",
+                "label": "20 seconds"
+              },
+              {
+                "value": "21",
+                "label": "21 seconds"
+              },
+              {
+                "value": "22",
+                "label": "22 seconds"
+              },
+              {
+                "value": "23",
+                "label": "23 seconds"
+              },
+              {
+                "value": "24",
+                "label": "24 seconds"
+              },
+              {
+                "value": "25",
+                "label": "25 seconds"
+              },
+              {
+                "value": "26",
+                "label": "26 seconds"
+              },
+              {
+                "value": "27",
+                "label": "27 seconds"
+              },
+              {
+                "value": "28",
+                "label": "28 seconds"
+              },
+              {
+                "value": "29",
+                "label": "29 seconds"
+              },
+              {
+                "value": "30",
+                "label": "30 seconds"
+              }
+            ],
+            "description": "Output duration from 4 to 30 seconds"
+          },
+          "aspect_ratio": {
+            "type": "select",
+            "label": "Aspect Ratio",
+            "description": "Used for text and multimodal-reference generation; image and video inputs determine framing.",
+            "default": "16:9",
+            "options": [
+              {
+                "value": "21:9",
+                "label": "Ultra-wide (21:9)"
+              },
+              {
+                "value": "16:9",
+                "label": "Landscape (16:9)"
+              },
+              {
+                "value": "4:3",
+                "label": "Classic (4:3)"
+              },
+              {
+                "value": "1:1",
+                "label": "Square (1:1)"
+              },
+              {
+                "value": "3:4",
+                "label": "Portrait classic (3:4)"
+              },
+              {
+                "value": "9:16",
+                "label": "Portrait (9:16)"
+              }
+            ]
+          },
+          "generate_audio": {
+            "type": "switch",
+            "label": "Generate Audio",
+            "description": "Generate synchronized sound effects, ambience, and speech.",
+            "default": true
+          }
+        },
+        "defaults": {
+          "mode": "auto",
+          "resolution": "720p",
+          "duration": "5",
+          "aspect_ratio": "16:9",
+          "generate_audio": true
+        }
+      }
+    }
+  ],
+  "imageEndpointMetadata": [
+    {
+      "url": "https://nano-gpt.com/api/v1/images/models/gpt-image-2/endpoints",
+      "sha256": "42ff4542c025078f32f7d04aa8dd9bbe77ec709007e16fb4d45ad9bdc3002f92",
+      "data": {
+        "id": "gpt-image-2",
+        "endpoints": [
+          {
+            "provider_name": "OpenAI",
+            "provider_slug": "openai",
+            "provider_tag": null,
+            "supported_parameters": {
+              "resolutions": [
+                "1024x1024",
+                "1024x768",
+                "1024x1536",
+                "1536x1024",
+                "1152x2048",
+                "2048x1152",
+                "2560x1440"
+              ],
+              "max_images": 4,
+              "max_output_images": 4,
+              "max_input_images": 4,
+              "input_image_constraints": {
+                "max_items": 4,
+                "route": {
+                  "min_width": 8,
+                  "min_height": 8,
+                  "max_width": 16384,
+                  "max_height": 16384,
+                  "max_bytes": 31457280,
+                  "formats": [
+                    "png",
+                    "jpeg",
+                    "webp"
+                  ],
+                  "source": "route-preflight",
+                  "note": "NanoGPT route-level validation before provider submission."
+                }
+              }
+            },
+            "allowed_passthrough_parameters": [],
+            "supports_streaming": false,
+            "pricing": [
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.06551,
+                "currency": "USD",
+                "resolution": "1024x1024"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.05225,
+                "currency": "USD",
+                "resolution": "1024x768"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.05351,
+                "currency": "USD",
+                "resolution": "1024x1536"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.05351,
+                "currency": "USD",
+                "resolution": "1536x1024"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.06551,
+                "currency": "USD",
+                "resolution": "1152x2048"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.07133,
+                "currency": "USD",
+                "resolution": "2048x1152"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.07289,
+                "currency": "USD",
+                "resolution": "2560x1440"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.06551,
+                "currency": "USD",
+                "resolution": "auto"
+              }
+            ],
+            "public_pricing": {
+              "per_image": {
+                "1024x1024": 0.06551,
+                "1024x768": 0.05225,
+                "1024x1536": 0.05351,
+                "1536x1024": 0.05351,
+                "1152x2048": 0.06551,
+                "2048x1152": 0.07133,
+                "2560x1440": 0.07289,
+                "auto": 0.06551
+              },
+              "currency": "USD"
+            },
+            "input_reference_constraints": {
+              "max_items": 4,
+              "route": {
+                "min_width": 8,
+                "min_height": 8,
+                "max_width": 16384,
+                "max_height": 16384,
+                "max_bytes": 31457280,
+                "formats": [
+                  "png",
+                  "jpeg",
+                  "webp"
+                ],
+                "source": "route-preflight",
+                "note": "NanoGPT route-level validation before provider submission."
+              }
+            },
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://nano-gpt.com/api/v1/images/models/birefnet/v2/endpoints",
+      "sha256": "c4e716f3687ee6ba30858c4f961a2dbbec1ee53eff8cbd28299deeb6516d7d6f",
+      "data": {
+        "id": "birefnet/v2",
+        "endpoints": [
+          {
+            "provider_name": "Fal",
+            "provider_slug": "fal",
+            "provider_tag": null,
+            "supported_parameters": {
+              "resolutions": [
+                "auto"
+              ],
+              "max_images": 1,
+              "max_output_images": 1
+            },
+            "allowed_passthrough_parameters": [],
+            "supports_streaming": false,
+            "pricing": [
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.01,
+                "currency": "USD",
+                "resolution": "auto"
+              }
+            ],
+            "public_pricing": {
+              "per_image": {
+                "auto": 0.01
+              },
+              "currency": "USD"
+            },
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://nano-gpt.com/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints",
+      "sha256": "c4f074c2bd79a85f72ae9475c4a3c1ff5dadf740a8a5d9d3c2b6d5435e309cf8",
+      "data": {
+        "id": "bytedance/seedream-v5.0-pro",
+        "endpoints": [
+          {
+            "provider_name": "Doubao",
+            "provider_slug": "doubao",
+            "provider_tag": null,
+            "supported_parameters": {
+              "resolutions": [
+                "1:1",
+                "16:9",
+                "9:16",
+                "3:2",
+                "2:3",
+                "4:3",
+                "3:4",
+                "1k",
+                "2k"
+              ],
+              "max_images": 4,
+              "max_output_images": 4,
+              "max_input_images": 10,
+              "input_image_constraints": {
+                "max_items": 10,
+                "route": {
+                  "min_width": 8,
+                  "min_height": 8,
+                  "max_width": 16384,
+                  "max_height": 16384,
+                  "max_bytes": 31457280,
+                  "formats": [
+                    "png",
+                    "jpeg",
+                    "webp"
+                  ],
+                  "source": "route-preflight",
+                  "note": "NanoGPT route-level validation before provider submission."
+                },
+                "provider": {
+                  "max_bytes": 10485760,
+                  "source": "provider-docs",
+                  "note": "Provider model metadata states max input image size: 10MB."
+                }
+              }
+            },
+            "allowed_passthrough_parameters": [],
+            "supports_streaming": false,
+            "pricing": [
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "1:1"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "16:9"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "9:16"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "3:2"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "2:3"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "4:3"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "3:4"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.045,
+                "currency": "USD",
+                "resolution": "1k"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "2k"
+              },
+              {
+                "billable": "output_image",
+                "unit": "image",
+                "cost_usd": 0.09,
+                "currency": "USD",
+                "resolution": "auto"
+              }
+            ],
+            "public_pricing": {
+              "per_image": {
+                "1:1": 0.09,
+                "16:9": 0.09,
+                "9:16": 0.09,
+                "3:2": 0.09,
+                "2:3": 0.09,
+                "4:3": 0.09,
+                "3:4": 0.09,
+                "1k": 0.045,
+                "2k": 0.09,
+                "auto": 0.09
+              },
+              "currency": "USD"
+            },
+            "input_reference_constraints": {
+              "max_items": 10,
+              "route": {
+                "min_width": 8,
+                "min_height": 8,
+                "max_width": 16384,
+                "max_height": 16384,
+                "max_bytes": 31457280,
+                "formats": [
+                  "png",
+                  "jpeg",
+                  "webp"
+                ],
+                "source": "route-preflight",
+                "note": "NanoGPT route-level validation before provider submission."
+              },
+              "provider": {
+                "max_bytes": 10485760,
+                "source": "provider-docs",
+                "note": "Provider model metadata states max input image size: 10MB."
+              }
+            },
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "limitations": [
+    "Catalog records are not proof of access or generation success.",
+    "Image legacy and normalized counts overlap; do not add them.",
+    "CORS observations apply only to public GET responses.",
+    "Capability conflicts and incomplete parameters require contract validation.",
+    "Examples are evidence snapshots, never a production model allowlist."
+  ],
+  "sources": [
+    {
+      "url": "https://docs.nano-gpt.com/introduction.md",
+      "status": 200,
+      "bytes": 4843,
+      "sha256": "4f793735e9f5f7e4af92cb1b0dcd78a524f5648541a701a09883c238213232de",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/authentication.md",
+      "status": 200,
+      "bytes": 3646,
+      "sha256": "32b010d9eb429d8ea825e90167f1dc31c5de58ae6cdb99d6bb7fd5f52a498bb7",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/quickstart.md",
+      "status": 200,
+      "bytes": 6057,
+      "sha256": "608dfa572e33de7047269821f5df28aa1fc37da7b9aa131c749df86e84fed92a",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/models.md",
+      "status": 200,
+      "bytes": 25875,
+      "sha256": "ca2948670132c7f287d6bf5c1360f806a60a02a85b2ae6903591d4fcb693c686",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/image-api-models.md",
+      "status": 200,
+      "bytes": 4082,
+      "sha256": "8e047f309fd00834ca13438c1fa89f60a10c97806b7cf7a3a6a61ba7943d8f50",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/image-api-model-endpoints.md",
+      "status": 200,
+      "bytes": 4055,
+      "sha256": "6ec1edb7843b9965dd28b3d263c56eb287c4f337599c9f701e3a2c9859a3c6e9",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/image-models.md",
+      "status": 200,
+      "bytes": 8753,
+      "sha256": "cc89070bd2678f1d27eb5346e4dbb874a21d003ba3b7e21e168eb05a67802006",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/video-models.md",
+      "status": 200,
+      "bytes": 2618,
+      "sha256": "2477c48b69f2cf5363c1dc828a620e60f570e54a5b24764e6e52391cb223b780",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/audio-models.md",
+      "status": 200,
+      "bytes": 2842,
+      "sha256": "39c373a79dc6d5599382767161e75b95a400addcb5ec2197e0e9330aa9a99466",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/personalized-models.md",
+      "status": 200,
+      "bytes": 3758,
+      "sha256": "dfbafe9805b7d8c1c7571537490a4d880d89c410e0af3669362fec649c5bd431",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/characters.md",
+      "status": 200,
+      "bytes": 4061,
+      "sha256": "0f5f777dfba4611f9a3535780ff64c6db3286caa1d5159315262cff978516c83",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/character-models.md",
+      "status": 200,
+      "bytes": 1649,
+      "sha256": "01c26d6cba326dd6376002d29893f43cba5942f037f89a823e7a4537cbbf6bd3",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/chat-completion.md",
+      "status": 200,
+      "bytes": 111016,
+      "sha256": "58f6121069d5f0a12171db24a68ca15146b4cef6c47322416f461c2d37ddcd6a",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/batches.md",
+      "status": 200,
+      "bytes": 14863,
+      "sha256": "c049fbe1b7061de736d5568e84c465dcec2e442342fdbad69a2b7cec73a510c8",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/inline-batches-list.md",
+      "status": 200,
+      "bytes": 7710,
+      "sha256": "98d83cdf930d50e099baa5773da25fbebfaf8cbec5d37f99c42f7d67841ec9b4",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/batches-list.md",
+      "status": 200,
+      "bytes": 8313,
+      "sha256": "a60ee2f21721b5e2f115ecf906aa00d0b830d53361e7d3513a5883f425d92d41",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/web-search.md",
+      "status": 200,
+      "bytes": 12303,
+      "sha256": "1ac60a2cf593da4efb8059d8f11e73b61e5223d23a66d0bf01e12272b1322dd1",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/data-api.md",
+      "status": 200,
+      "bytes": 18133,
+      "sha256": "b1009c2eff8ed6bb5a78225fe6335aa84575c7f2b39f64915c13c89d6121eca9",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/responses.md",
+      "status": 200,
+      "bytes": 79555,
+      "sha256": "5b99e4a38ed3131344892d009747dab0eaa9b1fcef4d37f1852578a26e3025ba",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/messages.md",
+      "status": 200,
+      "bytes": 29479,
+      "sha256": "cfe19a50d08f678dfa4a7040390f3d5d0d29f6bff7542267804cc9067895bb51",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/messages-count-tokens.md",
+      "status": 200,
+      "bytes": 1774,
+      "sha256": "dc7aad026536ae9a069aa7d3497bcc7023fd3a50586b98acb4dcc8bb9454ffd4",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/completion.md",
+      "status": 200,
+      "bytes": 17627,
+      "sha256": "df423959d5f735004194b15eb7a2c63987014bf1205fd8325dee809d4eea1b69",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/audio-transcriptions.md",
+      "status": 200,
+      "bytes": 2981,
+      "sha256": "06e235d18b1cf233944704c53a0b5cea5e415227ad622d5460c0491401a93fc3",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/embeddings.md",
+      "status": 200,
+      "bytes": 13756,
+      "sha256": "fa3ee9ababefecaff45ef27ebcdec80def43b352d561391b4a0667b81746a57c",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/embedding-models.md",
+      "status": 200,
+      "bytes": 11321,
+      "sha256": "0a29a1ccbfc53320212ab375930b9aad0d95f39eb26c5e48ce7db327fa2a0373",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/image-api-generate.md",
+      "status": 200,
+      "bytes": 6750,
+      "sha256": "ef47cc488dfdab96d46b54fad79619ff1ebf0fe540bb9961108d941829cba166",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/image-generation-openai.md",
+      "status": 200,
+      "bytes": 18573,
+      "sha256": "891476046cf49832fd3e2b67e57ffcd37b2859c9847a9e3803f57bbf8d7c6a14",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/image-edits.md",
+      "status": 200,
+      "bytes": 5336,
+      "sha256": "3717d4f9e2c6a592d47cecebc50573ac8d692b0d4397c01b261936c43d535a1e",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/nsfw-image.md",
+      "status": 200,
+      "bytes": 9754,
+      "sha256": "e8c22ab32f087360eedf857208556b91d88d745e8d7bb565aa69f6054d039d62",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/moderation-models.md",
+      "status": 200,
+      "bytes": 7568,
+      "sha256": "49db3596e62dad1e098704276b4dd2bdaf66503ba5c8f0ad6e976aae30a8da80",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/moderations.md",
+      "status": 200,
+      "bytes": 14351,
+      "sha256": "187c6b1cc08a90bf5c02fb83570f7ba5f247d4668a689715dc17ac10b25a9464",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/ai-detection.md",
+      "status": 200,
+      "bytes": 2673,
+      "sha256": "e63f975c0bd7794447e9624e22137f15cd428dad56687048e69bdd3f76a0edc2",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/transcribe.md",
+      "status": 200,
+      "bytes": 16477,
+      "sha256": "45c2a2f2766b0c6f1b68a4a7454e64fba01b77eb7a122a2793c0b27cde1e95d9",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/transcribe-status.md",
+      "status": 200,
+      "bytes": 11890,
+      "sha256": "4157697b6441258e44174146ff1422387cfb15c9d90f5a20ab43638c1441db1e",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/youtube-transcribe.md",
+      "status": 200,
+      "bytes": 12921,
+      "sha256": "a616474fe05bf79c748032e125a982724981e7873044c0fe69ac8202d8678b81",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/memory.md",
+      "status": 200,
+      "bytes": 8685,
+      "sha256": "fbcb68ba8ae012bf1d77b3bbe80a1ab6ac8ede71d7c5c43c0889140020f15556",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/scrape-urls.md",
+      "status": 200,
+      "bytes": 13900,
+      "sha256": "b3f1c75b4aad677f0d9d6dda1751c1978fab3466bc3fabcc451eeca9e3d30270",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/data-extraction.md",
+      "status": 200,
+      "bytes": 9022,
+      "sha256": "f8639d9fc88d05549edad16aed278b4d3c2b8c1ec1e3073eb1a8a45970ca56f9",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/speech.md",
+      "status": 200,
+      "bytes": 10411,
+      "sha256": "7875b6e68916e5019b75df31cd9c486e723835abe1ba8c7a023b3e4e75af5eff",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/tts.md",
+      "status": 200,
+      "bytes": 22668,
+      "sha256": "b3aaf61eb34e2e4440a8856e1d7253be7100cfd8b8a4ee40796e9ee06c466ef0",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/tts-status.md",
+      "status": 200,
+      "bytes": 5590,
+      "sha256": "e893be64e1938ef0bcacccb662341012292be632a4718d60ea989fbec7276a2e",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/voice-cloning.md",
+      "status": 200,
+      "bytes": 11840,
+      "sha256": "4cf154550a9c5231d4573d64f8939b24bce648566e44db68fefbb1e3ea39bb45",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/tee-attestation.md",
+      "status": 200,
+      "bytes": 2012,
+      "sha256": "faa546d77a592204d4f1d90c1877f38f814e6ba1d014fc2a46b16e7e58006420",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/tee-signature.md",
+      "status": 200,
+      "bytes": 2377,
+      "sha256": "17639614f0bdbdec4fc1331543e1fe0196e9e5c9fc3007a3e4dcb9474d116ee2",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/check-midjourney-status.md",
+      "status": 200,
+      "bytes": 3329,
+      "sha256": "75ecb856dbc134cecda66ff608b7eb1509cf771400ce4b7528fdb64b69b45316",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/video-generation.md",
+      "status": 200,
+      "bytes": 37113,
+      "sha256": "e47dd8f5cef9cd99b331ed93dc9f114670a35004ff4303d96c4b4138360ac600",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/video-status-unified.md",
+      "status": 200,
+      "bytes": 8470,
+      "sha256": "64f4cb06e37f543b3721cdee355391a4b81f18b4f4d756e008662b9f0154732f",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/video-recover.md",
+      "status": 200,
+      "bytes": 3891,
+      "sha256": "de139165ec34b39c7b4f94820d042213fd197c7220d8c3f1034a5342a25399e1",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/video-extend.md",
+      "status": 200,
+      "bytes": 6193,
+      "sha256": "036c8db34aa912360633b14826a65caeaed3e0cd6f8606d68f8f0f42627f0042",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/video-content.md",
+      "status": 200,
+      "bytes": 2984,
+      "sha256": "0273d3a181f21f2eef99b7b10a9a831633b869b72fac763d72d83eccd10e0a73",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/check-balance.md",
+      "status": 200,
+      "bytes": 1922,
+      "sha256": "244c7b20054b0ae7474cc7b3d37807b4fd7f4e403255b9ed3e9fe538f6c4c764",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/usage.md",
+      "status": 200,
+      "bytes": 19049,
+      "sha256": "17cb94c60c7635bdff73359a88af873e4606671f07308e7993e10be9735fb2fe",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/invitations-create.md",
+      "status": 200,
+      "bytes": 8985,
+      "sha256": "6665a52cb632dcc69eaccc260ac12214d702f11148bf78db89d85f6b6892369f",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/subscription-usage.md",
+      "status": 200,
+      "bytes": 13480,
+      "sha256": "355e979413de06e00ea42fa3fd9553157c67eb22a8e2d63990435a60fbf04b9a",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/receive-nano.md",
+      "status": 200,
+      "bytes": 1876,
+      "sha256": "09eb577e551e993569c0fc2308372b6bb298da3e43d3f31714821f899cff478c",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/endpoint/crypto-deposits.md",
+      "status": 200,
+      "bytes": 13699,
+      "sha256": "9cf838a64068d6ee04b96c3f6de20517ab9de9d493de0608579d706180cf5482",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/text-generation.md",
+      "status": 200,
+      "bytes": 20271,
+      "sha256": "8face8792465488b1da320f345c1d0d8c7f1016841260f448e0b57d7d470835a",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/embeddings.md",
+      "status": 200,
+      "bytes": 14862,
+      "sha256": "bfd115bbbf0a4b78e3737cb76e923671e75ecd74a2d1786817bb2769609894dd",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/image-generation.md",
+      "status": 200,
+      "bytes": 10949,
+      "sha256": "cbcb77ee77503e309f156ac46c750ea97055c11fdc278cb007438d9ee6b26251",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/video-generation.md",
+      "status": 200,
+      "bytes": 28911,
+      "sha256": "1dddc244a4494790b1879c8868c8bd8b3d2163f0c9cc64df1ffecf950ef2b1ee",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/speech-to-text.md",
+      "status": 200,
+      "bytes": 17313,
+      "sha256": "22502b9a75d4ad4f104c95074ff6c0797fa2a99b8981a71de07694e64a315dff",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/text-to-speech.md",
+      "status": 200,
+      "bytes": 26842,
+      "sha256": "1ee7b9318774aa7b393c44baf412bf139ba3c983e1a6648f62fa4be18c116e91",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/music-generation.md",
+      "status": 200,
+      "bytes": 3541,
+      "sha256": "d25487a53aa7ed8d6a9d96d8fdba5b7165c96b8a056c4b2ca8da36722846275d",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/tee-verification.md",
+      "status": 200,
+      "bytes": 12371,
+      "sha256": "e6bf407b9ad6d19a7b8b2ae267c34df714465fe390660ea8fa5760c371c80dae",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/evals.md",
+      "status": 200,
+      "bytes": 24726,
+      "sha256": "c3c75da99e7cdb6376d183f981fe4f0999e662ce5b43e7a232dcd3f54621d5a3",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/teams.md",
+      "status": 200,
+      "bytes": 27093,
+      "sha256": "1915d00faf3d4e28420a3540b7a29bb3fabb7a1272c1d72ec4c5e58c51ff852b",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/management-api.md",
+      "status": 200,
+      "bytes": 6827,
+      "sha256": "f52c413da1075a64ea3c66693f29f7b4e82c1d6a854e538f9f8796f1d0b41950",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/rate-limits.md",
+      "status": 200,
+      "bytes": 2702,
+      "sha256": "b65ec827c074a0d233dde37cb5aaa6a43c1619c8c310ca6f82c366125549275e",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/error-handling.md",
+      "status": 200,
+      "bytes": 11670,
+      "sha256": "4324e9a6b8501b74eca2d356f8313c17e863ddb774c2075fb0968d807e2807e9",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/inline-moderation.md",
+      "status": 200,
+      "bytes": 11186,
+      "sha256": "7dca14675aa31c1f0fb57fa05cdad7351c611c5e5531f9697f73d1e91f0d1167",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/x402.md",
+      "status": 200,
+      "bytes": 21901,
+      "sha256": "43572a9e7cd7b0e8c92fa034191a3896f288def3410b6506d04a6a000b99ce16",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/extended-thinking.md",
+      "status": 200,
+      "bytes": 5383,
+      "sha256": "ca7fc651dd1fa09f8180eb2ed012afc0bcb52b32720561140c4564b76c372642",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/inline-reasoning-effort.md",
+      "status": 200,
+      "bytes": 6072,
+      "sha256": "687f1e077f3e56a3b70b98fbd6745bc4e16d231cfbeb1ee15a73a14089133473",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/streaming-protocol.md",
+      "status": 200,
+      "bytes": 8404,
+      "sha256": "0498a81922ceec7051eb2f2b430326ac022bdbc0b35228d2cc7f23be853036f3",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/request-compression.md",
+      "status": 200,
+      "bytes": 7722,
+      "sha256": "c66c22a4c3278cb23408e7d2444e6a9bda4261bbe86db1066b43ee48407570fc",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/tool-calling-diagnostics.md",
+      "status": 200,
+      "bytes": 2440,
+      "sha256": "ee79e064863d276f07091fd9f57cad35d0e90088422f08a18387fa3a173a932d",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/hosted-tool-search.md",
+      "status": 200,
+      "bytes": 9331,
+      "sha256": "5c1d1e2d13b29b2a36304df25006f728da73556b24a055b693e140d90619a1ba",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/advisor.md",
+      "status": 200,
+      "bytes": 10469,
+      "sha256": "8dffd94714cff457954cfef5f7ecb5ca048163cfb996e760d619c375cc4c8747",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/video-input.md",
+      "status": 200,
+      "bytes": 8197,
+      "sha256": "13a9417d59c6b71a7d2868057b1725ee5ab2da2548e78e937d078823e30339af",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/prompt-caching.md",
+      "status": 200,
+      "bytes": 17381,
+      "sha256": "eaffd4c876219633a71739304b5b79230fca51f31094b355563dad183c3783d7",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/pricing.md",
+      "status": 200,
+      "bytes": 820,
+      "sha256": "8b0bca08ad36df886ba10ab2cc303f49b594aac73c4ef9728bfa76aa01b7d459",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/billing-override.md",
+      "status": 200,
+      "bytes": 3712,
+      "sha256": "82cab2f8c351e9943a64b078529db4d26115be586920b84bd123cb5b838cfc05",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/provider-selection.md",
+      "status": 200,
+      "bytes": 22055,
+      "sha256": "c6c8122d4566ba3eca2658cc174b7815cb1e2c180660ab9c44da99415077ec07",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/distillation-policy.md",
+      "status": 200,
+      "bytes": 7213,
+      "sha256": "cd785bb6a3138cc7b7d134fd5e07032c34b8fb703891c80c051683150176d7bd",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/model-suffixes.md",
+      "status": 200,
+      "bytes": 16380,
+      "sha256": "19a38fdc09f9cf88057820991dc7317cc415047f12ce3d399da813accc6c7d91",
+      "screeningGroup": "Supporting resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/pii-redaction.md",
+      "status": 200,
+      "bytes": 10628,
+      "sha256": "7c1833eaa22bd3fc2aee6c44d2e536ed011a82b17aee32259f801b45f4a158bd",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/oauth-pkce.md",
+      "status": 200,
+      "bytes": 20009,
+      "sha256": "f7094301de1e2f77eff2d63c7327fa9755b44958a2648e91eb4fa3a7396dc3d1",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/brave.md",
+      "status": 200,
+      "bytes": 929,
+      "sha256": "3681043caea368c03da03c867ee1ff3bfa6f2e5e088056669ccf8dd5b903388c",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/byok.md",
+      "status": 200,
+      "bytes": 7585,
+      "sha256": "f974e617100fdc3a6693da8b0c78f117a6ac50494eaf12da24d0686d7e5c2882",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/for-providers.md",
+      "status": 200,
+      "bytes": 1206,
+      "sha256": "f301ad9688b34e119351d9b3cdcf03fe0d726b6d7981a1cb004835b074849774",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/auto-recharge.md",
+      "status": 200,
+      "bytes": 1087,
+      "sha256": "cc90164bee4332edf2dad41a5e6744140d8a437e509c046387ff9e5025192289",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/chrome-extension.md",
+      "status": 200,
+      "bytes": 585,
+      "sha256": "b002736f1cc49b2b3674587a13a4696bada2e9fb580a22a3967190b6490af5cc",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/web-app/url-parameters.md",
+      "status": 200,
+      "bytes": 3884,
+      "sha256": "01ea4138f6e9a37792c08812b52d514bb7f099b903815d0ba31b94d6f97d03ef",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/javascript.md",
+      "status": 200,
+      "bytes": 2902,
+      "sha256": "ed7c49434eb84b80395735b9a2ac5b70b4aeb7441ce11945615e7051b2c69808",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/context-memory.md",
+      "status": 200,
+      "bytes": 7401,
+      "sha256": "ee22766d90d5011b8289885946c6c3745844a01a5d4f48a05ba92ea8230fda0e",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/typescript.md",
+      "status": 200,
+      "bytes": 3593,
+      "sha256": "bc28d3ddc4a2efd2040d25870d5f819591dc48e6b3645194fbaf0ab6b4d5fa10",
+      "screeningGroup": "Core contract research"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/mcp-server.md",
+      "status": 200,
+      "bytes": 6172,
+      "sha256": "b15a1eb9e7a088fa6a3f5baccbc7b2ce5182ca04dff1963f5b4d7aac9cd908a3",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/partner/overview.md",
+      "status": 200,
+      "bytes": 4194,
+      "sha256": "b18f6eae64a5f4471e1cb8bff9e5afe0fb0301a18a991532867d5fe8c5709aec",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/api-reference/miscellaneous/partner-auth.md",
+      "status": 200,
+      "bytes": 10868,
+      "sha256": "4a8b333b914e1f9500a3af3c68706a873feb3a60401be9f38215af1c4ac0145c",
+      "screeningGroup": "Optional or separate-scope resource"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations.md",
+      "status": 200,
+      "bytes": 2064,
+      "sha256": "eae822ea9f5fb9f69db892150c26c4fabb5cccc6cf3c7304e700479ab8a80d4d",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/cli-login.md",
+      "status": 200,
+      "bytes": 8927,
+      "sha256": "01d00e9590a25130b693cc1ff8f043cdd3bd0ab862fc717e7ae57d402e6b43bb",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/cline.md",
+      "status": 200,
+      "bytes": 1317,
+      "sha256": "3f3b4d9782b305ea2b222b8b8f7a0efc602bb08c7aab2dc23fcd522d1a0de419",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/codex-cli.md",
+      "status": 200,
+      "bytes": 8169,
+      "sha256": "20718f1c77407da396fc40d1034562378f6c69bed4e7b31fa81edbe50fa32a89",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/grok-cli.md",
+      "status": 200,
+      "bytes": 6036,
+      "sha256": "483fa06e6d6ea16de7ce69d55162767db7479a33349551c2a9d161257aee59ec",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/gemini-cli.md",
+      "status": 200,
+      "bytes": 3880,
+      "sha256": "bc194db171d1a18ac6ec9881c28b6e4b75422a43feee51da14425c011c9f169f",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/claude-code.md",
+      "status": 200,
+      "bytes": 7676,
+      "sha256": "1408e6ddd8d97122ab870c07f8b8b10b6a730a98b56ff7852753f6aeb9140f93",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/roocode.md",
+      "status": 200,
+      "bytes": 1281,
+      "sha256": "40108de3cca8004af9a14a8dc37300354297457e1261c3a384acf63112267c6d",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/kilocode.md",
+      "status": 200,
+      "bytes": 1044,
+      "sha256": "4d80a2c37c2676f079f879a7cd3625050d5c1264ebf9a776c9d79459ec147000",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/cursor.md",
+      "status": 200,
+      "bytes": 1016,
+      "sha256": "b138fca0ac1824947302f0882de71e779337204f91204eca9482064218d6f619",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/fluent.md",
+      "status": 200,
+      "bytes": 2838,
+      "sha256": "a27a527419386536ed8f984aabc279b9d2c26b92a5b12ad7a6ef69aed0eb8450",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/mcp.md",
+      "status": 200,
+      "bytes": 13194,
+      "sha256": "860cfc5194342ac21caf07b6c984f13f61214ffc59e222245ef56f2841dae5fb",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/n8n.md",
+      "status": 200,
+      "bytes": 4659,
+      "sha256": "e1fd859f8265fb2783475278f57c952980958f6d1938a65d74c9db548c521d12",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/sillytavern.md",
+      "status": 200,
+      "bytes": 872,
+      "sha256": "3a5e7a5dbca8737f9ada5833eff09f4d9f3dcb8457850e6736c5e77cd5058fb2",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/risuai.md",
+      "status": 200,
+      "bytes": 3582,
+      "sha256": "193ca5d5a324b2cd66e6738c0aa17c8d0c76d964d0be6aa6ad0322db08169df8",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/openwebui.md",
+      "status": 200,
+      "bytes": 1042,
+      "sha256": "061d7943b157d73fb711394405dbb5ffe59dd0d09e541f796d9a042a08dcff78",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/otaku.md",
+      "status": 200,
+      "bytes": 1598,
+      "sha256": "dee87741d8cdf9691e0d1a3ee56b92208e9bcde9e40d4969b9a0e335fcad70c5",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/typingmind.md",
+      "status": 200,
+      "bytes": 1228,
+      "sha256": "e2b82135b12bd5388b0fe83de4cc0e2ba53a89a5943f221e56951c9cf7bbdddf",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/librechat.md",
+      "status": 200,
+      "bytes": 1972,
+      "sha256": "fa1408bbda1e2b3e8b3b04b9b29f8068413587e9a07ba2abbfb6365e6e0bcc97",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/openhands.md",
+      "status": 200,
+      "bytes": 1608,
+      "sha256": "5efaa2444bb29e4f393341bec4fb81a12d85507801e13d8906f2185491f6dd27",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/openclaw.md",
+      "status": 200,
+      "bytes": 2572,
+      "sha256": "57a0bb1e7d8a20efd0cc9264024c76d7ac86e8489acf1a26810e63ba94774b38",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/opencode.md",
+      "status": 200,
+      "bytes": 5541,
+      "sha256": "8a1ffb819e35711202eca7ef3bad82026cbbfa6810780a3c952bd2f58a0aef5c",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/janitorai.md",
+      "status": 200,
+      "bytes": 2415,
+      "sha256": "b5d4d18d0dde979f1e0d1a154f9675a6ccc4cdc32dbd82789efb431cfc1b94bc",
+      "screeningGroup": "External-client integration guide"
+    },
+    {
+      "url": "https://docs.nano-gpt.com/integrations/droid.md",
+      "status": 200,
+      "bytes": 1239,
+      "sha256": "36e86a862fc315568a8a3ec6d69f8cd738af4bddeb6fcf42b583c37b260610d4",
+      "screeningGroup": "External-client integration guide"
+    }
+  ]
+}
