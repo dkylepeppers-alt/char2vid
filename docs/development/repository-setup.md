@@ -53,7 +53,7 @@ node scripts/configure-repository.mjs --rules
 
 The rules command verifies a successful GitHub Actions `ci-gate` on the exact current default-branch commit, sets the expected check's integration ID from that observed run, and creates or updates only the named foundation ruleset. Other rulesets remain intact. The milestone command reuses exact title matches and refuses to move an issue out of an unrelated milestone. Commands stop on API errors and can be rerun after addressing permissions; earlier successful operations remain applied.
 
-The environment command creates or updates `android-release`, enables custom deployment policies, installs an exact `main` branch policy, and reads both resources back for verification. It does not create secrets; add the four secret values manually after the command succeeds.
+The environment command creates or updates `android-release`, enables custom deployment policies, installs an exact `main` branch policy, and reads both resources back for verification. It fails closed if any existing branch or tag policy would permit another ref and does not delete unexpected user-managed policies. Inspect and resolve those policies manually before rerunning it. The command does not create secrets; add the four secret values manually after it succeeds.
 
 The 18 issue URLs and proposed milestone assignments are recorded in `.github/repository/task-tracking.json`. G1 remains open until its real-device acceptance checks are complete.
 

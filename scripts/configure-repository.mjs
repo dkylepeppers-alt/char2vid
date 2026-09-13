@@ -43,6 +43,22 @@ export function collectionRows(response, path) {
   throw new Error(`Expected a list from ${path}`);
 }
 
+export function assertExactDeploymentPolicies(policies, expected) {
+  const unexpected = policies.find(
+    (policy) => policy.name !== expected.name || policy.type !== expected.type,
+  );
+  if (unexpected !== undefined) {
+    throw new Error(
+      `Unexpected android-release deployment policy: ${unexpected.type} ${unexpected.name}. Inspect it manually; this helper will not delete policies.`,
+    );
+  }
+  if (policies.length !== 1) {
+    throw new Error(
+      `Expected exactly one ${expected.type} ${expected.name} deployment policy; found ${policies.length}.`,
+    );
+  }
+}
+
 function api(method, path, payload) {
   const args = [
     'api',
@@ -236,25 +252,18 @@ function run() {
 
       const policyPath = `environments/${environmentName}/deployment-branch-policies`;
       const policies = pages(policyPath);
-      const matches = policies.filter(
-        (policy) =>
-          policy.name === releaseEnvironment.branch_policy.name &&
-          policy.type === releaseEnvironment.branch_policy.type,
-      );
-      if (matches.length > 1) {
-        throw new Error('Duplicate android-release main branch policies.');
-      }
-      if (matches.length === 0) {
+      if (policies.length > 0) {
+        assertExactDeploymentPolicies(
+          policies,
+          releaseEnvironment.branch_policy,
+        );
+      } else {
         api('POST', policyPath, releaseEnvironment.branch_policy);
       }
-      const verifiedPolicies = pages(policyPath).filter(
-        (policy) =>
-          policy.name === releaseEnvironment.branch_policy.name &&
-          policy.type === releaseEnvironment.branch_policy.type,
+      assertExactDeploymentPolicies(
+        pages(policyPath),
+        releaseEnvironment.branch_policy,
       );
-      if (verifiedPolicies.length !== 1) {
-        throw new Error('Release deployment branch policy did not persist.');
-      }
       console.log(
         `Verified ${releaseEnvironment.name} with a ${releaseEnvironment.branch_policy.name} deployment policy. Add signing secrets manually.`,
       );
