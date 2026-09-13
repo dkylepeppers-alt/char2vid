@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "outDir": "../../node_modules/.cache/native-bridge-types",
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../node_modules/.cache/native-bridge.tsbuildinfo"
+  },
+  "include": ["src"]
+}

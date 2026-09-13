@@ -1,0 +1,89 @@
+# Repository setup and dependency policy
+
+This document distinguishes committed configuration from settings that must be applied through an administrative GitHub connection.
+
+## Development
+
+Use the exact Node version in `.nvmrc` and the package manager recorded in `package.json`. Install with `npm ci` from the repository root. The root lockfile is authoritative for all workspaces.
+
+```sh
+npm ci
+npm run dev
+```
+
+The initial scaffold implements navigation and a recoverable text draft. Native media storage, model discovery, provider jobs, and production editing remain in their roadmap tasks. No API key is needed for this scaffold.
+
+`AGENTS.md` lists commands and architecture boundaries. `docs/validation/android-foundation.md` records the native toolchain and actual verification evidence.
+
+## Validation and APK downloads
+
+Pull requests run **Checks**, which validates the web application and calls the reusable Android workflow. The **ci-gate** job runs even after an upstream failure and succeeds only when both web and Android checks succeed. It has no path filter that could leave a required check permanently pending.
+
+The Android build uploads a ZIP artifact containing `char2vid-debug.apk` and `SHA256SUMS.txt`; download it from the workflow run's Artifacts section and extract it on Android. GitHub may require signing in to download artifacts. The standalone **Android** workflow can also be dispatched manually after it exists on the default branch.
+
+Debug APKs use a disposable debug signing key and application data must not be treated as release data. Different hosted runners may produce different debug keys: installing a later debug APK over an earlier one can fail. Stable upgrades require the signed-release path below. Do not uninstall an app containing needed media without first backing it up once storage exists.
+
+Web E2E tests do not certify physical Android back, rotation, keyboard, file-picker, or storage behavior. Keep those device checks open until performed.
+
+## Administrative settings
+
+At foundation creation, the GitHub connector could create files, branches, PRs, and issues, but did not expose administrative setting or milestone-creation mutations. The local CLI had no authenticated GitHub credentials. Consequently the following settings are **prepared, not applied** by this change:
+
+- Squash-only merging and automatic merged-branch deletion.
+- Main branch protection with zero required human approvals, resolved conversations, linear history, blocked force pushes/deletion, and required `ci-gate` from GitHub Actions.
+- Four native GitHub milestone objects and association of the existing 18 issues.
+- Dependency alert/security-fix settings, secret scanning, and push protection.
+- The `android-release` environment and signing secrets.
+
+The settings payloads live in `.github/repository/`. Run the setup command from a checkout with an authenticated `gh` CLI and appropriate repository permissions. The default invocation prints the proposed configuration and makes no API calls:
+
+```sh
+node scripts/configure-repository.mjs
+node scripts/configure-repository.mjs --settings
+node scripts/configure-repository.mjs --milestones
+node scripts/configure-repository.mjs --security
+node scripts/configure-repository.mjs --environment
+```
+
+After the scaffold PR is merged and **Checks** succeeds on the current `main` commit:
+
+```sh
+node scripts/configure-repository.mjs --rules
+```
+
+The rules command verifies a successful GitHub Actions `ci-gate` on the exact current default-branch commit, sets the expected check's integration ID from that observed run, and creates or updates only the named foundation ruleset. Other rulesets remain intact. The milestone command reuses exact title matches and refuses to move an issue out of an unrelated milestone. Commands stop on API errors and can be rerun after addressing permissions; earlier successful operations remain applied.
+
+The environment command creates or updates `android-release`, enables custom deployment policies, installs an exact `main` branch policy, and reads both resources back for verification. It does not create secrets; add the four secret values manually after the command succeeds.
+
+The 18 issue URLs and proposed milestone assignments are recorded in `.github/repository/task-tracking.json`. G1 remains open until its real-device acceptance checks are complete.
+
+Sources: [GitHub rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets), [Dependabot configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+
+## Signed releases
+
+Run `node scripts/configure-repository.mjs --environment` to create the `android-release` environment and restrict it to `main`, then add these environment secrets using GitHub Settings. Keep the same keystore for future updates and retain an independent secure backup:
+
+| Secret                      | Value                           |
+| --------------------------- | ------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`   | Base64-encoded release keystore |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password               |
+| `ANDROID_KEY_ALIAS`         | Signing key alias               |
+| `ANDROID_KEY_PASSWORD`      | Key password                    |
+
+Run **Android release** from `main`, supplying a new `vX.Y.Z` tag and an Android `version_code` greater than every previously recorded code. The workflow reads structured metadata from published and draft releases—signed draft artifacts consume version codes too—and rejects a reused or lower code before signing. It validates the whole scaffold, builds the matching Android version, signs the APK, verifies its signature, and creates a **draft** GitHub release with the APK, checksums, and `android-release.json`. The draft notes show both Android version values and retain a machine-readable metadata marker after publication. The key is decoded only to the temporary runner directory and removed on exit. Review the draft before publishing it.
+
+The workflow does not generate signing credentials or publish a release automatically on a push. Signing cannot be validated until credentials are supplied. Preserve release notes during repository migrations so the monotonic check retains its history; `android-release.json` is also attached to each new draft for an explicit audit record.
+
+## Dependency policy
+
+- Pin direct dependency versions and commit one lockfile. Use the matching Node version across local development and CI.
+- Keep React, Vite, and required Android lifecycle integrations in the initial scaffold. Add dependencies in their owning task when real behavior consumes them.
+- Add Dexie for browser storage and AndroidX Room behind a Kotlin bridge in G2; add native transfer/share plugins with import/export and transfer tasks.
+- Add Fastify and `better-sqlite3` in the service task. Add Zod/provider adapters with their runtime validation contracts.
+- Add TanStack Query for remote state, Zustand when transient state warrants it, and TanStack Virtual for the gallery. These never replace durable asset/job storage.
+- Add React Flow with S1, Media3 with native editing, and a pinned FFmpeg service image with browser rendering.
+- Update Capacitor core/Android/CLI together. Official plugins can have different patch versions; follow their declared compatibility. Review Android Gradle/SDK upgrades as a coordinated toolchain change.
+- Dependabot groups routine npm, Actions, and AndroidX changes weekly; major changes remain separate. CI validates updates before landing.
+- Keep small authored media fixtures in Git when needed. Real galleries, generated outputs, database files, APKs, and signing material belong outside source control.
+
+CodeQL currently analyzes JavaScript/TypeScript. Extend coverage to native Java/Kotlin when application-specific native behavior is implemented.

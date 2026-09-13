@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "outDir": "../../node_modules/.cache/domain-types",
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../node_modules/.cache/domain.tsbuildinfo"
+  },
+  "include": ["src"]
+}

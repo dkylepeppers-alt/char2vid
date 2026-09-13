@@ -1,0 +1,25 @@
+{
+  "name": "@char2vid/studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --build",
+    "android:debug": "cd android && ./gradlew --no-daemon assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.2",
+    "@char2vid/domain": "0.1.0",
+    "@char2vid/native-bridge": "0.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router": "8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
+}

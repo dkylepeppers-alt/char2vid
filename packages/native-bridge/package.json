@@ -1,0 +1,16 @@
+{
+  "name": "@char2vid/native-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.1"
+  }
+}

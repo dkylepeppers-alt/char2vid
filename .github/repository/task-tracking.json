@@ -1,0 +1,137 @@
+{
+  "repository": "dkylepeppers-alt/char2vid",
+  "milestones": [
+    "M1: Real local library",
+    "M2: Reliable generation",
+    "M3: Character-to-video studio",
+    "M4: Complete production"
+  ],
+  "issues": [
+    {
+      "task": "G1",
+      "number": 1,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/1",
+      "milestone": "M1: Real local library",
+      "plan": "docs/superpowers/plans/2026-09-13-storage-gallery.md"
+    },
+    {
+      "task": "G2",
+      "number": 2,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/2",
+      "milestone": "M1: Real local library",
+      "plan": "docs/superpowers/plans/2026-09-13-storage-gallery.md"
+    },
+    {
+      "task": "G3",
+      "number": 3,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/3",
+      "milestone": "M1: Real local library",
+      "plan": "docs/superpowers/plans/2026-09-13-storage-gallery.md"
+    },
+    {
+      "task": "G4",
+      "number": 4,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/4",
+      "milestone": "M1: Real local library",
+      "plan": "docs/superpowers/plans/2026-09-13-storage-gallery.md"
+    },
+    {
+      "task": "P1",
+      "number": 5,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/5",
+      "milestone": "M2: Reliable generation",
+      "plan": "docs/superpowers/plans/2026-09-13-provider-jobs.md"
+    },
+    {
+      "task": "P2",
+      "number": 6,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/6",
+      "milestone": "M2: Reliable generation",
+      "plan": "docs/superpowers/plans/2026-09-13-provider-jobs.md"
+    },
+    {
+      "task": "P3",
+      "number": 7,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/7",
+      "milestone": "M2: Reliable generation",
+      "plan": "docs/superpowers/plans/2026-09-13-provider-jobs.md"
+    },
+    {
+      "task": "P4",
+      "number": 8,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/8",
+      "milestone": "M2: Reliable generation",
+      "plan": "docs/superpowers/plans/2026-09-13-provider-jobs.md"
+    },
+    {
+      "task": "P5",
+      "number": 9,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/9",
+      "milestone": "M2: Reliable generation",
+      "plan": "docs/superpowers/plans/2026-09-13-provider-jobs.md"
+    },
+    {
+      "task": "C1",
+      "number": 10,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/10",
+      "milestone": "M3: Character-to-video studio",
+      "plan": "docs/superpowers/plans/2026-09-13-character-video.md"
+    },
+    {
+      "task": "C2",
+      "number": 11,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/11",
+      "milestone": "M3: Character-to-video studio",
+      "plan": "docs/superpowers/plans/2026-09-13-character-video.md"
+    },
+    {
+      "task": "C3",
+      "number": 12,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/12",
+      "milestone": "M3: Character-to-video studio",
+      "plan": "docs/superpowers/plans/2026-09-13-character-video.md"
+    },
+    {
+      "task": "C4",
+      "number": 13,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/13",
+      "milestone": "M3: Character-to-video studio",
+      "plan": "docs/superpowers/plans/2026-09-13-character-video.md"
+    },
+    {
+      "task": "S1",
+      "number": 14,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/14",
+      "milestone": "M4: Complete production",
+      "plan": "docs/superpowers/plans/2026-09-13-studio-delivery.md"
+    },
+    {
+      "task": "S2",
+      "number": 15,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/15",
+      "milestone": "M4: Complete production",
+      "plan": "docs/superpowers/plans/2026-09-13-studio-delivery.md"
+    },
+    {
+      "task": "S3",
+      "number": 16,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/16",
+      "milestone": "M4: Complete production",
+      "plan": "docs/superpowers/plans/2026-09-13-studio-delivery.md"
+    },
+    {
+      "task": "S4",
+      "number": 17,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/17",
+      "milestone": "M4: Complete production",
+      "plan": "docs/superpowers/plans/2026-09-13-studio-delivery.md"
+    },
+    {
+      "task": "S5",
+      "number": 18,
+      "url": "https://github.com/dkylepeppers-alt/char2vid/issues/18",
+      "milestone": "M4: Complete production",
+      "plan": "docs/superpowers/plans/2026-09-13-studio-delivery.md"
+    }
+  ]
+}

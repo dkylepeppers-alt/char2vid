@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@char2vid/domain": ["../../packages/domain/src/contracts.ts"],
+      "@char2vid/native-bridge": ["../../packages/native-bridge/src/index.ts"]
+    },
+    "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo"
+  },
+  "include": ["src", "vite.config.ts", "capacitor.config.ts"],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/native-bridge" }
+  ]
+}

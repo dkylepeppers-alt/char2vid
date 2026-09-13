@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">char2vid</string>
+    <string name="title_activity_main">char2vid</string>
+    <string name="package_name">com.char2vid.studio</string>
+    <string name="custom_url_scheme">com.char2vid.studio</string>
+</resources>
