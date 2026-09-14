@@ -59,7 +59,9 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
       setExportNote(
         result.status === 'saved'
           ? `Saved${result.displayName ? `: ${result.displayName}` : ''}`
-          : `Cancelled${result.displayName ? ` (${result.displayName})` : ''}`,
+          : result.status === 'shared'
+            ? `Shared${result.displayName ? `: ${result.displayName}` : ''} (handed off)`
+            : `Cancelled${result.displayName ? ` (${result.displayName})` : ''}`,
       );
     } catch (err) {
       setExportNote(err instanceof Error ? err.message : 'Export failed');

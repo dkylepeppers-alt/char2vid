@@ -250,7 +250,7 @@ describe('library actions and query (G3)', () => {
     }
   });
 
-  it('keeps shared physical object until both assets are permanently deleted', async () => {
+  it('keeps shared physical object until both assets are trash then permanently deleted', async () => {
     const png = await loadPng();
     const expectedHash = sha256(png);
     const opened = await openTestLibrary();
@@ -276,12 +276,17 @@ describe('library actions and query (G3)', () => {
 
       await opened.library.applyLibraryAction({
         assetIds: [a.id],
+        action: 'trash',
+      });
+      await opened.library.applyLibraryAction({
+        assetIds: [a.id],
         action: 'permanent-delete',
       });
       expect(await opened.library.getAsset(a.id)).toBeUndefined();
       expect(await opened.library.getAsset(b.id)).toMatchObject({
         id: b.id,
         sha256: expectedHash,
+        trashedAt: null,
       });
       expect(await opened.physicalObjectCount()).toBe(1);
 
@@ -292,10 +297,54 @@ describe('library actions and query (G3)', () => {
 
       await opened.library.applyLibraryAction({
         assetIds: [b.id],
+        action: 'trash',
+      });
+      await opened.library.applyLibraryAction({
+        assetIds: [b.id],
         action: 'permanent-delete',
       });
       expect(await opened.library.getAsset(b.id)).toBeUndefined();
       expect(await opened.physicalObjectCount()).toBe(0);
+    } finally {
+      await opened.close();
+    }
+  });
+
+  it('rejects permanent-delete on a live (non-trashed) asset and leaves bytes intact', async () => {
+    const png = await loadPng();
+    const expectedHash = sha256(png);
+    const opened = await openTestLibrary();
+
+    try {
+      const asset = await opened.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'live-gate.png',
+        mime: 'image/png',
+      });
+      expect(asset.trashedAt).toBeNull();
+      expect(await opened.physicalObjectCount()).toBe(1);
+
+      await expect(
+        opened.library.applyLibraryAction({
+          assetIds: [asset.id],
+          action: 'permanent-delete',
+        }),
+      ).rejects.toThrow(/permanent-delete requires a soft-trashed asset/);
+
+      const still = await opened.library.getAsset(asset.id);
+      expect(still).toMatchObject({
+        id: asset.id,
+        sha256: expectedHash,
+        trashedAt: null,
+        state: 'available',
+      });
+      expect(await opened.physicalObjectCount()).toBe(1);
+
+      const bytes = await streamToBytes(
+        await opened.library.readRevision(asset.revisionId),
+      );
+      expect(sha256(bytes)).toBe(expectedHash);
     } finally {
       await opened.close();
     }

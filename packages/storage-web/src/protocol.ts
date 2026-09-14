@@ -733,6 +733,11 @@ export class LibraryEngine {
           break;
         }
         case 'permanent-delete': {
+          if (current.trashedAt === null) {
+            throw new Error(
+              `permanent-delete requires a soft-trashed asset (missing trashedAt): ${id}`,
+            );
+          }
           await this.purgeLogicalAsset(id);
           break;
         }
@@ -747,8 +752,9 @@ export class LibraryEngine {
 
   /**
    * Hard-delete a logical asset and GC the physical object only when no
-   * remaining revision references its sha256. Test helpers and
-   * `permanent-delete` use this; production `openWebLibrary` does not expose it.
+   * remaining revision references its sha256. Test helpers call this directly;
+   * `applyLibraryAction({ action: 'permanent-delete' })` gates on `trashedAt`
+   * before invoking it. Production `openWebLibrary` does not expose this helper.
    */
   async purgeLogicalAsset(id: string): Promise<void> {
     const asset = await this.meta.getAsset(id);
