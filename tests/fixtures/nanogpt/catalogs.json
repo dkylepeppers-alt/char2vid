@@ -1,0 +1,490 @@
+{
+  "$schema": "authored test fixture; not a provider response dump",
+  "provenance": {
+    "snapshot": "docs/research/discovery-snapshot.json",
+    "snapshotObservedDateUtc": "2026-09-13",
+    "reobservedDateUtc": "2026-09-14",
+    "notes": [
+      "Records labeled 'sanitized-observed' are byte-for-byte subsets of public, unauthenticated GET responses. They contained no credentials or signed URLs; the only sanitization is omission of unrelated records.",
+      "Records labeled 'authored' are hand-written to exercise a control shape. Their field shapes come from the cited sources; option lists were truncated and IDs prefixed with 'fixture/' where the record is not a real catalog entry.",
+      "No generation endpoint was called and no API key was used to build these fixtures."
+    ]
+  },
+  "fixtures": {
+    "imageMixed": {
+      "label": "authored",
+      "source": "https://nano-gpt.com/api/v1/images/models (observedParameterExamples in discovery-snapshot.json) and https://docs.nano-gpt.com/api-reference/image-generation.md (enum/range descriptor examples)",
+      "observedDateUtc": "2026-09-13",
+      "body": {
+        "object": "list",
+        "data": [
+          {
+            "id": "birefnet/v2",
+            "object": "model",
+            "name": "BiRefNet v2",
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": false
+            },
+            "supported_parameters": {
+              "resolutions": ["auto"],
+              "max_images": 1,
+              "max_output_images": 1
+            },
+            "endpoints": "/api/v1/images/models/birefnet/v2/endpoints"
+          },
+          {
+            "id": "bytedance/seedream-v5.0-pro",
+            "object": "model",
+            "name": "Seedream 5.0 Pro",
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": true
+            },
+            "supported_parameters": {
+              "resolutions": ["1:1", "16:9", "9:16", "1k", "2k"],
+              "max_images": 4,
+              "max_output_images": 4,
+              "max_input_images": 10,
+              "input_image_constraints": {
+                "max_items": 10,
+                "route": {
+                  "min_width": 8,
+                  "min_height": 8,
+                  "max_width": 16384,
+                  "max_height": 16384,
+                  "max_bytes": 31457280,
+                  "formats": ["png", "jpeg", "webp"],
+                  "source": "route-preflight",
+                  "note": "NanoGPT route-level validation before provider submission."
+                },
+                "provider": {
+                  "max_bytes": 10485760,
+                  "source": "provider-docs",
+                  "note": "Provider model metadata states max input image size: 10MB."
+                }
+              }
+            },
+            "endpoints": "/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints"
+          },
+          {
+            "id": "fixture/enum-range",
+            "object": "model",
+            "name": "Fixture Enum Range",
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": false
+            },
+            "supported_parameters": {
+              "resolution": {
+                "type": "enum",
+                "values": ["1024x1024", "1024x768"],
+                "default": "1024x1024"
+              },
+              "n": { "type": "range", "min": 1, "max": 4, "default": 1 },
+              "input_references": { "type": "range", "min": 0, "max": 4 }
+            },
+            "endpoints": "/api/v1/images/models/fixture/enum-range/endpoints"
+          },
+          {
+            "id": "fixture/unknown-control",
+            "object": "model",
+            "name": "Fixture Unknown Control",
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": false,
+              "inpainting": false,
+              "nsfw": false
+            },
+            "supported_parameters": {
+              "resolutions": ["1k"],
+              "max_images": 1,
+              "max_output_images": 1,
+              "palette": {
+                "type": "color_picker",
+                "default": "#ffffff",
+                "swatches": ["#ffffff", "#000000"]
+              }
+            },
+            "endpoints": "/api/v1/images/models/fixture/unknown-control/endpoints"
+          }
+        ],
+        "meta": { "count": 4 }
+      }
+    },
+    "videoNested": {
+      "label": "authored",
+      "source": "https://nano-gpt.com/api/v1/video-models?detailed=true (bytedance/seedance-2.5 in discovery-snapshot.json; kling/minimax/pruna control shapes re-observed 2026-09-14). Duration option list truncated from 27 to 3 entries.",
+      "observedDateUtc": "2026-09-14",
+      "body": {
+        "object": "list",
+        "data": [
+          {
+            "id": "bytedance/seedance-2.5",
+            "object": "model",
+            "name": "Seedance 2.5",
+            "capabilities": {
+              "video_generation": true,
+              "text_to_video": true,
+              "image_to_video": true,
+              "video_to_video": true,
+              "audio_input": true,
+              "audio_generation": false,
+              "nsfw": false
+            },
+            "supported_parameters": {
+              "parameters": {
+                "mode": {
+                  "type": "select",
+                  "label": "Operation",
+                  "default": "auto",
+                  "options": [
+                    { "value": "auto", "label": "Automatic (from inputs)" },
+                    { "value": "image-to-video", "label": "Image to video" },
+                    { "value": "video-extend", "label": "Video extend" }
+                  ]
+                },
+                "duration": {
+                  "type": "select",
+                  "label": "Duration",
+                  "default": "5",
+                  "options": [
+                    { "value": "4", "label": "4 seconds" },
+                    { "value": "5", "label": "5 seconds" },
+                    { "value": "30", "label": "30 seconds" }
+                  ]
+                },
+                "generate_audio": {
+                  "type": "switch",
+                  "label": "Generate Audio",
+                  "default": true
+                }
+              },
+              "defaults": {
+                "mode": "auto",
+                "duration": "5",
+                "generate_audio": true
+              }
+            }
+          },
+          {
+            "id": "fixture/video-control-zoo",
+            "object": "model",
+            "name": "Fixture Video Control Zoo",
+            "capabilities": {
+              "video_generation": true,
+              "text_to_video": true,
+              "image_to_video": false,
+              "video_to_video": false,
+              "audio_input": false,
+              "audio_generation": false,
+              "nsfw": false
+            },
+            "supported_parameters": {
+              "parameters": {
+                "duration": {
+                  "type": "integer",
+                  "label": "Duration",
+                  "default": 5,
+                  "options": [
+                    { "value": 5, "label": "5 seconds" },
+                    { "value": 10, "label": "10 seconds" }
+                  ],
+                  "enum": [5, 10]
+                },
+                "seed": {
+                  "type": "number",
+                  "label": "Seed",
+                  "default": -1,
+                  "min": -1,
+                  "max": 2147483647,
+                  "step": 1
+                },
+                "camera_trajectory": {
+                  "type": "string",
+                  "label": "Custom camera keyframes (JSON)",
+                  "default": ""
+                },
+                "draft": {
+                  "type": "boolean",
+                  "label": "Draft Mode",
+                  "default": false
+                },
+                "resolution": {
+                  "type": "select",
+                  "label": "Resolution",
+                  "default": "720p",
+                  "options": [
+                    { "value": "720p", "label": "720p" },
+                    { "value": "1080p", "label": "1080p" }
+                  ]
+                }
+              },
+              "defaults": {
+                "duration": 5,
+                "seed": -1,
+                "camera_trajectory": "",
+                "draft": false,
+                "resolution": "1080p"
+              }
+            }
+          }
+        ],
+        "meta": { "count": 2 }
+      }
+    },
+    "audioMixed": {
+      "label": "authored",
+      "source": "https://nano-gpt.com/api/v1/audio-models (elevenlabs/music, xai-tts, Whisper-Large-V3, yue2-3b/text-to-music shapes re-observed 2026-09-14; voice and format lists truncated)",
+      "observedDateUtc": "2026-09-14",
+      "body": {
+        "object": "list",
+        "data": [
+          {
+            "id": "elevenlabs/music",
+            "object": "model",
+            "name": "ElevenLabs Music",
+            "capabilities": { "text_to_music": true },
+            "supported_parameters": { "min_duration": 5, "max_duration": 300 },
+            "category": "audio_music"
+          },
+          {
+            "id": "xai-tts",
+            "object": "model",
+            "name": "SpaceXAI TTS",
+            "capabilities": { "text_to_speech": true },
+            "supported_parameters": {
+              "max_chars": 5000,
+              "voices": ["Eve", "Ara", "Leo"]
+            },
+            "category": "audio_tts"
+          },
+          {
+            "id": "Whisper-Large-V3",
+            "object": "model",
+            "name": "Whisper Large V3",
+            "capabilities": { "speech_to_text": true, "word_timestamps": true },
+            "supported_parameters": {
+              "response_formats": [
+                "json",
+                "text",
+                "verbose_json",
+                "srt",
+                "vtt"
+              ],
+              "timestamp_granularities": ["segment", "word"],
+              "max_request_body_mb": 4,
+              "supports_remote_url": true,
+              "max_file_size_mb": 500,
+              "supported_formats": ["MP3", "OGG", "WAV", "M4A", "AAC"]
+            },
+            "category": "audio_stt"
+          },
+          {
+            "id": "yue2-3b/text-to-music",
+            "object": "model",
+            "name": "YuE 2 3B",
+            "capabilities": { "text_to_music": true },
+            "supported_parameters": {
+              "lyrics": { "type": "string", "required": true },
+              "seed": {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 2147483647,
+                "default": -1
+              },
+              "output_format": {
+                "values": ["mp3", "wav", "flac"],
+                "default": "mp3"
+              }
+            },
+            "category": "audio_music"
+          }
+        ],
+        "meta": { "count": 4 }
+      }
+    },
+    "textMinimal": {
+      "label": "authored",
+      "source": "https://nano-gpt.com/api/v1/models?detailed=true (record keys re-observed 2026-09-14; descriptions and pricing omitted)",
+      "observedDateUtc": "2026-09-14",
+      "body": {
+        "object": "list",
+        "data": [
+          {
+            "id": "fixture/text-a",
+            "object": "model",
+            "name": "Fixture Text A",
+            "context_length": 128000,
+            "capabilities": { "vision": false }
+          },
+          {
+            "id": "fixture/text-b",
+            "object": "model",
+            "name": "Fixture Text B",
+            "context_length": 32000,
+            "capabilities": { "vision": true }
+          }
+        ]
+      }
+    },
+    "imageEndpointMetadataGptImage2": {
+      "label": "sanitized-observed",
+      "source": "https://nano-gpt.com/api/v1/images/models/gpt-image-2/endpoints",
+      "observedDateUtc": "2026-09-13",
+      "reobservedDateUtc": "2026-09-14",
+      "sha256": "42ff4542c025078f32f7d04aa8dd9bbe77ec709007e16fb4d45ad9bdc3002f92",
+      "body": {
+        "id": "gpt-image-2",
+        "endpoints": [
+          {
+            "provider_name": "OpenAI",
+            "provider_slug": "openai",
+            "provider_tag": null,
+            "supported_parameters": {
+              "resolutions": [
+                "1024x1024",
+                "1024x768",
+                "1024x1536",
+                "1536x1024",
+                "1152x2048",
+                "2048x1152",
+                "2560x1440"
+              ],
+              "max_images": 4,
+              "max_output_images": 4,
+              "max_input_images": 4,
+              "input_image_constraints": {
+                "max_items": 4,
+                "route": {
+                  "min_width": 8,
+                  "min_height": 8,
+                  "max_width": 16384,
+                  "max_height": 16384,
+                  "max_bytes": 31457280,
+                  "formats": ["png", "jpeg", "webp"],
+                  "source": "route-preflight",
+                  "note": "NanoGPT route-level validation before provider submission."
+                }
+              }
+            },
+            "allowed_passthrough_parameters": [],
+            "supports_streaming": false,
+            "input_reference_constraints": {
+              "max_items": 4,
+              "route": {
+                "min_width": 8,
+                "min_height": 8,
+                "max_width": 16384,
+                "max_height": 16384,
+                "max_bytes": 31457280,
+                "formats": ["png", "jpeg", "webp"],
+                "source": "route-preflight",
+                "note": "NanoGPT route-level validation before provider submission."
+              }
+            },
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": false
+            }
+          }
+        ]
+      }
+    },
+    "imageCatalogGptImage2": {
+      "label": "sanitized-observed",
+      "source": "https://nano-gpt.com/api/v1/images/models (gpt-image-2 record in discovery-snapshot.json observedParameterExamples)",
+      "observedDateUtc": "2026-09-13",
+      "body": {
+        "object": "list",
+        "data": [
+          {
+            "id": "gpt-image-2",
+            "object": "model",
+            "name": "GPT Image 2",
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": false,
+              "nsfw": false
+            },
+            "supported_parameters": {
+              "resolutions": [
+                "1024x1024",
+                "1024x768",
+                "1024x1536",
+                "1536x1024",
+                "1152x2048",
+                "2048x1152",
+                "2560x1440"
+              ],
+              "max_images": 4,
+              "max_output_images": 4,
+              "max_input_images": 4,
+              "input_image_constraints": {
+                "max_items": 4,
+                "route": {
+                  "min_width": 8,
+                  "min_height": 8,
+                  "max_width": 16384,
+                  "max_height": 16384,
+                  "max_bytes": 31457280,
+                  "formats": ["png", "jpeg", "webp"],
+                  "source": "route-preflight",
+                  "note": "NanoGPT route-level validation before provider submission."
+                }
+              }
+            },
+            "endpoints": "/api/v1/images/models/gpt-image-2/endpoints"
+          }
+        ],
+        "meta": { "count": 1 }
+      }
+    },
+    "imageEndpointMetadataConflict": {
+      "label": "authored",
+      "source": "Shape from https://docs.nano-gpt.com/api-reference/endpoint/image-api-model-endpoints.md; values deliberately disagree with the imageMixed seedream record to exercise conflict recording",
+      "observedDateUtc": "2026-09-13",
+      "body": {
+        "id": "bytedance/seedream-v5.0-pro",
+        "endpoints": [
+          {
+            "provider_name": "Fixture Provider",
+            "provider_slug": "fixture",
+            "provider_tag": null,
+            "supported_parameters": {
+              "resolutions": ["1:1", "16:9", "9:16", "1k", "2k"],
+              "max_images": 4,
+              "max_output_images": 4,
+              "max_input_images": 4
+            },
+            "allowed_passthrough_parameters": [],
+            "supports_streaming": false,
+            "input_reference_constraints": {
+              "max_items": 4,
+              "route": {
+                "max_bytes": 31457280,
+                "formats": ["png", "jpeg", "webp"],
+                "source": "route-preflight"
+              }
+            },
+            "capabilities": {
+              "image_generation": true,
+              "image_to_image": true,
+              "inpainting": true,
+              "nsfw": true
+            }
+          }
+        ]
+      }
+    }
+  }
+}
