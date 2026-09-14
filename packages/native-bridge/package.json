@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./media-export": "./src/media-export.ts"
+    "./media-export": "./src/media-export.ts",
+    "./archive": "./src/archive.ts"
   },
   "scripts": {
     "build": "tsc --build",

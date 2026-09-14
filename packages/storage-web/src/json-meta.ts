@@ -259,4 +259,28 @@ export class JsonMetaStore implements MetaStore {
     delete this.snapshot.journal[args.importId];
     await this.persist();
   }
+
+  async commitArchiveImport(args: {
+    assets: AssetRecord[];
+    revisions: RevisionRecord[];
+    collectionMembers: CollectionMember[];
+    assetTags: AssetTagRow[];
+  }): Promise<void> {
+    await this.ensureLoaded();
+    for (const asset of args.assets) {
+      this.snapshot.assets[asset.id] = normalizeAssetRecord(asset);
+    }
+    for (const revision of args.revisions) {
+      this.snapshot.revisions[revision.id] = revision;
+    }
+    for (const member of args.collectionMembers) {
+      this.snapshot.collectionMembers[
+        memberKey(member.collectionId, member.assetId)
+      ] = member;
+    }
+    for (const row of args.assetTags) {
+      this.snapshot.assetTags[tagKey(row.assetId, row.tag)] = row;
+    }
+    await this.persist();
+  }
 }

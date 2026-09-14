@@ -33,6 +33,7 @@ export interface TestLibraryHandle {
   listJournal(): Promise<unknown[]>;
   /** Absolute path used for this library (for close/reopen). */
   location: string;
+  getArchiveHost(): ReturnType<NodeLibraryHandle['getArchiveHost']>;
 }
 
 /**
@@ -73,6 +74,9 @@ export async function openTestLibrary(
     },
     listJournal() {
       return handle.listJournal();
+    },
+    getArchiveHost() {
+      return handle.getArchiveHost();
     },
   };
 }

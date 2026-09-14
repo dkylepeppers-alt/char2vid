@@ -211,6 +211,41 @@ export class DexieMetaStore implements MetaStore {
     );
   }
 
+  async commitArchiveImport(args: {
+    assets: AssetRecord[];
+    revisions: RevisionRecord[];
+    collectionMembers: CollectionMember[];
+    assetTags: AssetTagRow[];
+  }): Promise<void> {
+    await this.db.transaction(
+      'rw',
+      this.db.assets,
+      this.db.revisions,
+      this.db.collectionMembers,
+      this.db.assetTags,
+      async () => {
+        for (const asset of args.assets) {
+          await this.db.assets.put(normalizeAssetRecord(asset));
+        }
+        for (const revision of args.revisions) {
+          await this.db.revisions.put(revision);
+        }
+        for (const member of args.collectionMembers) {
+          await this.db.collectionMembers.put({
+            id: memberKey(member.collectionId, member.assetId),
+            ...member,
+          });
+        }
+        for (const row of args.assetTags) {
+          await this.db.assetTags.put({
+            id: tagKey(row.assetId, row.tag),
+            ...row,
+          });
+        }
+      },
+    );
+  }
+
   async deleteDatabase(): Promise<void> {
     this.db.close();
     await Dexie.delete(this.db.name);

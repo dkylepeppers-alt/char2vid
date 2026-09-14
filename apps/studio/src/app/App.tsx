@@ -11,6 +11,7 @@ import {
 import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
 import { LibraryPage } from '../features/library/LibraryPage';
+import { BackupPage } from '../features/settings/BackupPage';
 
 const ROUTE_KEY = 'char2vid.selected-route';
 const DRAFT_KEY = 'char2vid.create-draft';
@@ -262,11 +263,14 @@ export function App() {
                 ×
               </button>
             </div>
-            <p>
-              {sheet === 'jobs'
-                ? 'Provider and local-save queues are not connected in this foundation.'
-                : 'App preferences will appear here as features are added.'}
-            </p>
+            {sheet === 'jobs' ? (
+              <p>
+                Provider and local-save queues are not connected in this
+                foundation.
+              </p>
+            ) : (
+              <BackupPage />
+            )}
           </section>
         </div>
       )}

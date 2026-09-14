@@ -28,8 +28,20 @@ export default defineConfig({
         replacement: path.join(packagesDir, 'domain/src/asset-schema.ts'),
       },
       {
+        find: '@char2vid/domain/archive-schema',
+        replacement: path.join(packagesDir, 'domain/src/archive-schema.ts'),
+      },
+      {
+        find: '@char2vid/domain/archive-remap',
+        replacement: path.join(packagesDir, 'domain/src/archive-remap.ts'),
+      },
+      {
         find: '@char2vid/domain',
         replacement: path.join(packagesDir, 'domain/src/contracts.ts'),
+      },
+      {
+        find: '@char2vid/storage-web/archive',
+        replacement: path.join(packagesDir, 'storage-web/src/archive.ts'),
       },
       {
         find: '@char2vid/storage-web/library',
@@ -51,6 +63,10 @@ export default defineConfig({
         ),
       },
       {
+        find: '@char2vid/native-bridge/archive',
+        replacement: path.join(packagesDir, 'native-bridge/src/archive.ts'),
+      },
+      {
         find: '@char2vid/native-bridge',
         replacement: path.join(packagesDir, 'native-bridge/src/index.ts'),
       },
@@ -61,6 +77,6 @@ export default defineConfig({
     sourcemap: true,
   },
   optimizeDeps: {
-    include: ['dexie'],
+    include: ['dexie', 'fflate'],
   },
 });
