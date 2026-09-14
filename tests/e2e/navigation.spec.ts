@@ -5,6 +5,22 @@ test.use({ viewport: { width: 390, height: 844 } });
 test('phone navigation survives reload', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Characters', exact: true }).click();
+
+  // Wait until the destination is both rendered and persisted before reloading,
+  // otherwise the reload can race the route-persistence effect and restore the
+  // previous destination instead of Characters.
+  await expect(page).toHaveURL(/\/characters$/);
+  await expect(
+    page.getByRole('heading', { name: 'Characters', exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.localStorage.getItem('char2vid.selected-route'),
+      ),
+    )
+    .toBe('characters');
+
   await page.goto('/');
 
   await expect(
