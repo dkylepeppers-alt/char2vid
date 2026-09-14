@@ -41,11 +41,32 @@ export interface RefreshCatalogsOptions {
   previous?: Partial<Record<GenerationCatalog, NormalizedCatalog>>;
 }
 
+function redactSecrets(text: string): string {
+  const redacted = '[redacted]';
+  return text
+    .replace(/Authorization:\s*\S+(?:\s+\S+)?/gi, `Authorization: ${redacted}`)
+    .replace(/\bBearer\s+\S+/gi, `Bearer ${redacted}`)
+    .replace(/\bCookie:\s*\S+/gi, `Cookie: ${redacted}`)
+    .replace(/\bSet-Cookie:\s*\S+/gi, `Set-Cookie: ${redacted}`)
+    .replace(
+      /(["']?(?:x-api-key|api[_-]?key)["']?\s*[:=]\s*["']?)[^"'&\s,}]+/gi,
+      `$1${redacted}`,
+    )
+    .replace(/\bheaders=\{[^}]*\}/gi, `headers=${redacted}`)
+    .replace(
+      /([?&](?:signature|token|key|expires|X-Amz-Signature)=)[^&\s]+/gi,
+      `$1${redacted}`,
+    );
+}
+
 function describeError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return typeof error === 'string' ? error : JSON.stringify(error);
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : JSON.stringify(error);
+  return redactSecrets(raw);
 }
 
 async function refreshOne(

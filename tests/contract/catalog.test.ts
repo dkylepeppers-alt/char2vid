@@ -1004,6 +1004,26 @@ describe('refreshCatalogs (P1)', () => {
       '2030-01-01T00:00:00.000Z',
     );
   });
+
+  it('redacts credentials, cookies, signed URLs, and headers from refresh errors', async () => {
+    const fetcher: CatalogFetcher = (url) => {
+      if (urlToCatalog(url) !== 'video') {
+        return Promise.resolve({ status: 200, body: { data: [{ id: 'x' }] } });
+      }
+      return Promise.reject(
+        new Error(
+          'GET failed Authorization: Bearer sk-secret Cookie: session=abc headers={"x-api-key":"k_live"} url=https://cdn.example/out.mp4?signature=signedtoken&expires=99',
+        ),
+      );
+    };
+
+    const result = await refreshCatalogs(fetcher, { now: clock });
+
+    expect(result.video.state).toBe('unavailable');
+    expect(result.video.error).toBeDefined();
+    expect(result.video.error).not.toMatch(/sk-secret|session=abc|k_live|signedtoken/);
+    expect(result.video.error).toMatch(/\[redacted\]/);
+  });
 });
 
 describe('route contract registry (P1)', () => {
