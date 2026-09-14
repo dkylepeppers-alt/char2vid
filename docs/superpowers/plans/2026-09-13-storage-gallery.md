@@ -167,7 +167,7 @@ Use `FileProvider`/temporary content-URI grants for sharing. Never report a shar
 
 Archive version 1 includes `manifest.json`, `records.json`, and `media/<sha256>.<extension>`. Record serializers export only allowlisted durable fields; UI prompts and character records can contain arbitrary Unicode text.
 
-**Evidence (web):** portable library archives PR (this slice) — domain schema/remap, web `exportArchive` / `inspectArchive` / `importArchive({ conflict: 'remap' })`, contract tests, Settings `BackupPage`, compiling `ArchivePlugin` skeleton, `docs/validation/backup-restore.md`.
+**Evidence (web):** [#32](https://github.com/dkylepeppers-alt/char2vid/pull/32) — domain schema/remap, web `exportArchive` / `inspectArchive` / `importArchive({ conflict: 'remap' })`, contract tests, Settings `BackupPage`, compiling `ArchivePlugin` skeleton, `docs/validation/backup-restore.md`.
 **Still open / UNVERIFIED:** Android↔Android and browser↔Android device round trips; 1 GiB streaming without whole-archive memory allocation; full character/project record closure.
 
 - [x] Add actual archive round-trip tests and malicious-path tests before implementing import. Use these assertions in the archive test:
@@ -192,7 +192,7 @@ it('accepts a relative media member', () => {
   - Evidence: contract tests + `docs/validation/backup-restore.md`.
 - [ ] Run `npx vitest run tests/contract/archive.test.ts` (web proved in this PR). Perform Android → fresh Android and browser → Android round trips. After later milestones add character/project records to the same tests. Measure a 1 GiB archive without whole-archive memory allocation.
   - **UNVERIFIED:** device archive round-trips and 1 GiB streaming measurement — leave unchecked until hardware evidence.
-- [x] Commit (web slice): `feat(archive): G4 portable library archives (web)` (this PR). Full native device archive commit remains open.
+- [x] Commit (web slice): `feat(archive): G4 portable library archives (web)` via [#32](https://github.com/dkylepeppers-alt/char2vid/pull/32). Full native device archive commit remains open.
 
 ## Milestone acceptance
 
