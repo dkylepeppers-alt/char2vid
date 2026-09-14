@@ -15,8 +15,9 @@ function isAndroidNative(): boolean {
 
 /**
  * Studio library surface. Web libraries also expose `getArchiveHost` for G4
- * portable archives. Native Room does not yet — BackupPage treats that as
- * UNVERIFIED.
+ * portable archives. Native Room archives use `Char2vidArchive` via
+ * `@char2vid/native-bridge/archive` instead of a JS archive host, so the ZIP
+ * is never buffered in the WebView.
  */
 export type StudioLibrary = LibraryPort & {
   getArchiveHost?: WebLibraryHandle['getArchiveHost'];

@@ -6,6 +6,7 @@ import {
   inspectArchive,
 } from '@char2vid/storage-web/archive';
 
+import { resolvePlatform } from '../../app/platform';
 import { getStudioLibrary } from '../library/library-session';
 
 type BackupStatus =
@@ -33,20 +34,48 @@ function downloadZip(bytes: Uint8Array, fileName: string): void {
 }
 
 /**
- * Web library backup / restore. Native device round-trips remain UNVERIFIED.
+ * Library backup / restore. Web uses IndexedDB/OPFS through the archive host.
+ * Android uses the native streaming plugin (SAF / FileProvider) so the ZIP
+ * never passes through JavaScript. Physical Android↔Android and browser↔Android
+ * restores remain UNVERIFIED until hardware evidence.
  */
 export function BackupPage() {
   const [status, setStatus] = useState<BackupStatus>({ kind: 'idle' });
+  const native = resolvePlatform() === 'android';
 
   const onExport = useCallback(async () => {
     setStatus({ kind: 'working', message: 'Exporting library archive…' });
     try {
+      if (native) {
+        const { exportArchiveNative } =
+          await import('@char2vid/native-bridge/archive');
+        const result = await exportArchiveNative({
+          scope: 'library',
+          destination: 'files',
+        });
+        if (result.status === 'cancelled') {
+          setStatus({ kind: 'ok', message: 'Export cancelled.' });
+          return;
+        }
+        if (result.status !== 'ready') {
+          setStatus({
+            kind: 'error',
+            message: result.detail ?? 'Native archive export did not complete',
+          });
+          return;
+        }
+        setStatus({
+          kind: 'ok',
+          message: `Exported ${result.fileName ?? 'library archive'} (native SAF). Physical Android↔Android restore is UNVERIFIED.`,
+        });
+        return;
+      }
       const library = await getStudioLibrary();
       if (!library.getArchiveHost) {
         setStatus({
           kind: 'error',
           message:
-            'UNVERIFIED: portable archive export requires the web library host; Room-backed native archive is not wired',
+            'UNVERIFIED: portable archive export requires the web library host',
         });
         return;
       }
@@ -63,6 +92,37 @@ export function BackupPage() {
         kind: 'error',
         message:
           error instanceof Error ? error.message : 'Export failed unexpectedly',
+      });
+    }
+  }, [native]);
+
+  const onNativeImport = useCallback(async () => {
+    setStatus({ kind: 'working', message: 'Opening archive…' });
+    try {
+      const { importArchiveNative } =
+        await import('@char2vid/native-bridge/archive');
+      const result = await importArchiveNative({ conflict: 'remap' });
+      if (result.status === 'cancelled') {
+        setStatus({ kind: 'ok', message: 'Import cancelled.' });
+        return;
+      }
+      if (result.status !== 'imported') {
+        setStatus({
+          kind: 'error',
+          message: result.detail ?? 'Native archive import did not complete',
+        });
+        return;
+      }
+      const count = result.importedAssets ?? Object.keys(result.idMap).length;
+      setStatus({
+        kind: 'ok',
+        message: `Imported ${count} asset(s) with ID remap (native). Physical Android↔Android restore is UNVERIFIED.`,
+      });
+    } catch (error) {
+      setStatus({
+        kind: 'error',
+        message:
+          error instanceof Error ? error.message : 'Import failed unexpectedly',
       });
     }
   }, []);
@@ -88,7 +148,7 @@ export function BackupPage() {
         setStatus({
           kind: 'error',
           message:
-            'UNVERIFIED: portable archive import requires the web library host; Room-backed native archive is not wired',
+            'UNVERIFIED: portable archive import requires the web library host',
         });
         return;
       }
@@ -116,8 +176,9 @@ export function BackupPage() {
         <p className="section-kicker">Portable archives</p>
         <h3 id="backup-title">Library backup</h3>
         <p>
-          Export or restore a versioned library ZIP on this browser. Physical
-          Android ↔ Android and browser ↔ Android restores are UNVERIFIED.
+          {native
+            ? 'Export or restore a versioned library ZIP through the system document picker. The archive is streamed natively and is never buffered in JavaScript. Physical Android ↔ Android and browser ↔ Android restores are UNVERIFIED.'
+            : 'Export or restore a versioned library ZIP on this browser. Physical Android ↔ Android and browser ↔ Android restores are UNVERIFIED.'}
         </p>
       </div>
 
@@ -130,20 +191,31 @@ export function BackupPage() {
         >
           Export library
         </button>
-        <label className="secondary-action file-action">
-          Import library
-          <input
-            type="file"
-            accept="application/zip,.zip"
-            hidden
+        {native ? (
+          <button
+            type="button"
+            className="secondary-action"
+            onClick={() => void onNativeImport()}
             disabled={status.kind === 'working'}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              void onImportFile(file);
-            }}
-          />
-        </label>
+          >
+            Import library
+          </button>
+        ) : (
+          <label className="secondary-action file-action">
+            Import library
+            <input
+              type="file"
+              accept="application/zip,.zip"
+              hidden
+              disabled={status.kind === 'working'}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                void onImportFile(file);
+              }}
+            />
+          </label>
+        )}
       </div>
 
       {status.kind !== 'idle' && (

@@ -5,16 +5,19 @@ export type ArchiveScope = 'library' | 'project' | 'character';
 export interface ExportArchiveRequest {
   scope: ArchiveScope;
   id?: string;
+  /** Native only. Defaults to the SAF document picker. */
+  destination?: 'files' | 'share';
 }
 
 export interface ExportArchiveNativeResult {
   transferId: string;
-  /** Present on web adapters that buffer the zip; native may stream to a URI. */
+  /** Present on web adapters that buffer the zip; native streams to a URI. */
   bytes?: Uint8Array;
   fileName?: string;
   /**
-   * Device archive round-trips remain UNVERIFIED until Android Room/files
-   * streaming is wired and validated on hardware.
+   * Physical Android↔Android and browser↔Android restores remain UNVERIFIED
+   * until run on hardware. `ready` means the native plugin finished a
+   * SAF save or share hand-off — not a device round-trip proof.
    */
   status: 'ready' | 'cancelled' | 'unverified';
   detail?: string;
@@ -24,15 +27,22 @@ export interface InspectArchiveNativeResult {
   schemaVersion: number | null;
   fileCount: number;
   expandedBytes: number;
+  missingFiles: string[];
+  invalidPaths: string[];
+  unsupportedVersion: boolean;
   ok: boolean;
-  status: 'ready' | 'unverified';
+  errors: string[];
+  status: 'ready' | 'cancelled' | 'unverified';
   detail?: string;
+  /** SAF document URI selected during inspect; pass to importArchive. */
+  uri?: string;
 }
 
 export interface ImportArchiveNativeResult {
   idMap: Record<string, string>;
   status: 'imported' | 'cancelled' | 'unverified';
   detail?: string;
+  importedAssets?: number;
 }
 
 interface Char2vidArchivePlugin {
@@ -51,9 +61,14 @@ interface Char2vidArchivePlugin {
 const Char2vidArchive =
   registerPlugin<Char2vidArchivePlugin>('Char2vidArchive');
 
+function isAndroidNative(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+}
+
 /**
- * Native archive bridge (G4). On Android this hits ArchivePlugin (skeleton).
- * Web callers should use `@char2vid/storage-web/archive` directly.
+ * Native archive bridge (G4). On Android this hits ArchivePlugin, which
+ * streams Room/files into a ZIP via SAF or FileProvider. Web callers should
+ * use `@char2vid/storage-web/archive` directly.
  *
  * UNVERIFIED on device: Android↔Android restore, browser↔Android restore,
  * and 1 GiB streaming without whole-archive memory allocation.
@@ -61,7 +76,7 @@ const Char2vidArchive =
 export async function exportArchiveNative(
   request: ExportArchiveRequest,
 ): Promise<ExportArchiveNativeResult> {
-  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+  if (isAndroidNative()) {
     return Char2vidArchive.exportArchive(request);
   }
   return {
@@ -76,14 +91,18 @@ export async function exportArchiveNative(
 export async function inspectArchiveNative(options: {
   uri?: string;
 }): Promise<InspectArchiveNativeResult> {
-  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+  if (isAndroidNative()) {
     return Char2vidArchive.inspectArchive(options);
   }
   return {
     schemaVersion: null,
     fileCount: 0,
     expandedBytes: 0,
+    missingFiles: [],
+    invalidPaths: [],
+    unsupportedVersion: false,
     ok: false,
+    errors: [],
     status: 'unverified',
     detail: 'UNVERIFIED: native inspectArchive requires Android',
   };
@@ -93,7 +112,7 @@ export async function importArchiveNative(options: {
   uri?: string;
   conflict: 'remap';
 }): Promise<ImportArchiveNativeResult> {
-  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+  if (isAndroidNative()) {
     return Char2vidArchive.importArchive(options);
   }
   return {
