@@ -67,6 +67,10 @@ export default defineConfig({
         replacement: path.join(packagesDir, 'native-bridge/src/archive.ts'),
       },
       {
+        find: '@char2vid/native-bridge/library',
+        replacement: path.join(packagesDir, 'native-bridge/src/library.ts'),
+      },
+      {
         find: '@char2vid/native-bridge',
         replacement: path.join(packagesDir, 'native-bridge/src/index.ts'),
       },

@@ -18,6 +18,9 @@
       ],
       "@char2vid/native-bridge/archive": [
         "../../packages/native-bridge/src/archive.ts"
+      ],
+      "@char2vid/native-bridge/library": [
+        "../../packages/native-bridge/src/library.ts"
       ]
     },
     "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo"

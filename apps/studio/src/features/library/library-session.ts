@@ -1,17 +1,44 @@
+import { Capacitor } from '@capacitor/core';
+
 import type { LibraryPort } from '@char2vid/domain/storage';
 import {
   openWebLibrary,
   type WebLibraryHandle,
 } from '@char2vid/storage-web/library';
 
-let shared: Promise<WebLibraryHandle> | null = null;
+let sharedWeb: Promise<WebLibraryHandle> | null = null;
+let sharedNative: LibraryPort | null = null;
 
-/** Singleton web library for the studio session (IndexedDB / OPFS). */
-export function getStudioLibrary(): Promise<LibraryPort & WebLibraryHandle> {
-  if (shared === null) {
-    shared = openWebLibrary({ dbName: 'char2vid-studio-library' });
+function isAndroidNative(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+}
+
+/**
+ * Studio library surface. Web libraries also expose `getArchiveHost` for G4
+ * portable archives. Native Room does not yet — BackupPage treats that as
+ * UNVERIFIED.
+ */
+export type StudioLibrary = LibraryPort & {
+  getArchiveHost?: WebLibraryHandle['getArchiveHost'];
+};
+
+/**
+ * Studio library singleton. On Android WebView uses the Room/files plugin via
+ * `@char2vid/native-bridge`; on web uses IndexedDB/OPFS.
+ */
+export async function getStudioLibrary(): Promise<StudioLibrary> {
+  if (isAndroidNative()) {
+    if (sharedNative === null) {
+      const { getNativeLibrary } =
+        await import('@char2vid/native-bridge/library');
+      sharedNative = getNativeLibrary();
+    }
+    return sharedNative;
   }
-  return shared;
+  if (sharedWeb === null) {
+    sharedWeb = openWebLibrary({ dbName: 'char2vid-studio-library' });
+  }
+  return sharedWeb;
 }
 
 export async function streamToUint8Array(

@@ -32,3 +32,9 @@ export {
   type InspectArchiveNativeResult,
   type ImportArchiveNativeResult,
 } from './archive';
+
+export {
+  NativeLibraryPort,
+  getNativeLibrary,
+  isNativeLibraryAvailable,
+} from './library';
