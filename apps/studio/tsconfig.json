@@ -21,6 +21,9 @@
       ],
       "@char2vid/native-bridge/library": [
         "../../packages/native-bridge/src/library.ts"
+      ],
+      "@char2vid/native-bridge/credentials": [
+        "../../packages/native-bridge/src/credentials.ts"
       ]
     },
     "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo"

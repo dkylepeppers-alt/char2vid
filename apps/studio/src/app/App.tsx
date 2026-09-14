@@ -12,6 +12,7 @@ import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { BackupPage } from '../features/settings/BackupPage';
+import { ServiceSettings } from '../features/settings/ServiceSettings';
 
 const ROUTE_KEY = 'char2vid.selected-route';
 const DRAFT_KEY = 'char2vid.create-draft';
@@ -269,7 +270,10 @@ export function App() {
                 foundation.
               </p>
             ) : (
-              <BackupPage />
+              <>
+                <ServiceSettings />
+                <BackupPage />
+              </>
             )}
           </section>
         </div>

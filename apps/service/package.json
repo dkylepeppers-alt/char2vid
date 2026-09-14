@@ -1,0 +1,17 @@
+{
+  "name": "@char2vid/service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/server.ts",
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "fastify": "5.12.4"
+  }
+}

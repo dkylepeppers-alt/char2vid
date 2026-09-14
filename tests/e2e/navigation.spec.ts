@@ -77,3 +77,20 @@ test('modal sheet contains focus and restores its trigger', async ({
   await close.click();
   await expect(trigger).toBeFocused();
 });
+
+test('settings exposes service connection without bundling provider secrets', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Open settings' }).click();
+
+  await expect(
+    page.getByRole('heading', { name: 'Service connection' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Nano-GPT API key')).toBeVisible();
+  await expect(page.getByLabel('Service origin')).toBeVisible();
+
+  const html = await page.content();
+  expect(html).not.toMatch(/VITE_[A-Z0-9_]*KEY/);
+  expect(html).not.toMatch(/sk-live-/);
+});

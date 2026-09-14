@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./media-export": "./src/media-export.ts",
     "./archive": "./src/archive.ts",
-    "./library": "./src/library.ts"
+    "./library": "./src/library.ts",
+    "./credentials": "./src/credentials.ts"
   },
   "scripts": {
     "build": "tsc --build",
