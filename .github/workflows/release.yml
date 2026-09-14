@@ -58,7 +58,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
-      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Install pinned Android SDK packages
+        run: node scripts/install-android-sdk.mjs
       - run: npm ci
       - run: npm run build
       - run: npm run android:sync
