@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible studio problem
+title: 'bug: '
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include the affected screen, operation, and exact model ID when relevant.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: App version and environment
+      description: Android version/device or browser/version; APK or browser build.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Sanitized errors or screenshots. Exclude API keys, signed URLs, and private media.

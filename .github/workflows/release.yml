@@ -1,0 +1,97 @@
+name: Android release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: New release tag, for example v0.1.0
+        required: true
+        type: string
+      version_code:
+        description: Positive Android versionCode greater than the previously released code
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/checks.yml
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: android-release
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Validate version and require a new tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]]
+          test "$VERSION_CODE" -le 2100000000
+          node scripts/require-new-release-tag.mjs "$GITHUB_REPOSITORY" "$RELEASE_TAG"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          node scripts/release-version.mjs validate "$VERSION_CODE" "$RUNNER_TEMP/releases.json"
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Install pinned Android SDK packages
+        run: node scripts/install-android-sdk.mjs
+      - run: npm ci
+      - run: npm run build
+      - run: npm run android:sync
+      - name: Build versioned unsigned APK
+        working-directory: apps/studio/android
+        run: ./gradlew --no-daemon assembleRelease "-PreleaseVersionName=${RELEASE_TAG#v}" "-PreleaseVersionCode=$VERSION_CODE"
+      - name: Sign and verify APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          umask 077
+          key_path="$RUNNER_TEMP/char2vid-release.jks"
+          trap 'rm -f "$key_path"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$key_path"
+          mkdir -p artifacts
+          sdk_tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$sdk_tools/zipalign" -P 16 -f -v 4 apps/studio/android/app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$sdk_tools/apksigner" sign --ks "$key_path" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out "artifacts/char2vid-$RELEASE_TAG.apk" "$RUNNER_TEMP/aligned.apk"
+          "$sdk_tools/apksigner" verify --verbose "artifacts/char2vid-$RELEASE_TAG.apk"
+          node scripts/release-version.mjs metadata "$RELEASE_TAG" "$VERSION_CODE" > artifacts/android-release.json
+          cd artifacts
+          sha256sum "char2vid-$RELEASE_TAG.apk" > SHA256SUMS.txt
+      - name: Create draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_notes="$(node scripts/release-version.mjs notes "$RELEASE_TAG" "$VERSION_CODE")"
+          gh release create "$RELEASE_TAG" artifacts/*.apk artifacts/SHA256SUMS.txt artifacts/android-release.json --target "$GITHUB_SHA" --draft --title "char2vid $RELEASE_TAG" --notes "$release_notes"

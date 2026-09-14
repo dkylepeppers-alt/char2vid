@@ -1,0 +1,23 @@
+name: Implementation task
+description: Track a scoped roadmap task
+title: 'task: '
+body:
+  - type: input
+    id: plan
+    attributes:
+      label: Plan and task ID
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and resulting behavior
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: Define the relevant behavioral checks and device/provider evidence.
+    validations:
+      required: true
