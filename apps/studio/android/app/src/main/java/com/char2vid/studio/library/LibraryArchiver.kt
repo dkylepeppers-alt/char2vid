@@ -1,6 +1,7 @@
 package com.char2vid.studio.library
 
 import android.content.Context
+import android.os.Build
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
@@ -188,69 +189,76 @@ class LibraryArchiver(
     private fun scan(open: () -> InputStream): Scan {
         val scan = Scan()
         try {
-            ZipInputStream(BufferedInputStream(open())).use { zin ->
-                val buffer = ByteArray(64 * 1024)
-                while (true) {
-                    val entry = zin.nextEntry ?: break
-                    if (entry.isDirectory) {
-                        zin.closeEntry()
-                        continue
-                    }
-                    val name = entry.name
-                    if (scan.sizes.containsKey(name)) {
-                        scan.duplicates.add(name)
-                    } else {
-                        scan.names.add(name)
-                    }
-                    val digest = MessageDigest.getInstance("SHA-256")
-                    val json =
-                        if (name == ArchivePaths.MANIFEST_PATH || name == ArchivePaths.RECORDS_PATH) {
-                            ByteArrayOutputStream()
-                        } else {
-                            null
-                        }
-                    var size = 0L
+            withZipEntryNamesVisible {
+                ZipInputStream(BufferedInputStream(open())).use { zin ->
+                    val buffer = ByteArray(64 * 1024)
                     while (true) {
-                        val read = zin.read(buffer)
-                        if (read < 0) {
-                            break
-                        }
-                        if (read == 0) {
+                        val entry = zin.nextEntry ?: break
+                        if (entry.isDirectory) {
+                            zin.closeEntry()
                             continue
                         }
-                        size += read
-                        scan.expanded += read
-                        if (scan.expanded > ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES) {
-                            scan.limitExceeded = true
-                            break
+                        val name = entry.name
+                        if (scan.sizes.containsKey(name)) {
+                            scan.duplicates.add(name)
+                        } else {
+                            scan.names.add(name)
                         }
-                        digest.update(buffer, 0, read)
-                        if (json != null) {
-                            if (size > MAX_JSON_MEMBER_BYTES) {
-                                scan.jsonTooLarge = name
+                        val digest = MessageDigest.getInstance("SHA-256")
+                        val json =
+                            if (name == ArchivePaths.MANIFEST_PATH || name == ArchivePaths.RECORDS_PATH) {
+                                ByteArrayOutputStream()
                             } else {
-                                json.write(buffer, 0, read)
+                                null
+                            }
+                        var size = 0L
+                        while (true) {
+                            val read = zin.read(buffer)
+                            if (read < 0) {
+                                break
+                            }
+                            if (read == 0) {
+                                continue
+                            }
+                            size += read
+                            scan.expanded += read
+                            if (scan.expanded > ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES) {
+                                scan.limitExceeded = true
+                                break
+                            }
+                            digest.update(buffer, 0, read)
+                            if (json != null) {
+                                if (size > MAX_JSON_MEMBER_BYTES) {
+                                    scan.jsonTooLarge = name
+                                } else {
+                                    json.write(buffer, 0, read)
+                                }
                             }
                         }
-                    }
-                    if (scan.limitExceeded) {
-                        break
-                    }
-                    scan.sizes[name] = size
-                    scan.digests[name] = digest.digest().joinToString("") { "%02x".format(it) }
-                    if (json != null && scan.jsonTooLarge != name) {
-                        val text = json.toString("UTF-8")
-                        if (name == ArchivePaths.MANIFEST_PATH) {
-                            scan.manifestJson = text
-                        } else {
-                            scan.recordsJson = text
+                        if (scan.limitExceeded) {
+                            break
                         }
+                        scan.sizes[name] = size
+                        scan.digests[name] = digest.digest().joinToString("") { "%02x".format(it) }
+                        if (json != null && scan.jsonTooLarge != name) {
+                            val text = json.toString("UTF-8")
+                            if (name == ArchivePaths.MANIFEST_PATH) {
+                                scan.manifestJson = text
+                            } else {
+                                scan.recordsJson = text
+                            }
+                        }
+                        zin.closeEntry()
                     }
-                    zin.closeEntry()
                 }
             }
         } catch (error: IOException) {
             scan.zipError = error.message ?: error.javaClass.simpleName
+            ArchivePaths.invalidPathFromZipGuardMessage(scan.zipError)?.let { path ->
+                if (!scan.sizes.containsKey(path)) {
+                    scan.names.add(path)
+                }
+            }
         } catch (error: IllegalArgumentException) {
             // Malformed entry names (e.g. bad UTF-8 flags) surface as IAE from ZipInputStream.
             scan.zipError = error.message ?: error.javaClass.simpleName
@@ -262,8 +270,16 @@ class LibraryArchiver(
     fun inspect(open: () -> InputStream): ArchiveReport {
         val report = ArchiveReport()
         val scan = scan(open)
+        for (name in scan.names) {
+            if (!ArchivePaths.validateArchivePath(name) || !ArchivePaths.isAllowedArchiveMemberPath(name)) {
+                report.invalidPaths.add(name)
+            }
+        }
         if (scan.zipError != null) {
             report.errors.add("invalid archive zip: ${scan.zipError}")
+            if (report.invalidPaths.isNotEmpty()) {
+                report.errors.add("unsafe or disallowed member paths: ${report.invalidPaths.joinToString(", ")}")
+            }
             return report
         }
         if (scan.names.isEmpty()) {
@@ -273,11 +289,6 @@ class LibraryArchiver(
 
         report.fileCount = scan.names.size
         report.expandedBytes = scan.expanded
-        for (name in scan.names) {
-            if (!ArchivePaths.validateArchivePath(name) || !ArchivePaths.isAllowedArchiveMemberPath(name)) {
-                report.invalidPaths.add(name)
-            }
-        }
         if (scan.duplicates.isNotEmpty()) {
             report.errors.add("duplicate archive members: ${scan.duplicates.joinToString(", ")}")
         }
@@ -591,6 +602,30 @@ class LibraryArchiver(
 
     private fun inconsistent(): LibraryException =
         LibraryException(LibraryException.ARCHIVE_REJECTED, "archive changed between inspect and import")
+
+    /**
+     * Android 14 [dalvik.system.ZipPathValidator] throws before ZipInputStream
+     * yields `..` names. Allow listing for inspect so `invalidPaths` can match
+     * the web importer; we never write those names to user-controlled paths.
+     */
+    @Suppress("NewApi")
+    private inline fun <T> withZipEntryNamesVisible(block: () -> T): T {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return block()
+        }
+        dalvik.system.ZipPathValidator.setCallback(
+            object : dalvik.system.ZipPathValidator.Callback {
+                override fun onZipEntryAccess(path: String) {
+                    // Allow listing; ArchivePaths.validateArchivePath records invalidPaths.
+                }
+            },
+        )
+        try {
+            return block()
+        } finally {
+            dalvik.system.ZipPathValidator.clearCallback()
+        }
+    }
 
     companion object {
         /** manifest.json / records.json are the only buffered members. */

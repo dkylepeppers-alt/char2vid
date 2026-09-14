@@ -71,4 +71,25 @@ object ArchivePaths {
         }
 
     fun mediaArchivePath(sha256: String, mime: String): String = "media/$sha256.${extensionForMime(mime)}"
+
+    /**
+     * Android 14+ [dalvik.system.ZipPathValidator] throws ZipException before
+     * ZipInputStream yields a `../` entry. Recover the rejected path so inspect
+     * can still fill `invalidPaths`.
+     */
+    fun invalidPathFromZipGuardMessage(message: String?): String? {
+        if (message.isNullOrBlank()) {
+            return null
+        }
+        val marker = "Invalid zip entry path: "
+        val idx = message.indexOf(marker)
+        if (idx >= 0) {
+            val path = message.substring(idx + marker.length).trim()
+            if (path.isNotEmpty()) {
+                return path
+            }
+        }
+        val match = Regex("(\\.\\./[^\\s:]+)").find(message)
+        return match?.groupValues?.get(1)
+    }
 }

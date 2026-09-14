@@ -2,6 +2,7 @@ package com.char2vid.studio.library
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,5 +55,22 @@ class ArchivePathsTest {
         assertEquals("media/$sha.mp4", ArchivePaths.mediaArchivePath(sha, "video/mp4"))
         assertEquals("media/$sha.wav", ArchivePaths.mediaArchivePath(sha, "audio/wave"))
         assertEquals("media/$sha.bin", ArchivePaths.mediaArchivePath(sha, "application/x-unknown"))
+    }
+
+    @Test
+    fun zipGuardMessageYieldsTraversalPath() {
+        assertEquals(
+            "../evil",
+            ArchivePaths.invalidPathFromZipGuardMessage("Invalid zip entry path: ../evil"),
+        )
+        assertEquals(
+            "../evil",
+            ArchivePaths.invalidPathFromZipGuardMessage("java.util.zip.ZipException: Invalid zip entry path: ../evil"),
+        )
+        assertEquals(
+            "../secret",
+            ArchivePaths.invalidPathFromZipGuardMessage("Entry is unsafe: ../secret is not allowed"),
+        )
+        assertNull(ArchivePaths.invalidPathFromZipGuardMessage("plain IO error"))
     }
 }
