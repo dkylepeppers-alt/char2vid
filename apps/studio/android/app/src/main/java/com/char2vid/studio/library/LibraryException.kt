@@ -17,6 +17,7 @@ class LibraryException(
         const val UNSUPPORTED_SCOPE = "unsupported_scope"
         const val DESTINATION_UNAVAILABLE = "destination_unavailable"
         const val COPY_FAILED = "copy_failed"
+        const val EXPORT_FAILED = "export_failed"
         const val VERIFICATION_FAILED = "verification_failed"
         const val ARCHIVE_REJECTED = "archive_rejected"
         const val INVALID_ARGUMENT = "invalid_argument"
