@@ -10,7 +10,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
  * Native portable archive bridge (G4).
  *
  * Intended behavior (UNVERIFIED on device):
- * - exportArchive streams manifest.json + records.json + media/* through a
+ * - exportArchive streams manifest.json + records.json + media/ blobs through a
  *   SAF / app-storage writer without holding the whole archive in JS memory
  * - inspectArchive validates paths, counts, expanded size, and checksums
  *   before any library mutation
