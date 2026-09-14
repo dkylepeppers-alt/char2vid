@@ -275,7 +275,16 @@ class ArchivePlugin : Plugin() {
                 }
                 val staged = File(dir, summary.fileName)
                 FileInputStream(file).use { input ->
-                    FileOutputStream(staged).use { output -> input.copyTo(output) }
+                    FileOutputStream(staged).use { output ->
+                        val copied = input.copyTo(output)
+                        output.flush()
+                        if (copied != file.length()) {
+                            throw LibraryException(
+                                LibraryException.VERIFICATION_FAILED,
+                                "byte count mismatch publishing archive share",
+                            )
+                        }
+                    }
                 }
                 file.parentFile?.deleteRecursively()
                 scratch = null
