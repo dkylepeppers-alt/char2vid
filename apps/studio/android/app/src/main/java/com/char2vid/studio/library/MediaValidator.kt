@@ -1,6 +1,9 @@
 package com.char2vid.studio.library
 
+import java.io.File
+import java.io.FileInputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.security.MessageDigest
 
 object MediaValidator {
@@ -72,5 +75,27 @@ object MediaValidator {
                 "%02x".format(b)
             }
         return HashResult(hex, total, prefix.copyOf(prefixFilled))
+    }
+
+    fun hashFile(file: File): HashResult =
+        FileInputStream(file).use { input ->
+            hashCopy(input, DiscardingOutputStream)
+        }
+
+    fun objectMatches(file: File, sha256: String, byteLength: Long): Boolean {
+        if (!file.isFile) {
+            return false
+        }
+        if (file.length() != byteLength) {
+            return false
+        }
+        val hashed = hashFile(file)
+        return hashed.sha256 == sha256 && hashed.byteLength == byteLength
+    }
+
+    private object DiscardingOutputStream : OutputStream() {
+        override fun write(b: Int) {}
+
+        override fun write(b: ByteArray, off: Int, len: Int) {}
     }
 }

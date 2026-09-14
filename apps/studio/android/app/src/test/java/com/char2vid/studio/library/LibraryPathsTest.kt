@@ -39,5 +39,17 @@ class LibraryPathsTest {
         assertEquals(png.size.toLong(), result.byteLength)
         assertEquals(64, result.sha256.length)
         MediaValidator.validateMediaBytes(result.byteLength, "image/png", result.prefix)
+
+        val tmp = kotlin.io.path.createTempFile("hash-file", ".bin").toFile()
+        try {
+            tmp.writeBytes(png)
+            val hashed = MediaValidator.hashFile(tmp)
+            assertEquals(result.sha256, hashed.sha256)
+            assertTrue(MediaValidator.objectMatches(tmp, hashed.sha256, hashed.byteLength))
+            tmp.writeBytes(byteArrayOf(1, 2, 3))
+            assertFalse(MediaValidator.objectMatches(tmp, hashed.sha256, hashed.byteLength))
+        } finally {
+            tmp.delete()
+        }
     }
 }

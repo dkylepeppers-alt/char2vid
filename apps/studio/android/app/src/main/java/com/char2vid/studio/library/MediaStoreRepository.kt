@@ -1,8 +1,12 @@
 package com.char2vid.studio.library
 
+import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.StatFs
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedInputStream
@@ -29,7 +33,9 @@ class MediaStoreRepository(
     private val db: LibraryDatabase = LibraryDatabase.getInstance(context),
 ) {
     private val dao = db.libraryDao()
-    private val rootDir: File =
+
+    /** App-owned library root (`filesDir/library`). Only `share/` is exposed through FileProvider. */
+    val rootDir: File =
         File(context.filesDir, "library").also { it.mkdirs() }
 
     private val openReads = ConcurrentHashMap<String, OpenRead>()
@@ -97,7 +103,12 @@ class MediaStoreRepository(
         return File(rootDir, normalized)
     }
 
-    fun reconcileOnStart(): ReconcileResult = reconcileImports()
+    fun reconcileOnStart(): ReconcileResult {
+        val result = reconcileImports()
+        reconcileArchiveScratch()
+        reconcilePendingPublications()
+        return result
+    }
 
     data class ReconcileResult(val repaired: Int, val missing: List<String>)
 
@@ -201,6 +212,327 @@ class MediaStoreRepository(
     fun getAsset(id: String): AssetRecordDto? {
         val asset = dao.getAsset(id) ?: return null
         return toDto(asset)
+    }
+
+    /** Immutable revision resolved to its content-addressed file; used by export/archive. */
+    data class RevisionSource(
+        val revisionId: String,
+        val assetId: String,
+        val file: File,
+        val byteLength: Long,
+        val sha256: String,
+        val mime: String,
+        val name: String,
+        val kind: String,
+    )
+
+    fun resolveRevisionSource(revisionId: String): RevisionSource {
+        val revision =
+            dao.getRevision(revisionId)
+                ?: throw LibraryException(LibraryException.UNKNOWN_REVISION, "unknown revision")
+        val physical =
+            dao.getPhysical(revision.sha256)
+                ?: throw LibraryException(LibraryException.MISSING_FILE, "missing physical object for revision")
+        val file = resolveFile(physical.relativePath)
+        if (!file.isFile) {
+            throw LibraryException(LibraryException.MISSING_FILE, "missing file for revision")
+        }
+        val asset = dao.getAsset(revision.assetId)
+        return RevisionSource(
+            revisionId = revision.id,
+            assetId = revision.assetId,
+            file = file,
+            byteLength = physical.byteLength,
+            sha256 = revision.sha256,
+            mime = asset?.mime ?: "application/octet-stream",
+            name = asset?.name ?: revision.id,
+            kind = asset?.kind ?: kindFromMime(asset?.mime ?: ""),
+        )
+    }
+
+    fun physicalObjectCount(): Int = dao.countPhysical()
+
+    // ---- portable archive support -------------------------------------------
+
+    /** Live (`trashedAt == null`), available assets plus their closure, per the backup trash policy. */
+    data class ArchiveSnapshot(
+        val assets: List<AssetEntity>,
+        val revisions: List<RevisionEntity>,
+        val collectionMembers: List<CollectionMemberEntity>,
+        val assetTags: List<AssetTagEntity>,
+        val physicalBySha: Map<String, PhysicalObjectEntity>,
+    )
+
+    fun archiveSnapshot(): ArchiveSnapshot {
+        val assets =
+            dao.listAssets().filter { it.state == "available" && it.trashedAt == null && it.sha256.isNotEmpty() }
+        val assetIds = assets.map { it.id }.toHashSet()
+        val revisions = dao.listRevisions().filter { assetIds.contains(it.assetId) }
+        val members = dao.listAllCollectionMembers().filter { assetIds.contains(it.assetId) }
+        val tags = dao.listAllAssetTags().filter { assetIds.contains(it.assetId) }
+        val physical = HashMap<String, PhysicalObjectEntity>()
+        for (asset in assets) {
+            if (!physical.containsKey(asset.sha256)) {
+                val obj = dao.getPhysical(asset.sha256)
+                if (obj != null) {
+                    physical[asset.sha256] = obj
+                }
+            }
+        }
+        for (revision in revisions) {
+            if (!physical.containsKey(revision.sha256)) {
+                val obj = dao.getPhysical(revision.sha256)
+                if (obj != null) {
+                    physical[revision.sha256] = obj
+                }
+            }
+        }
+        return ArchiveSnapshot(assets, revisions, members, tags, physical)
+    }
+
+    /** Same ID universe as the web importer's `existingLogicalIds`. */
+    fun existingLogicalIds(): Set<String> {
+        val ids = HashSet<String>()
+        for (asset in dao.listAssets()) {
+            ids.add(asset.id)
+            ids.add(asset.revisionId)
+            val folder = asset.folderId
+            if (!folder.isNullOrEmpty()) {
+                ids.add(folder)
+            }
+        }
+        for (revision in dao.listRevisions()) {
+            ids.add(revision.id)
+            ids.add(revision.assetId)
+        }
+        for (member in dao.listAllCollectionMembers()) {
+            ids.add(member.collectionId)
+            ids.add(member.assetId)
+        }
+        return ids
+    }
+
+    /** Physical row present, file exists, and length + SHA-256 still match. */
+    fun hasIntactPhysical(sha256: String): Boolean {
+        val physical = dao.getPhysical(sha256) ?: return false
+        return MediaValidator.objectMatches(resolveFile(physical.relativePath), sha256, physical.byteLength)
+    }
+
+    /** Bytes we will copy from a user URI before refusing, leaving headroom on the volume. */
+    fun copyBudgetBytes(): Long {
+        val reserve = 64L * 1024L * 1024L
+        val available = availableBytes() ?: return ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES
+        val usable = if (available <= reserve) available.coerceAtLeast(1L) else available - reserve
+        return minOf(ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES, usable)
+    }
+
+    /** Private scratch directory under `library/tmp`; callers delete it when done. */
+    fun createScratchDir(prefix: String): File {
+        val dir = File(File(rootDir, "tmp"), "$prefix-${UUID.randomUUID()}")
+        if (!dir.mkdirs() && !dir.isDirectory) {
+            throw IllegalStateException("unable to create scratch directory")
+        }
+        return dir
+    }
+
+    fun writeArchiveImportJournal(promotedSha256: List<String>, scratchDirNames: List<String>) {
+        val o = JSONObject()
+        o.put("promoted", JSONArray(promotedSha256))
+        o.put("scratch", JSONArray(scratchDirNames))
+        archiveImportJournalFile().writeText(o.toString())
+    }
+
+    fun clearArchiveImportJournal() {
+        archiveImportJournalFile().delete()
+    }
+
+    fun journalPendingPublication(uri: String, deleteIfIncomplete: Boolean) {
+        val o = JSONObject()
+        o.put("uri", uri)
+        o.put("deleteIfIncomplete", deleteIfIncomplete)
+        pendingPublicationFile().writeText(o.toString())
+    }
+
+    fun clearPendingPublication() {
+        pendingPublicationFile().delete()
+    }
+
+    fun reconcileArchiveScratch() {
+        val journal = archiveImportJournalFile()
+        if (journal.isFile) {
+            try {
+                val o = JSONObject(journal.readText())
+                val promoted = o.optJSONArray("promoted")
+                if (promoted != null) {
+                    for (i in 0 until promoted.length()) {
+                        purgeUnreferencedPhysical(promoted.getString(i))
+                    }
+                }
+                val scratch = o.optJSONArray("scratch")
+                if (scratch != null) {
+                    for (i in 0 until scratch.length()) {
+                        File(File(rootDir, "tmp"), scratch.getString(i)).deleteRecursively()
+                    }
+                }
+            } catch (_: Exception) {
+                // journal is best-effort recovery; leftover dirs are swept below
+            }
+            journal.delete()
+        }
+        File(rootDir, "tmp").listFiles()?.forEach { child ->
+            if (child.isDirectory && child.name.startsWith("archive-")) {
+                child.deleteRecursively()
+            }
+        }
+    }
+
+    fun reconcilePendingPublications() {
+        val file = pendingPublicationFile()
+        if (file.isFile) {
+            try {
+                val o = JSONObject(file.readText())
+                if (o.optBoolean("deleteIfIncomplete", true)) {
+                    deletePublishedQuietly(Uri.parse(o.getString("uri")))
+                }
+            } catch (_: Exception) {
+                // best effort
+            }
+            file.delete()
+        }
+        reconcilePendingMediaStoreRows()
+    }
+
+    fun deletePublishedQuietly(uri: Uri) {
+        try {
+            if (uri.scheme == "file") {
+                uri.path?.let { File(it).delete() }
+            } else if (DocumentsContract.isDocumentUri(context, uri)) {
+                DocumentsContract.deleteDocument(context.contentResolver, uri)
+            } else {
+                context.contentResolver.delete(uri, null, null)
+            }
+        } catch (_: Exception) {
+            // best effort
+        }
+    }
+
+    private fun archiveImportJournalFile(): File = File(File(rootDir, "tmp"), "archive-import-journal.json")
+
+    private fun pendingPublicationFile(): File = File(File(rootDir, "tmp"), "pending-publication.json")
+
+    private fun reconcilePendingMediaStoreRows() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return
+        }
+        val resolver = context.contentResolver
+        val collections =
+            listOf(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            )
+        val projection =
+            arrayOf(
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.RELATIVE_PATH,
+            )
+        for (collection in collections) {
+            try {
+                resolver
+                    .query(
+                        collection,
+                        projection,
+                        "${MediaStore.MediaColumns.IS_PENDING}=1",
+                        null,
+                        null,
+                    )?.use { cursor ->
+                        val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                        val pathCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+                        while (cursor.moveToNext()) {
+                            val path = cursor.getString(pathCol) ?: continue
+                            if (!path.contains(MediaExporter.APP_FOLDER)) {
+                                continue
+                            }
+                            val uri = ContentUris.withAppendedId(collection, cursor.getLong(idCol))
+                            try {
+                                resolver.delete(uri, null, null)
+                            } catch (_: Exception) {
+                                // best effort
+                            }
+                        }
+                    }
+            } catch (_: Exception) {
+                // collection may be unavailable on this emulator image
+            }
+        }
+    }
+
+    /**
+     * Promote a verified staged file into `objects/`. Idempotent when the
+     * object already exists and matches. Returns the relative path for the physical row.
+     */
+    fun promoteStagedFile(staged: File, sha256: String): String {
+        val relative = LibraryPaths.finalRelativePath(sha256)
+        val dest = resolveFile(relative)
+        dest.parentFile?.mkdirs()
+        if (dest.isFile) {
+            if (MediaValidator.objectMatches(dest, sha256, dest.length())) {
+                staged.delete()
+                return relative
+            }
+            dest.delete()
+        }
+        if (!staged.isFile) {
+            throw IllegalStateException("staged file missing for promote")
+        }
+        if (!staged.renameTo(dest)) {
+            FileInputStream(staged).use { input ->
+                FileOutputStream(dest).use { output -> input.copyTo(output) }
+            }
+            staged.delete()
+        }
+        return relative
+    }
+
+    /** One Room transaction: physical rows, assets, revisions, memberships, tags. */
+    fun commitArchiveImport(
+        physicals: List<PhysicalObjectEntity>,
+        assets: List<AssetEntity>,
+        revisions: List<RevisionEntity>,
+        collectionMembers: List<CollectionMemberEntity>,
+        assetTags: List<AssetTagEntity>,
+    ) {
+        db.runInTransaction {
+            for (physical in physicals) {
+                require(physical.byteLength >= 0L) { "byte_length must be >= 0" }
+                dao.upsertPhysical(physical)
+            }
+            for (asset in assets) {
+                require(asset.state == "available") { "archive assets must be available" }
+                require(asset.sha256.isNotEmpty()) { "archive assets require sha256" }
+                dao.upsertAsset(asset)
+            }
+            for (revision in revisions) {
+                dao.upsertRevision(revision)
+            }
+            for (member in collectionMembers) {
+                dao.insertCollectionMember(member)
+            }
+            for (tag in assetTags) {
+                dao.insertAssetTag(tag)
+            }
+        }
+    }
+
+    /** Drop a promoted object that gained no revision references (import rollback). */
+    fun purgeUnreferencedPhysical(sha256: String) {
+        if (dao.countRevisionsWithHash(sha256) != 0) {
+            return
+        }
+        resolveFile(LibraryPaths.finalRelativePath(sha256)).delete()
+        if (dao.getPhysical(sha256) != null) {
+            dao.deletePhysical(sha256)
+        }
     }
 
     fun openRevisionRead(revisionId: String): JSONObject {
@@ -647,8 +979,11 @@ class MediaStoreRepository(
         dest.parentFile?.mkdirs()
         val temp = resolveFile(tempPath)
         if (dest.isFile) {
-            temp.delete()
-            return relative
+            if (MediaValidator.objectMatches(dest, sha256, dest.length())) {
+                temp.delete()
+                return relative
+            }
+            dest.delete()
         }
         if (!temp.isFile) {
             throw IllegalStateException("temp missing for promote: $tempPath")

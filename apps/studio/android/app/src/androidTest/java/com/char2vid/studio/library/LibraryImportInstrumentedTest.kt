@@ -16,9 +16,9 @@ import java.security.MessageDigest
 /**
  * Native import close/reopen hash round-trip.
  *
- * UNVERIFIED in GitHub Actions: `android.yml` runs lintDebug / testDebugUnitTest /
- * assembleDebug only — not connectedAndroidTest / emulator. Run locally with:
- * `./gradlew :app:connectedDebugAndroidTest`
+ * Authored for the `android.yml` `instrumented` emulator job
+ * (`connectedDebugAndroidTest` on API 26 + 34). Physical-device import remains
+ * UNVERIFIED until run on hardware.
  */
 @RunWith(AndroidJUnit4::class)
 class LibraryImportInstrumentedTest {

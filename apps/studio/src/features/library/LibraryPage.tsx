@@ -4,7 +4,10 @@ import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 import type { AssetSort } from '@char2vid/domain/library-query';
 
 import { AssetDetail } from './AssetDetail';
-import { getStudioLibrary } from './library-session';
+import {
+  getStudioLibrary,
+  subscribeLibraryInvalidation,
+} from './library-session';
 import { SelectionBar } from './SelectionBar';
 
 const PAGE_SIZE = 48;
@@ -85,6 +88,12 @@ export function LibraryPage() {
 
   useEffect(() => {
     void loadPage({ append: false });
+  }, [loadPage]);
+
+  useEffect(() => {
+    return subscribeLibraryInvalidation(() => {
+      void loadPage({ append: false });
+    });
   }, [loadPage]);
 
   const detailAsset = useMemo(

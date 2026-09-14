@@ -51,6 +51,8 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
     ksp "androidx.room:room-compiler:$roomVersion"
     testImplementation "junit:junit:$junitVersion"
+    // Real org.json for JVM unit tests of the archive JSON codec (android.jar ships stubs only).
+    testImplementation "org.json:json:$orgJsonTestVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

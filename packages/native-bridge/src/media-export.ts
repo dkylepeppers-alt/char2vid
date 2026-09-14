@@ -94,10 +94,11 @@ async function shareBytes(
 
 /**
  * Platform-owned export. On Android, Cap bridge → ExportPlugin (MediaStore /
- * SAF / share). On web, download or Web Share using caller-supplied bytes.
+ * SAF / share) and the revision is resolved natively — callers must not send
+ * bytes. On web, download or Web Share using caller-supplied bytes.
  *
- * Physical Android MediaStore save/cancel/deny remains UNVERIFIED until the
- * native plugin completes the documented save transaction on device.
+ * Physical Android MediaStore save/cancel/deny/reopen-in-another-app remains
+ * UNVERIFIED until exercised on a real device.
  */
 export async function exportRevision(
   options: ExportRevisionOptions,

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 import { exportRevision } from '@char2vid/native-bridge/media-export';
 
+import { resolvePlatform } from '../../app/platform';
 import { revisionObjectUrl, streamToUint8Array } from './library-session';
 
 export interface AssetDetailProps {
@@ -46,16 +47,25 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
   async function handleExport(destination: 'gallery' | 'files' | 'share') {
     setExportNote(null);
     try {
-      const bytes = await streamToUint8Array(
-        await library.readRevision(asset.revisionId),
-      );
-      const result = await exportRevision({
-        revisionId: asset.revisionId,
-        destination,
-        bytes,
-        mime: asset.mime,
-        fileName: asset.name,
-      });
+      const native = resolvePlatform() === 'android';
+      // Native export resolves the revision inside the plugin so export does
+      // not pull whole-file bytes through JavaScript. Detail preview still
+      // uses revisionObjectUrl (chunked native reads assembled in JS).
+      const payload = native
+        ? {
+            revisionId: asset.revisionId,
+            destination,
+          }
+        : {
+            revisionId: asset.revisionId,
+            destination,
+            bytes: await streamToUint8Array(
+              await library.readRevision(asset.revisionId),
+            ),
+            mime: asset.mime,
+            fileName: asset.name,
+          };
+      const result = await exportRevision(payload);
       setExportNote(
         result.status === 'saved'
           ? `Saved${result.displayName ? `: ${result.displayName}` : ''}`
