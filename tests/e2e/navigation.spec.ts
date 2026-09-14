@@ -41,3 +41,23 @@ test('back closes an open sheet before changing destination', async ({
     page.getByRole('heading', { name: 'Create', exact: true }),
   ).toBeVisible();
 });
+
+test('modal sheet contains focus and restores its trigger', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: 'Open jobs' });
+  await trigger.focus();
+  await trigger.click();
+
+  const close = page.getByRole('button', { name: 'Close' });
+  await expect(close).toBeFocused();
+
+  await page.keyboard.press('Shift+Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+
+  await close.click();
+  await expect(trigger).toBeFocused();
+});
