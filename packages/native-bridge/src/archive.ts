@@ -65,7 +65,8 @@ export async function exportArchiveNative(
     return Char2vidArchive.exportArchive(request);
   }
   return {
-    transferId: crypto.randomUUID(),
+    // Do not mint a looking-real UUID — this stub never performed a transfer.
+    transferId: 'UNVERIFIED-native-export-stub',
     status: 'unverified',
     detail:
       'UNVERIFIED: use @char2vid/storage-web/archive on web; native plugin not active',

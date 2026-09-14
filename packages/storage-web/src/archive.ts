@@ -53,8 +53,26 @@ export interface ExportArchiveResult {
   fileName: string;
 }
 
+/** Test-only fault points for archive import rollback proofs. */
+export type ArchiveImportFaultPoint = 'after-putPhysical';
+
+export class ArchiveImportFaultError extends Error {
+  readonly fault: ArchiveImportFaultPoint;
+
+  constructor(fault: ArchiveImportFaultPoint) {
+    super(`injected archive import fault: ${fault}`);
+    this.name = 'ArchiveImportFaultError';
+    this.fault = fault;
+  }
+}
+
 export interface ImportArchiveOptions {
   conflict: 'remap';
+  /**
+   * Test-only: inject a fault after staging (writeTemp/promote/putPhysical)
+   * and before `commitArchiveImport`, mirroring media-import journal faults.
+   */
+  fault?: ArchiveImportFaultPoint;
 }
 
 export interface ImportArchiveResult {
@@ -114,9 +132,10 @@ export async function exportArchive(
   assertLibraryScope(request);
 
   const transferId = crypto.randomUUID();
+  // Portable library backups export live (non-trashed) available assets only.
   const assets = (await host.meta.listAssets())
     .map((a) => normalizeAssetRecord(a))
-    .filter((a) => a.state === 'available')
+    .filter((a) => a.state === 'available' && a.trashedAt === null)
     .map((a) => allowlistAssetRecord(a));
 
   const assetIds = new Set(assets.map((a) => a.id));
@@ -441,6 +460,10 @@ export async function importArchive(
         byteLength: data.byteLength,
       };
       await host.meta.putPhysical(physical);
+    }
+
+    if (options.fault === 'after-putPhysical') {
+      throw new ArchiveImportFaultError('after-putPhysical');
     }
 
     const assets: AssetRecord[] = remapped.assets.map((a) =>

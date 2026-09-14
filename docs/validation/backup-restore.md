@@ -12,9 +12,17 @@ Implementation PR for this slice targets web + domain first.
 | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Malicious path rejection (`../`, absolute, nested traversal, Windows drive) | `tests/contract/archive.test.ts`                                                   |
 | Library export → inspect → import round trip with at least one media asset  | `tests/contract/archive.test.ts`                                                   |
+| Tag and collection membership survive export → import remap                 | `tests/contract/archive.test.ts`                                                   |
 | Conflict remap on colliding asset IDs                                       | `tests/contract/archive.test.ts`                                                   |
+| Checksum-mismatched media rejected; library unchanged                       | `tests/contract/archive.test.ts`                                                   |
+| Mid-import staging fault rolls back temps/physicals; prior assets intact    | `tests/contract/archive.test.ts`                                                   |
+| Soft-trashed assets filtered out of portable library export                 | `tests/contract/archive.test.ts`                                                   |
 | Reject unsafe archives without mutating the existing library                | `tests/contract/archive.test.ts`                                                   |
 | Settings → Backup UI can export/import in the browser                       | `apps/studio/src/features/settings/BackupPage.tsx` (manual / Playwright as needed) |
+
+**Trash policy:** portable library backups intentionally export only live
+(`trashedAt == null`) available assets. Soft-trashed items are omitted so a
+restore does not revive trash the user already discarded from the working set.
 
 Run:
 

@@ -30,7 +30,8 @@ class ArchivePlugin : Plugin() {
             return
         }
         val result = JSObject()
-        result.put("transferId", java.util.UUID.randomUUID().toString())
+        // Label clearly — skeleton never performed a real transfer.
+        result.put("transferId", "UNVERIFIED-native-export-stub")
         result.put("status", "unverified")
         result.put(
             "detail",
