@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "outDir": "../../node_modules/.cache/nanogpt-types",
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../node_modules/.cache/nanogpt.tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [{ "path": "../domain" }]
+}

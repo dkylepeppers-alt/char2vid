@@ -1,0 +1,21 @@
+{
+  "name": "@char2vid/nanogpt",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalog-schema": "./src/catalog/catalog-schema.ts",
+    "./normalize": "./src/catalog/normalize.ts",
+    "./refresh": "./src/catalog/refresh.ts",
+    "./route-contract": "./src/contracts/route-contract.ts"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@char2vid/domain": "0.1.0",
+    "zod": "4.6.5"
+  }
+}
