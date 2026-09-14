@@ -7,8 +7,13 @@ export interface ExportRevisionRequest {
   destination: ExportDestination;
 }
 
+/**
+ * `saved` — gallery/files download completed.
+ * `shared` — share sheet handed off (not proof a recipient received the file).
+ * `cancelled` — user dismissed/aborted.
+ */
 export interface ExportRevisionResult {
-  status: 'saved' | 'cancelled';
+  status: 'saved' | 'shared' | 'cancelled';
   displayName?: string;
 }
 
@@ -77,7 +82,8 @@ async function shareBytes(
   }
   try {
     await nav.share(data);
-    return { status: 'saved', displayName: fileName };
+    // Resolve means the share sheet handed off — not that a recipient received the file.
+    return { status: 'shared', displayName: fileName };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return { status: 'cancelled' };

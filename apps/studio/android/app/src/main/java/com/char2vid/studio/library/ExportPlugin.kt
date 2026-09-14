@@ -16,8 +16,9 @@ import com.getcapacitor.annotation.CapacitorPlugin
  * 4. if user cancels picker -> return cancelled
  * 5. if copy fails -> remove incomplete destination -> preserve source -> error
  *
- * Sharing should use FileProvider / temporary content-URI grants. Opening a
- * share chooser is not proof the recipient received the file.
+ * Sharing should use FileProvider / temporary content-URI grants. Prefer
+ * status `shared` (handed off) when the share sheet completes — never treat
+ * that as proof the recipient received the file.
  *
  * This skeleton compiles and is registered with Capacitor. Physical MediaStore /
  * SAF / deny flows remain UNVERIFIED until Kotlin/Room library storage can
