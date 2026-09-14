@@ -8,6 +8,7 @@ import {
 
 let sharedWeb: Promise<WebLibraryHandle> | null = null;
 let sharedNative: LibraryPort | null = null;
+const libraryInvalidationListeners = new Set<() => void>();
 
 function isAndroidNative(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -40,6 +41,23 @@ export async function getStudioLibrary(): Promise<StudioLibrary> {
     sharedWeb = openWebLibrary({ dbName: 'char2vid-studio-library' });
   }
   return sharedWeb;
+}
+
+/**
+ * Notify mounted library views that durable records changed outside their
+ * query dependencies (native/web archive restore from Settings).
+ */
+export function subscribeLibraryInvalidation(listener: () => void): () => void {
+  libraryInvalidationListeners.add(listener);
+  return () => {
+    libraryInvalidationListeners.delete(listener);
+  };
+}
+
+export function invalidateStudioLibrary(): void {
+  for (const listener of [...libraryInvalidationListeners]) {
+    listener();
+  }
 }
 
 export async function streamToUint8Array(

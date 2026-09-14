@@ -7,7 +7,10 @@ import {
 } from '@char2vid/storage-web/archive';
 
 import { resolvePlatform } from '../../app/platform';
-import { getStudioLibrary } from '../library/library-session';
+import {
+  getStudioLibrary,
+  invalidateStudioLibrary,
+} from '../library/library-session';
 
 type BackupStatus =
   | { kind: 'idle' }
@@ -114,6 +117,7 @@ export function BackupPage() {
         return;
       }
       const count = result.importedAssets ?? Object.keys(result.idMap).length;
+      invalidateStudioLibrary();
       setStatus({
         kind: 'ok',
         message: `Imported ${count} asset(s) with ID remap (native). Physical Android↔Android restore is UNVERIFIED.`,
@@ -157,6 +161,7 @@ export function BackupPage() {
         { bytes },
         { conflict: 'remap' },
       );
+      invalidateStudioLibrary();
       setStatus({
         kind: 'ok',
         message: `Imported ${result.importedAssets} asset(s) with ID remap. Native restore UNVERIFIED.`,

@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { Capacitor } from '@capacitor/core';
-
 import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 import { exportRevision } from '@char2vid/native-bridge/media-export';
 
+import { resolvePlatform } from '../../app/platform';
 import { revisionObjectUrl, streamToUint8Array } from './library-session';
 
 export interface AssetDetailProps {
@@ -48,10 +47,10 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
   async function handleExport(destination: 'gallery' | 'files' | 'share') {
     setExportNote(null);
     try {
-      const native =
-        Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
-      // Native export resolves the revision inside the plugin. Do not pull
-      // whole-file bytes through JavaScript on Android.
+      const native = resolvePlatform() === 'android';
+      // Native export resolves the revision inside the plugin so export does
+      // not pull whole-file bytes through JavaScript. Detail preview still
+      // uses revisionObjectUrl (chunked native reads assembled in JS).
       const payload = native
         ? {
             revisionId: asset.revisionId,
