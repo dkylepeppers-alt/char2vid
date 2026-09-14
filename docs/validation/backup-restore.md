@@ -62,3 +62,4 @@ record types do not exist yet).
 - **Browser → Android** archive restore on device
 - **1 GiB** whole-archive transfer without holding the archive in JavaScript / process memory on device
 - Full **character / project** record closure beyond today’s library assets, revisions, tags, and collection membership
+- `ExportPlugin` / `ArchivePlugin` system picker UI, persistable SAF grants, and activity callbacks (emulator tests drive `MediaExporter` / `LibraryArchiver` plus file:// destination helpers)
