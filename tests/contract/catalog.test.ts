@@ -16,6 +16,14 @@ import {
   refreshCatalogs,
   type CatalogFetcher,
 } from '../../packages/nanogpt/src/catalog/refresh';
+import {
+  ROUTE_CONTRACTS,
+  getRouteContract,
+  resolveEndpointMetadataUrl,
+  routeUrl,
+  validateRouteRegistry,
+  type RouteContract,
+} from '../../packages/nanogpt/src/contracts/route-contract';
 
 interface Fixture {
   label: 'authored' | 'sanitized-observed';
@@ -794,5 +802,158 @@ describe('refreshCatalogs (P1)', () => {
     expect(result.image.snapshot?.models[0]?.fetchedAt).toBe(
       '2030-01-01T00:00:00.000Z',
     );
+  });
+});
+
+describe('route contract registry (P1)', () => {
+  function baseContract(overrides: Partial<RouteContract>): RouteContract {
+    return {
+      id: 'test.route',
+      family: 'test',
+      baseUrl: 'https://nano-gpt.com',
+      path: '/api/test',
+      method: 'POST',
+      operation: 'image-generate',
+      auth: 'bearer-or-x-api-key',
+      requestEncoding: 'json',
+      allowedFields: ['model'],
+      roleMapping: {},
+      limits: {},
+      responseVariants: [{ kind: 'inline-json', description: 'x' }],
+      resultDelivery: 'inline',
+      contractKind: 'generic',
+      unresolved: [],
+      verification: 'fixture',
+      fixturePath: 'tests/fixtures/nanogpt/catalogs.json#fixtures.imageMixed',
+      evidence: [
+        {
+          url: 'https://docs.nano-gpt.com/x.md',
+          observedDateUtc: '2026-09-13',
+        },
+      ],
+      ...overrides,
+    };
+  }
+
+  it('accepts the shipped registry: every entry has dated evidence and a verification state', () => {
+    expect(validateRouteRegistry(ROUTE_CONTRACTS)).toEqual([]);
+    expect(ROUTE_CONTRACTS.length).toBeGreaterThan(0);
+    for (const contract of ROUTE_CONTRACTS) {
+      expect(contract.evidence.length).toBeGreaterThan(0);
+      for (const evidence of contract.evidence) {
+        expect(evidence.url).toMatch(/^https:\/\/(docs\.)?nano-gpt\.com\//);
+        expect(evidence.observedDateUtc).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      }
+      expect(['metadata-only', 'fixture', 'observed']).toContain(
+        contract.verification,
+      );
+      if (contract.verification === 'observed') {
+        expect(contract.fixturePath).toEqual(expect.any(String));
+      }
+    }
+  });
+
+  it('rejects an entry that claims observed without a fixture path', () => {
+    const problems = validateRouteRegistry([
+      baseContract({ verification: 'observed', fixturePath: undefined }),
+    ]);
+    expect(problems).toEqual([
+      expect.stringMatching(/test\.route.*observed.*fixturePath/),
+    ]);
+  });
+
+  it('rejects entries without evidence, with malformed dates, or duplicate ids', () => {
+    expect(validateRouteRegistry([baseContract({ evidence: [] })])).toEqual([
+      expect.stringMatching(/test\.route.*evidence/),
+    ]);
+    expect(
+      validateRouteRegistry([
+        baseContract({
+          evidence: [
+            {
+              url: 'https://docs.nano-gpt.com/x.md',
+              observedDateUtc: 'yesterday',
+            },
+          ],
+        }),
+      ]),
+    ).toEqual([expect.stringMatching(/test\.route.*observedDateUtc/)]);
+    expect(validateRouteRegistry([baseContract({}), baseContract({})])).toEqual(
+      [expect.stringMatching(/duplicate.*test\.route/)],
+    );
+  });
+
+  it('requires metadata-only entries to state what is unresolved and overrides to expire', () => {
+    expect(
+      validateRouteRegistry([
+        baseContract({
+          verification: 'metadata-only',
+          fixturePath: undefined,
+          unresolved: [],
+        }),
+      ]),
+    ).toEqual([
+      expect.stringMatching(/test\.route.*metadata-only.*unresolved/),
+    ]);
+    expect(
+      validateRouteRegistry([
+        baseContract({
+          override: {
+            reason: 'x',
+            expiresOnUtc: 'soon',
+            sourceUrl: 'https://docs.nano-gpt.com/x.md',
+          },
+        }),
+      ]),
+    ).toEqual([expect.stringMatching(/test\.route.*override.*expiresOnUtc/)]);
+  });
+
+  it('builds URLs from each contract base so video routes never gain a /v1 prefix', () => {
+    expect(routeUrl(getRouteContract('video.generate'))).toBe(
+      'https://nano-gpt.com/api/generate-video',
+    );
+    expect(
+      routeUrl(getRouteContract('video.status'), { requestId: 'vid_abc' }),
+    ).toBe('https://nano-gpt.com/api/video/status?requestId=vid_abc');
+    expect(routeUrl(getRouteContract('image.compat.generations'))).toBe(
+      'https://nano-gpt.com/v1/images/generations',
+    );
+    expect(routeUrl(getRouteContract('image.normalized.generate'))).toBe(
+      'https://nano-gpt.com/api/v1/images',
+    );
+    expect(() => getRouteContract('does.not.exist')).toThrow(
+      /does\.not\.exist/,
+    );
+  });
+
+  it('resolves endpoint metadata paths only against the Nano-GPT origin', () => {
+    expect(
+      resolveEndpointMetadataUrl(
+        '/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints',
+      ),
+    ).toBe(
+      'https://nano-gpt.com/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints',
+    );
+    expect(
+      resolveEndpointMetadataUrl(
+        'https://nano-gpt.com/api/v1/images/models/gpt-image-2/endpoints',
+      ),
+    ).toBe('https://nano-gpt.com/api/v1/images/models/gpt-image-2/endpoints');
+    expect(
+      resolveEndpointMetadataUrl(
+        'https://evil.example/api/v1/images/models/x/endpoints',
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveEndpointMetadataUrl(
+        '//evil.example/api/v1/images/models/x/endpoints',
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveEndpointMetadataUrl(
+        'http://nano-gpt.com/api/v1/images/models/x/endpoints',
+      ),
+    ).toBeUndefined();
+    expect(resolveEndpointMetadataUrl('/api/v1/other')).toBeUndefined();
   });
 });
