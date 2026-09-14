@@ -115,6 +115,50 @@ class ArchiveJsonTest {
     }
 
     @Test
+    fun schemaVersionOutsideIntRangeIsNotTruncatedToSupportedVersion() {
+        // 2^32 + 1 would become 1 if parsed with Long.toInt().
+        assertNull(ArchiveJson.peekSchemaVersion("""{"schemaVersion":4294967297}"""))
+        try {
+            ArchiveJson.parseManifest(
+                """
+                {
+                  "schemaVersion": 4294967297,
+                  "createdAt": "2026-09-14T18:00:00Z",
+                  "scope": "library",
+                  "scopeId": null,
+                  "files": [],
+                  "recordCounts": {"assets":0,"revisions":0,"collectionMembers":0,"assetTags":0}
+                }
+                """.trimIndent(),
+            )
+            fail("expected overflow schemaVersion to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+    }
+
+    @Test
+    fun recordCountsOutsideIntRangeAreRejected() {
+        val manifest =
+            """
+            {
+              "schemaVersion": 1,
+              "createdAt": "2026-09-14T18:00:00Z",
+              "scope": "library",
+              "scopeId": null,
+              "files": [],
+              "recordCounts": {"assets":2147483648,"revisions":0,"collectionMembers":0,"assetTags":0}
+            }
+            """.trimIndent()
+        try {
+            ArchiveJson.parseManifest(manifest)
+            fail("expected overflow recordCounts.assets to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+    }
+
+    @Test
     fun secretLikeKeysAreStrippedFromStubRecords() {
         val stub = JSONObject("""{"id":"x","apiKey":"k","nested":{"signedUrl":"u","ok":1},"list":[{"token":"t","keep":2}]}""")
         val cleaned = ArchiveJson.stripSecretFields(stub)

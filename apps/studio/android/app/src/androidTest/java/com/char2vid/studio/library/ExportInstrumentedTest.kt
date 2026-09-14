@@ -34,6 +34,11 @@ import java.io.IOException
  * Runs in CI via `android.yml` `instrumented` job (API 26 + 34). Physical-device
  * behaviour (real picker UI, other-app reopen, TalkBack) stays UNVERIFIED. The
  * API 26 cell does not prove production gallery MediaStore export.
+ *
+ * `ExportPlugin` activity callbacks are not instantiated here. CI covers the
+ * plugin's Room-backed halves: `createDocumentIntent` / `completeSafExport` /
+ * `prepareShare` / gallery routing. System `ACTION_CREATE_DOCUMENT` UI remains
+ * UNVERIFIED.
  */
 @RunWith(AndroidJUnit4::class)
 class ExportInstrumentedTest {
@@ -246,6 +251,47 @@ class ExportInstrumentedTest {
         assertTrue(original.isFile)
         assertEquals(asset.bytes, original.length())
         assertEquals(asset.sha256, InstrumentedFixtures.sha256Hex(original.readBytes()))
+    }
+
+    @Test
+    fun createDocumentIntentUsesRevisionMimeAndMatchingExtension() {
+        val asset = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "photo.jpg")
+        val intent = exporter.createDocumentIntent(asset.revisionId)
+        assertEquals(android.content.Intent.ACTION_CREATE_DOCUMENT, intent.action)
+        assertEquals("image/png", intent.type)
+        assertEquals("photo.png", intent.getStringExtra(android.content.Intent.EXTRA_TITLE))
+    }
+
+    @Test
+    fun shareReplacesMismatchedExtension() {
+        val asset = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "photo.jpg")
+        val shared = exporter.prepareShare(asset.revisionId)
+        assertEquals("photo.png", shared.displayName)
+        assertEquals("image/png", shared.mime)
+        exporter.discardShare(shared)
+        assertFalse(shared.stagedFile.exists())
+        assertFalse(shared.stagedFile.parentFile!!.exists())
+    }
+
+    @Test
+    fun copyFailureDoesNotDeletePreExistingSafDocument() {
+        val asset = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "keep-me.png")
+        val original = byteArrayOf(9, 8, 7, 6, 5)
+        val target = File(context.cacheDir, "existing-export-${System.nanoTime()}.png")
+        target.writeBytes(original)
+        val failing =
+            MediaExporter(context, repo) { dest ->
+                dest.close()
+                throw IOException("injected copy failure")
+            }
+        try {
+            failing.completeSafExport(asset.revisionId, Uri.fromFile(target))
+            fail("expected copy failure")
+        } catch (error: LibraryException) {
+            assertEquals(LibraryException.COPY_FAILED, error.code)
+        }
+        assertTrue("pre-existing SAF document must not be deleted", target.exists())
+        target.delete()
     }
 
     private fun assertGalleryPublishMatchesRevision() {

@@ -111,10 +111,18 @@ class MediaExporter(
         if (uri == null) {
             return Outcome.Cancelled
         }
+        val existedWithContent = (destinationByteLength(uri) ?: 0L) > 0L
+        if (!existedWithContent) {
+            repo.journalPendingPublication(uri.toString(), deleteIfIncomplete = true)
+        }
         try {
             copyAndVerify(source, openDestination(uri))
+            repo.clearPendingPublication()
         } catch (error: Exception) {
-            deleteDocumentQuietly(uri)
+            if (!existedWithContent) {
+                deleteDocumentQuietly(uri)
+            }
+            repo.clearPendingPublication()
             throw asLibraryException(error)
         }
         return Outcome.Saved(uri, queryDisplayName(uri) ?: safeFileName(source.name, source.mime))
@@ -157,6 +165,10 @@ class MediaExporter(
         }
     }
 
+    fun discardShare(shared: Outcome.Shared) {
+        shared.stagedFile.parentFile?.deleteRecursively()
+    }
+
     // ---- gallery: API 29+ -----------------------------------------------------
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -178,6 +190,7 @@ class MediaExporter(
         val uri =
             resolver.insert(collection, values)
                 ?: throw LibraryException(LibraryException.DESTINATION_UNAVAILABLE, "MediaStore refused a pending row")
+        repo.journalPendingPublication(uri.toString(), deleteIfIncomplete = true)
         try {
             val output =
                 resolver.openOutputStream(uri, "w")
@@ -187,12 +200,14 @@ class MediaExporter(
             if (resolver.update(uri, publish, null, null) != 1) {
                 throw LibraryException(LibraryException.COPY_FAILED, "unable to publish MediaStore row")
             }
+            repo.clearPendingPublication()
         } catch (error: Exception) {
             try {
                 resolver.delete(uri, null, null)
             } catch (_: Exception) {
                 // incomplete row removal is best effort; source is untouched
             }
+            repo.clearPendingPublication()
             throw asLibraryException(error)
         }
         return Outcome.Saved(uri, queryDisplayName(uri) ?: safeFileName(source.name, source.mime))
@@ -250,6 +265,26 @@ class MediaExporter(
     }
 
     // ---- helpers ------------------------------------------------------------------
+
+    fun destinationByteLength(uri: Uri): Long? {
+        if (uri.scheme == "file") {
+            val path = uri.path ?: return null
+            val file = File(path)
+            return if (file.exists()) file.length() else 0L
+        }
+        return try {
+            resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (index >= 0 && !cursor.isNull(index)) cursor.getLong(index) else null
+                } else {
+                    null
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun openDestination(uri: Uri): OutputStream {
         if (uri.scheme == "file") {
@@ -357,35 +392,9 @@ class MediaExporter(
                 else -> Environment.DIRECTORY_PICTURES
             }
 
-        fun extensionForMime(mime: String): String =
-            when (mime) {
-                "image/png" -> "png"
-                "image/jpeg" -> "jpg"
-                "image/webp" -> "webp"
-                "image/gif" -> "gif"
-                "video/mp4" -> "mp4"
-                "video/webm" -> "webm"
-                "audio/mpeg" -> "mp3"
-                "audio/wav", "audio/wave" -> "wav"
-                "audio/ogg" -> "ogg"
-                else -> "bin"
-            }
+        fun extensionForMime(mime: String): String = ArchivePaths.extensionForMime(mime)
 
         /** Strip separators/control characters; guarantee an extension matching the MIME. */
-        fun safeFileName(name: String, mime: String): String {
-            val cleaned =
-                name.replace('\\', '_')
-                    .replace('/', '_')
-                    .replace(Regex("[\\u0000-\\u001f\\u007f]"), "")
-                    .trim()
-                    .trimStart('.')
-            val base = if (cleaned.isEmpty()) "revision" else cleaned.take(120)
-            val ext = extensionForMime(mime)
-            val hasExtension = Regex("\\.[A-Za-z0-9]{1,5}$").containsMatchIn(base)
-            if (ext == "bin" || hasExtension) {
-                return base
-            }
-            return "$base.$ext"
-        }
+        fun safeFileName(name: String, mime: String): String = ExportNames.safeFileName(name, mime)
     }
 }

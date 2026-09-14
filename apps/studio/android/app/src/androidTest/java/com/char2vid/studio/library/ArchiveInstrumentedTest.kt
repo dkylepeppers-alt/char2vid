@@ -28,6 +28,10 @@ import java.util.zip.ZipOutputStream
  *
  * Android↔Android on physical hardware and browser↔Android restores remain
  * UNVERIFIED until run on a device with a real SAF picker.
+ *
+ * `ArchivePlugin` activity callbacks and persistable SAF grants are not
+ * instantiated here. CI covers `LibraryArchiver` plus destination helpers the
+ * plugin calls after `ACTION_CREATE_DOCUMENT` / `ACTION_OPEN_DOCUMENT`.
  */
 @RunWith(AndroidJUnit4::class)
 class ArchiveInstrumentedTest {
@@ -308,5 +312,126 @@ class ArchiveInstrumentedTest {
         assertEquals(1, opens)
         assertEquals(listOf(prior.id), assetIds(repo))
         assertEquals(emptyList<String>(), InstrumentedFixtures.tempEntries(context))
+    }
+
+    @Test
+    fun exportIncludesHistoricalRevisionMedia() {
+        val current = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "current.png")
+        attachHistoricalRevision(current.id, "tiny-red.png")
+        val zip = exportToScratch()
+        val entries = zipEntries(zip)
+        assertEquals(2, entries.keys.count { it.startsWith("media/") })
+        val report = archiver.inspect { FileInputStream(zip) }
+        assertEquals(report.errors.joinToString("; "), true, report.ok)
+    }
+
+    @Test
+    fun duplicateAssetIdsAreRejectedDuringInspect() {
+        val asset = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "dup.png")
+        val zip = exportToScratch()
+        val entries = zipEntries(zip).toMutableMap()
+        val records = JSONObject(String(entries["records.json"]!!))
+        val assets = records.getJSONArray("assets")
+        val clone = JSONObject(assets.getJSONObject(0).toString())
+        clone.put("revisionId", "cccccccc-cccc-4ccc-8ccc-cccccccccccc")
+        assets.put(clone)
+        val revisions = records.getJSONArray("revisions")
+        revisions.put(
+            JSONObject()
+                .put("id", "cccccccc-cccc-4ccc-8ccc-cccccccccccc")
+                .put("assetId", asset.id)
+                .put("sha256", asset.sha256)
+                .put("createdAt", "2026-09-14T18:00:00.000Z"),
+        )
+        entries["records.json"] = records.toString().toByteArray()
+        val bad = scratchFile("dup-ids")
+        writeZip(entries, bad)
+        val report = archiver.inspect { FileInputStream(bad) }
+        assertFalse(report.ok)
+        assertTrue(report.errors.joinToString(), report.errors.any { it.contains("duplicate asset id") })
+    }
+
+    @Test
+    fun danglingTagAndMembershipAreRejectedDuringInspect() {
+        InstrumentedFixtures.importFixture(context, repo, "tiny.png", "tagged.png")
+        val zip = exportToScratch()
+        val entries = zipEntries(zip).toMutableMap()
+        val records = JSONObject(String(entries["records.json"]!!))
+        records.getJSONArray("assetTags").put(
+            JSONObject().put("assetId", "dddddddd-dddd-4ddd-8ddd-dddddddddddd").put("tag", "orphan"),
+        )
+        records.getJSONArray("collectionMembers").put(
+            JSONObject().put("collectionId", "ghost").put("assetId", "dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+        )
+        entries["records.json"] = records.toString().toByteArray()
+        val bad = scratchFile("dangling")
+        writeZip(entries, bad)
+        val report = archiver.inspect { FileInputStream(bad) }
+        assertFalse(report.ok)
+        assertTrue(report.errors.joinToString(), report.errors.any { it.contains("assetTags") })
+        assertTrue(report.errors.joinToString(), report.errors.any { it.contains("collectionMembers") })
+    }
+
+    @Test
+    fun zipEntryLimitCountsDirectoriesAndStops() {
+        val evil = scratchFile("many-dirs")
+        ZipOutputStream(FileOutputStream(evil)).use { zout ->
+            zout.putNextEntry(ZipEntry("manifest.json"))
+            zout.write("{}".toByteArray())
+            zout.closeEntry()
+            for (i in 0 until ArchivePaths.MAX_ARCHIVE_FILE_COUNT) {
+                zout.putNextEntry(ZipEntry("pad/$i.bin"))
+                zout.closeEntry()
+            }
+        }
+        val report = archiver.inspect { FileInputStream(evil) }
+        assertFalse(report.ok)
+        assertTrue(report.errors.joinToString(), report.errors.any { it.contains("file count") && it.contains("exceeds") })
+    }
+
+    @Test
+    fun corruptPhysicalIsRehashedAndReplacedFromArchive() {
+        val original = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "canon.png")
+        val zip = exportToScratch()
+        val physical = repo.resolveRevisionSource(original.revisionId).file
+        physical.writeBytes(byteArrayOf(1, 2, 3, 4))
+        assertFalse(repo.hasIntactPhysical(original.sha256))
+        val result = archiver.importArchive({ FileInputStream(zip) }, conflict = "remap")
+        assertEquals(1, result.importedAssets)
+        assertTrue(repo.hasIntactPhysical(original.sha256))
+        assertEquals(original.sha256, InstrumentedFixtures.sha256Hex(physical.readBytes()))
+    }
+
+    @Test
+    fun archiveScratchAndPromotionJournalAreReconciledOnStart() {
+        val leftover = repo.createScratchDir("archive-export")
+        File(leftover, "partial.zip").writeBytes(byteArrayOf(1, 2, 3))
+        val orphanBytes = InstrumentedFixtures.fixtureBytes("tiny-red.png")
+        val orphanSha = InstrumentedFixtures.sha256Hex(orphanBytes)
+        val orphan = File(File(context.filesDir, "library"), LibraryPaths.finalRelativePath(orphanSha))
+        orphan.parentFile?.mkdirs()
+        orphan.writeBytes(orphanBytes)
+        repo.writeArchiveImportJournal(listOf(orphanSha), emptyList())
+        repo.reconcileOnStart()
+        assertFalse(leftover.exists())
+        assertFalse(orphan.exists())
+        assertFalse(File(File(File(context.filesDir, "library"), "tmp"), "archive-import-journal.json").exists())
+    }
+
+    private fun attachHistoricalRevision(assetId: String, fixture: String) {
+        val extra = InstrumentedFixtures.importFixture(context, repo, fixture, "hist-$fixture")
+        val dao = LibraryDatabase.getInstance(context).libraryDao()
+        dao.upsertRevision(
+            RevisionEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                assetId = assetId,
+                sha256 = extra.sha256,
+                createdAt = extra.createdAt,
+            ),
+        )
+        repo.applyLibraryAction(JSONObject().put("action", "trash").put("assetIds", JSONArray(listOf(extra.id))))
+        repo.applyLibraryAction(
+            JSONObject().put("action", "permanent-delete").put("assetIds", JSONArray(listOf(extra.id))),
+        )
     }
 }

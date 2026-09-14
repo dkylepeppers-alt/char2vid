@@ -52,7 +52,7 @@ class LibraryArchiver(
         val importedAssets: Int,
     )
 
-    fun fileNameFor(transferId: String): String = "char2vid-library-${transferId.take(8)}.zip"
+    fun fileNameFor(transferId: String): String = fileNameForTransfer(transferId)
 
     // ---- export ---------------------------------------------------------------
 
@@ -62,28 +62,34 @@ class LibraryArchiver(
      */
     fun exportLibraryTo(output: OutputStream, transferId: String = UUID.randomUUID().toString()): ExportSummary {
         val snapshot = repo.archiveSnapshot()
+        val assetsById = snapshot.assets.associateBy { it.id }
         val files = ArrayList<ArchiveManifestFile>()
         val sources = ArrayList<File>()
         val seen = HashSet<String>()
         for (asset in snapshot.assets) {
-            if (!seen.add(asset.sha256)) {
-                continue
-            }
             if (snapshot.revisions.none { it.id == asset.revisionId }) {
                 throw LibraryException(LibraryException.EXPORT_FAILED, "asset ${asset.id} missing revision ${asset.revisionId}")
             }
+        }
+        for (revision in snapshot.revisions) {
+            if (!seen.add(revision.sha256)) {
+                continue
+            }
+            val asset =
+                assetsById[revision.assetId]
+                    ?: throw LibraryException(LibraryException.EXPORT_FAILED, "revision ${revision.id} missing asset")
             val physical =
-                snapshot.physicalBySha[asset.sha256]
-                    ?: throw LibraryException(LibraryException.MISSING_FILE, "missing physical object for asset ${asset.id}")
+                snapshot.physicalBySha[revision.sha256]
+                    ?: throw LibraryException(LibraryException.MISSING_FILE, "missing physical object for revision ${revision.id}")
             val file = repo.resolveFile(physical.relativePath)
             if (!file.isFile) {
-                throw LibraryException(LibraryException.MISSING_FILE, "missing file for asset ${asset.id}")
+                throw LibraryException(LibraryException.MISSING_FILE, "missing file for revision ${revision.id}")
             }
-            val path = ArchivePaths.mediaArchivePath(asset.sha256, asset.mime)
+            val path = ArchivePaths.mediaArchivePath(revision.sha256, asset.mime)
             if (!ArchivePaths.validateArchivePath(path)) {
                 throw LibraryException(LibraryException.EXPORT_FAILED, "refusing unsafe media path")
             }
-            files.add(ArchiveManifestFile(path, asset.sha256, physical.byteLength, asset.mime))
+            files.add(ArchiveManifestFile(path, revision.sha256, physical.byteLength, asset.mime))
             sources.add(file)
         }
 
@@ -181,6 +187,8 @@ class LibraryArchiver(
         var recordsJson: String? = null
         var expanded = 0L
         var limitExceeded = false
+        var entryLimitExceeded = false
+        var rawEntries = 0
         var jsonTooLarge: String? = null
         var zipError: String? = null
     }
@@ -194,6 +202,11 @@ class LibraryArchiver(
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
                         val entry = zin.nextEntry ?: break
+                        scan.rawEntries += 1
+                        if (scan.rawEntries > ArchivePaths.MAX_ARCHIVE_FILE_COUNT) {
+                            scan.entryLimitExceeded = true
+                            break
+                        }
                         if (entry.isDirectory) {
                             zin.closeEntry()
                             continue
@@ -282,6 +295,13 @@ class LibraryArchiver(
             }
             return report
         }
+        if (scan.entryLimitExceeded) {
+            report.fileCount = scan.rawEntries
+            report.errors.add(
+                "archive file count ${scan.rawEntries} exceeds limit ${ArchivePaths.MAX_ARCHIVE_FILE_COUNT}",
+            )
+            return report
+        }
         if (scan.names.isEmpty()) {
             report.errors.add("invalid archive zip: no members")
             return report
@@ -291,9 +311,6 @@ class LibraryArchiver(
         report.expandedBytes = scan.expanded
         if (scan.duplicates.isNotEmpty()) {
             report.errors.add("duplicate archive members: ${scan.duplicates.joinToString(", ")}")
-        }
-        if (scan.names.size > ArchivePaths.MAX_ARCHIVE_FILE_COUNT) {
-            report.errors.add("archive file count ${scan.names.size} exceeds limit ${ArchivePaths.MAX_ARCHIVE_FILE_COUNT}")
         }
         if (scan.limitExceeded || scan.expanded > ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES) {
             report.errors.add("expanded size ${scan.expanded} exceeds limit ${ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES}")
@@ -341,6 +358,14 @@ class LibraryArchiver(
             records = ArchiveJson.parseRecords(recordsJson)
         } catch (error: IllegalArgumentException) {
             report.errors.add("invalid records.json: ${error.message}")
+            return report
+        }
+
+        val idErrors = ArchiveValidation.logicalIdErrors(records)
+        report.errors.addAll(idErrors)
+        report.errors.addAll(ArchiveValidation.referenceErrors(records))
+        if (idErrors.isNotEmpty()) {
+            report.ok = false
             return report
         }
 
@@ -475,7 +500,16 @@ class LibraryArchiver(
         try {
             BufferedInputStream(open()).use { input ->
                 BufferedOutputStream(FileOutputStream(snapshot)).use { output ->
-                    input.copyTo(output)
+                    val budget = repo.copyBudgetBytes()
+                    try {
+                        StreamLimits.copyBounded(input, output, budget)
+                    } catch (error: StreamLimits.LimitExceededException) {
+                        throw LibraryException(
+                            LibraryException.ARCHIVE_REJECTED,
+                            "archive source exceeds copy budget",
+                            error,
+                        )
+                    }
                     output.flush()
                 }
             }
@@ -516,6 +550,7 @@ class LibraryArchiver(
         val scratch = repo.createScratchDir("archive-import")
         val staged = HashMap<String, File>()
         val promoted = ArrayList<String>()
+        repo.writeArchiveImportJournal(needed.values.map { it.sha256 }, listOf(scratch.name, snapshot.parentFile!!.name))
         try {
             if (needed.isNotEmpty()) {
                 ZipInputStream(BufferedInputStream(open())).use { zin ->
@@ -582,6 +617,7 @@ class LibraryArchiver(
             val tags = remapped.assetTags.map { AssetTagEntity(it.assetId, it.tag) }
 
             repo.commitArchiveImport(physicals, assets, revisions, members, tags)
+            repo.clearArchiveImportJournal()
             scratch.deleteRecursively()
             return ImportResult(idMap, assets.size)
         } catch (error: Exception) {
@@ -592,6 +628,7 @@ class LibraryArchiver(
                     // rollback is best effort per object; the transaction itself already rolled back
                 }
             }
+            repo.clearArchiveImportJournal()
             scratch.deleteRecursively()
             throw when (error) {
                 is LibraryException -> error
@@ -630,5 +667,7 @@ class LibraryArchiver(
     companion object {
         /** manifest.json / records.json are the only buffered members. */
         const val MAX_JSON_MEMBER_BYTES: Long = 64L * 1024L * 1024L
+
+        fun fileNameForTransfer(transferId: String): String = "char2vid-library-${transferId.take(8)}.zip"
     }
 }

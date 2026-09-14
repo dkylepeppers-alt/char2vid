@@ -174,13 +174,7 @@ object ArchiveJson {
         if (!o.has("schemaVersion") || o.isNull("schemaVersion")) {
             return null
         }
-        val raw = o.opt("schemaVersion")
-        return when (raw) {
-            is Int -> raw
-            is Long -> raw.toInt()
-            is Number -> if (raw.toDouble() == Math.floor(raw.toDouble())) raw.toInt() else null
-            else -> null
-        }
+        return exactIntOrNull(o.opt("schemaVersion"))
     }
 
     fun parseManifest(json: String): ArchiveManifest {
@@ -210,10 +204,10 @@ object ArchiveJson {
         val counts = o.optJSONObject("recordCounts") ?: throw IllegalArgumentException("manifest.recordCounts required")
         val recordCounts =
             ArchiveRecordCounts(
-                assets = requireNonNegativeLong(counts, "assets", "manifest.recordCounts").toInt(),
-                revisions = requireNonNegativeLong(counts, "revisions", "manifest.recordCounts").toInt(),
-                collectionMembers = requireNonNegativeLong(counts, "collectionMembers", "manifest.recordCounts").toInt(),
-                assetTags = requireNonNegativeLong(counts, "assetTags", "manifest.recordCounts").toInt(),
+                assets = requireNonNegativeInt(counts, "assets", "manifest.recordCounts"),
+                revisions = requireNonNegativeInt(counts, "revisions", "manifest.recordCounts"),
+                collectionMembers = requireNonNegativeInt(counts, "collectionMembers", "manifest.recordCounts"),
+                assetTags = requireNonNegativeInt(counts, "assetTags", "manifest.recordCounts"),
             )
         return ArchiveManifest(version, createdAt, scope, scopeId, files, recordCounts)
     }
@@ -294,9 +288,7 @@ object ArchiveJson {
             } else if (o.isNull("rating")) {
                 null
             } else {
-                val raw = o.opt("rating")
-                require(raw is Number && raw.toDouble() == Math.floor(raw.toDouble())) { "$p.rating must be an integer" }
-                val value = raw.toInt()
+                val value = exactIntOrNull(o.opt("rating")) ?: throw IllegalArgumentException("$p.rating must be an integer")
                 require(value in 0..5) { "$p.rating must be 0–5" }
                 value
             }
@@ -372,9 +364,13 @@ object ArchiveJson {
         if (!o.has(key) || o.isNull(key)) {
             throw IllegalArgumentException("$p.$key required")
         }
-        val raw = o.opt(key)
-        require(raw is Number && raw.toDouble() == Math.floor(raw.toDouble())) { "$p.$key must be an integer" }
-        return raw.toInt()
+        return exactIntOrNull(o.opt(key)) ?: throw IllegalArgumentException("$p.$key must be an integer")
+    }
+
+    private fun requireNonNegativeInt(o: JSONObject, key: String, p: String): Int {
+        val value = requireNonNegativeLong(o, key, p)
+        require(value <= Int.MAX_VALUE.toLong()) { "$p.$key exceeds Int range" }
+        return value.toInt()
     }
 
     private fun requireNonNegativeLong(o: JSONObject, key: String, p: String): Long {
@@ -382,10 +378,38 @@ object ArchiveJson {
             throw IllegalArgumentException("$p.$key required")
         }
         val raw = o.opt(key)
-        require(raw is Number && raw.toDouble() == Math.floor(raw.toDouble())) { "$p.$key must be an integer" }
-        val value = raw.toLong()
-        require(value >= 0L) { "$p.$key must be non-negative" }
-        return value
+        val asLong = exactLongOrNull(raw) ?: throw IllegalArgumentException("$p.$key must be an integer")
+        require(asLong >= 0L) { "$p.$key must be non-negative" }
+        return asLong
+    }
+
+    private fun exactIntOrNull(raw: Any?): Int? {
+        val asLong = exactLongOrNull(raw) ?: return null
+        if (asLong < Int.MIN_VALUE.toLong() || asLong > Int.MAX_VALUE.toLong()) {
+            return null
+        }
+        return asLong.toInt()
+    }
+
+    private fun exactLongOrNull(raw: Any?): Long? {
+        val number = raw as? Number ?: return null
+        val asDouble = number.toDouble()
+        if (asDouble.isNaN() || asDouble.isInfinite() || asDouble != Math.floor(asDouble)) {
+            return null
+        }
+        if (asDouble > Long.MAX_VALUE.toDouble() || asDouble < Long.MIN_VALUE.toDouble()) {
+            return null
+        }
+        val asLong =
+            when (number) {
+                is Long -> number
+                is Int -> number.toLong()
+                else -> asDouble.toLong()
+            }
+        if (asLong.toDouble() != asDouble) {
+            return null
+        }
+        return asLong
     }
 
     private fun requireSha(o: JSONObject, key: String, p: String): String {

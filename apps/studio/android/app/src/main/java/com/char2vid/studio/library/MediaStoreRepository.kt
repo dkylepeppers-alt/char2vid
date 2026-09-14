@@ -1,8 +1,12 @@
 package com.char2vid.studio.library
 
+import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.StatFs
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedInputStream
@@ -99,7 +103,12 @@ class MediaStoreRepository(
         return File(rootDir, normalized)
     }
 
-    fun reconcileOnStart(): ReconcileResult = reconcileImports()
+    fun reconcileOnStart(): ReconcileResult {
+        val result = reconcileImports()
+        reconcileArchiveScratch()
+        reconcilePendingPublications()
+        return result
+    }
 
     data class ReconcileResult(val repaired: Int, val missing: List<String>)
 
@@ -270,6 +279,14 @@ class MediaStoreRepository(
                 }
             }
         }
+        for (revision in revisions) {
+            if (!physical.containsKey(revision.sha256)) {
+                val obj = dao.getPhysical(revision.sha256)
+                if (obj != null) {
+                    physical[revision.sha256] = obj
+                }
+            }
+        }
         return ArchiveSnapshot(assets, revisions, members, tags, physical)
     }
 
@@ -295,10 +312,18 @@ class MediaStoreRepository(
         return ids
     }
 
-    /** Physical row present *and* its object file exists on disk. */
+    /** Physical row present, file exists, and length + SHA-256 still match. */
     fun hasIntactPhysical(sha256: String): Boolean {
         val physical = dao.getPhysical(sha256) ?: return false
-        return resolveFile(physical.relativePath).isFile
+        return MediaValidator.objectMatches(resolveFile(physical.relativePath), sha256, physical.byteLength)
+    }
+
+    /** Bytes we will copy from a user URI before refusing, leaving headroom on the volume. */
+    fun copyBudgetBytes(): Long {
+        val reserve = 64L * 1024L * 1024L
+        val available = availableBytes() ?: return ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES
+        val usable = if (available <= reserve) available.coerceAtLeast(1L) else available - reserve
+        return minOf(ArchivePaths.MAX_ARCHIVE_EXPANDED_BYTES, usable)
     }
 
     /** Private scratch directory under `library/tmp`; callers delete it when done. */
@@ -310,17 +335,152 @@ class MediaStoreRepository(
         return dir
     }
 
+    fun writeArchiveImportJournal(promotedSha256: List<String>, scratchDirNames: List<String>) {
+        val o = JSONObject()
+        o.put("promoted", JSONArray(promotedSha256))
+        o.put("scratch", JSONArray(scratchDirNames))
+        archiveImportJournalFile().writeText(o.toString())
+    }
+
+    fun clearArchiveImportJournal() {
+        archiveImportJournalFile().delete()
+    }
+
+    fun journalPendingPublication(uri: String, deleteIfIncomplete: Boolean) {
+        val o = JSONObject()
+        o.put("uri", uri)
+        o.put("deleteIfIncomplete", deleteIfIncomplete)
+        pendingPublicationFile().writeText(o.toString())
+    }
+
+    fun clearPendingPublication() {
+        pendingPublicationFile().delete()
+    }
+
+    fun reconcileArchiveScratch() {
+        val journal = archiveImportJournalFile()
+        if (journal.isFile) {
+            try {
+                val o = JSONObject(journal.readText())
+                val promoted = o.optJSONArray("promoted")
+                if (promoted != null) {
+                    for (i in 0 until promoted.length()) {
+                        purgeUnreferencedPhysical(promoted.getString(i))
+                    }
+                }
+                val scratch = o.optJSONArray("scratch")
+                if (scratch != null) {
+                    for (i in 0 until scratch.length()) {
+                        File(File(rootDir, "tmp"), scratch.getString(i)).deleteRecursively()
+                    }
+                }
+            } catch (_: Exception) {
+                // journal is best-effort recovery; leftover dirs are swept below
+            }
+            journal.delete()
+        }
+        File(rootDir, "tmp").listFiles()?.forEach { child ->
+            if (child.isDirectory && child.name.startsWith("archive-")) {
+                child.deleteRecursively()
+            }
+        }
+    }
+
+    fun reconcilePendingPublications() {
+        val file = pendingPublicationFile()
+        if (file.isFile) {
+            try {
+                val o = JSONObject(file.readText())
+                if (o.optBoolean("deleteIfIncomplete", true)) {
+                    deletePublishedQuietly(Uri.parse(o.getString("uri")))
+                }
+            } catch (_: Exception) {
+                // best effort
+            }
+            file.delete()
+        }
+        reconcilePendingMediaStoreRows()
+    }
+
+    fun deletePublishedQuietly(uri: Uri) {
+        try {
+            if (uri.scheme == "file") {
+                uri.path?.let { File(it).delete() }
+            } else if (DocumentsContract.isDocumentUri(context, uri)) {
+                DocumentsContract.deleteDocument(context.contentResolver, uri)
+            } else {
+                context.contentResolver.delete(uri, null, null)
+            }
+        } catch (_: Exception) {
+            // best effort
+        }
+    }
+
+    private fun archiveImportJournalFile(): File = File(File(rootDir, "tmp"), "archive-import-journal.json")
+
+    private fun pendingPublicationFile(): File = File(File(rootDir, "tmp"), "pending-publication.json")
+
+    private fun reconcilePendingMediaStoreRows() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return
+        }
+        val resolver = context.contentResolver
+        val collections =
+            listOf(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            )
+        val projection =
+            arrayOf(
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.RELATIVE_PATH,
+            )
+        for (collection in collections) {
+            try {
+                resolver
+                    .query(
+                        collection,
+                        projection,
+                        "${MediaStore.MediaColumns.IS_PENDING}=1",
+                        null,
+                        null,
+                    )?.use { cursor ->
+                        val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                        val pathCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+                        while (cursor.moveToNext()) {
+                            val path = cursor.getString(pathCol) ?: continue
+                            if (!path.contains(MediaExporter.APP_FOLDER)) {
+                                continue
+                            }
+                            val uri = ContentUris.withAppendedId(collection, cursor.getLong(idCol))
+                            try {
+                                resolver.delete(uri, null, null)
+                            } catch (_: Exception) {
+                                // best effort
+                            }
+                        }
+                    }
+            } catch (_: Exception) {
+                // collection may be unavailable on this emulator image
+            }
+        }
+    }
+
     /**
      * Promote a verified staged file into `objects/`. Idempotent when the
-     * object already exists. Returns the relative path for the physical row.
+     * object already exists and matches. Returns the relative path for the physical row.
      */
     fun promoteStagedFile(staged: File, sha256: String): String {
         val relative = LibraryPaths.finalRelativePath(sha256)
         val dest = resolveFile(relative)
         dest.parentFile?.mkdirs()
         if (dest.isFile) {
-            staged.delete()
-            return relative
+            if (MediaValidator.objectMatches(dest, sha256, dest.length())) {
+                staged.delete()
+                return relative
+            }
+            dest.delete()
         }
         if (!staged.isFile) {
             throw IllegalStateException("staged file missing for promote")
@@ -819,8 +979,11 @@ class MediaStoreRepository(
         dest.parentFile?.mkdirs()
         val temp = resolveFile(tempPath)
         if (dest.isFile) {
-            temp.delete()
-            return relative
+            if (MediaValidator.objectMatches(dest, sha256, dest.length())) {
+                temp.delete()
+                return relative
+            }
+            dest.delete()
         }
         if (!temp.isFile) {
             throw IllegalStateException("temp missing for promote: $tempPath")

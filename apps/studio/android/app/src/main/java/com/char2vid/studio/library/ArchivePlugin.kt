@@ -146,15 +146,24 @@ class ArchivePlugin : Plugin() {
     private fun launchCreateDocument(call: PluginCall) {
         val transferId = UUID.randomUUID().toString()
         call.data.put("transferId", transferId)
-        runOnUiThread(call) {
-            val intent =
-                Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "application/zip"
-                    putExtra(Intent.EXTRA_TITLE, archiver().fileNameFor(transferId))
-                    addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        executor.execute {
+            try {
+                val (file, summary) = archiver().exportLibraryToScratch(transferId)
+                call.data.put("scratchPath", file.absolutePath)
+                call.data.put("fileName", summary.fileName)
+                runOnUiThread(call) {
+                    val intent =
+                        Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/zip"
+                            putExtra(Intent.EXTRA_TITLE, summary.fileName)
+                            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    startActivityForResult(call, intent, "onExportDocumentResult")
                 }
-            startActivityForResult(call, intent, "onExportDocumentResult")
+            } catch (error: Exception) {
+                rejectWith(call, error)
+            }
         }
     }
 
@@ -168,7 +177,10 @@ class ArchivePlugin : Plugin() {
                         Intent.EXTRA_MIME_TYPES,
                         arrayOf("application/zip", "application/octet-stream"),
                     )
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+                    )
                 }
             startActivityForResult(call, intent, callbackName)
         }
@@ -181,22 +193,39 @@ class ArchivePlugin : Plugin() {
         }
         val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data else null
         if (uri == null) {
+            call.getString("scratchPath")?.let { File(it).parentFile?.deleteRecursively() }
             call.resolve(exportResult(call.getString("transferId") ?: "", null, "cancelled"))
             return
         }
         executor.execute {
-            var scratch: File? = null
+            val scratchPath = call.getString("scratchPath")
+            val scratchFile = scratchPath?.let { File(it) }
+            val existedWithContent = (destinationByteLength(uri) ?: 0L) > 0L
+            var publishedScratch: File? = scratchFile
             try {
                 val transferId = call.getString("transferId") ?: UUID.randomUUID().toString()
-                val (file, summary) = archiver().exportLibraryToScratch(transferId)
-                scratch = file
+                val file =
+                    if (scratchFile != null && scratchFile.isFile) {
+                        scratchFile
+                    } else {
+                        val (created, _) = archiver().exportLibraryToScratch(transferId)
+                        created
+                    }
+                publishedScratch = file
+                if (!existedWithContent) {
+                    repo().journalPendingPublication(uri.toString(), deleteIfIncomplete = true)
+                }
                 copyFileToUri(file, uri)
                 file.parentFile?.deleteRecursively()
-                scratch = null
-                call.resolve(exportResult(summary.transferId, summary.fileName, "ready"))
+                repo().clearPendingPublication()
+                val fileName = call.getString("fileName") ?: archiver().fileNameFor(transferId)
+                call.resolve(exportResult(transferId, fileName, "ready"))
             } catch (error: Exception) {
-                scratch?.parentFile?.deleteRecursively()
-                deleteDocumentQuietly(uri)
+                publishedScratch?.parentFile?.deleteRecursively()
+                if (!existedWithContent) {
+                    deleteDocumentQuietly(uri)
+                }
+                repo().clearPendingPublication()
                 rejectWith(call, error)
             }
         }
@@ -212,6 +241,7 @@ class ArchivePlugin : Plugin() {
             call.resolve(cancelledInspect())
             return
         }
+        persistReadGrant(uri)
         executor.execute {
             try {
                 val report = archiver().inspect { openUri(uri.toString()) }
@@ -235,6 +265,7 @@ class ArchivePlugin : Plugin() {
             call.resolve(cancelled)
             return
         }
+        persistReadGrant(uri)
         runImport(call, uri.toString())
     }
 
@@ -300,6 +331,7 @@ class ArchivePlugin : Plugin() {
                         host.startActivity(buildShareChooser(uri, summary.fileName))
                         call.resolve(exportResult(summary.transferId, summary.fileName, "ready", "shared"))
                     } catch (error: Exception) {
+                        dir.deleteRecursively()
                         rejectWith(call, error)
                     }
                 }
@@ -320,6 +352,40 @@ class ArchivePlugin : Plugin() {
             }
         return Intent.createChooser(send, null).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    private fun persistReadGrant(uri: Uri) {
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (_: SecurityException) {
+            // not all providers offer persistable grants; inspect-then-import may still work
+            // while the picker grant is alive
+        } catch (_: Exception) {
+            // best effort
+        }
+    }
+
+    private fun destinationByteLength(uri: Uri): Long? {
+        if (uri.scheme == "file") {
+            val path = uri.path ?: return null
+            val file = File(path)
+            return if (file.exists()) file.length() else 0L
+        }
+        return try {
+            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                    if (index >= 0 && !cursor.isNull(index)) cursor.getLong(index) else null
+                } else {
+                    null
+                }
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 

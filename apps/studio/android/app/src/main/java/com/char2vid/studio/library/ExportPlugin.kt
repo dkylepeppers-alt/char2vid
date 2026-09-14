@@ -40,7 +40,9 @@ class ExportPlugin : Plugin() {
                 return again
             }
             val app = context.applicationContext
-            val created = MediaExporter(app, MediaStoreRepository(app))
+            val createdRepo = MediaStoreRepository(app)
+            createdRepo.reconcileOnStart()
+            val created = MediaExporter(app, createdRepo)
             exporter = created
             return created
         }
@@ -85,9 +87,15 @@ class ExportPlugin : Plugin() {
     }
 
     private fun launchCreateDocument(call: PluginCall, revisionId: String) {
-        runOnUiThread(call) {
-            val intent = exporter().createDocumentIntent(revisionId)
-            startActivityForResult(call, intent, "onCreateDocumentResult")
+        executor.execute {
+            try {
+                val intent = exporter().createDocumentIntent(revisionId)
+                runOnUiThread(call) {
+                    startActivityForResult(call, intent, "onCreateDocumentResult")
+                }
+            } catch (error: Exception) {
+                rejectWith(call, error)
+            }
         }
     }
 
@@ -132,23 +140,28 @@ class ExportPlugin : Plugin() {
 
     private fun share(call: PluginCall, revisionId: String) {
         executor.execute {
+            var shared: MediaExporter.Outcome.Shared? = null
             try {
                 val exporter = exporter()
-                val shared = exporter.prepareShare(revisionId)
+                shared = exporter.prepareShare(revisionId)
                 val host = activity
                 if (host == null) {
+                    exporter.discardShare(shared)
                     call.reject("no foreground activity for share sheet", LibraryException.NO_ACTIVITY)
                     return@execute
                 }
+                val prepared = shared
                 host.runOnUiThread {
                     try {
-                        host.startActivity(exporter.buildShareChooser(shared))
-                        call.resolve(sharedResult(shared))
+                        host.startActivity(exporter.buildShareChooser(prepared))
+                        call.resolve(sharedResult(prepared))
                     } catch (error: Exception) {
+                        exporter.discardShare(prepared)
                         rejectWith(call, error)
                     }
                 }
             } catch (error: Exception) {
+                shared?.let { exporter().discardShare(it) }
                 rejectWith(call, error)
             }
         }
