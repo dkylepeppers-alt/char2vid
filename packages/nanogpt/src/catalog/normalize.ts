@@ -146,7 +146,16 @@ function buildControl(
   issues: LocalIssue[],
 ): ParameterControl {
   if (Array.isArray(raw)) {
-    return { key, kind: 'select', options: toOptions(raw), raw };
+    const control: ParameterControl = {
+      key,
+      kind: 'select',
+      options: toOptions(raw),
+      raw,
+    };
+    if (defaults !== undefined && key in defaults) {
+      control.default = defaults[key];
+    }
+    return control;
   }
   if (!isJsonObject(raw)) {
     return { key, kind: 'unsupported', raw };

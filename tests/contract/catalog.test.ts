@@ -775,6 +775,21 @@ describe('normalizeControls (P1)', () => {
       expect.objectContaining({ key: 'fps', kind: 'select', default: 24 }),
     ]);
   });
+
+  it('applies the defaults map to array-shaped nested controls', () => {
+    const controls = normalizeControls({
+      parameters: { resolution: ['720p', '1080p'] },
+      defaults: { resolution: '720p' },
+    });
+    expect(controls).toEqual([
+      expect.objectContaining({
+        key: 'resolution',
+        kind: 'select',
+        options: [{ value: '720p' }, { value: '1080p' }],
+        default: '720p',
+      }),
+    ]);
+  });
 });
 
 describe('refreshCatalogs (P1)', () => {
