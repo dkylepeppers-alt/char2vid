@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./media-export": "./src/media-export.ts"
   },
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@capacitor/app": "8.1.1"
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.2"
   }
 }
