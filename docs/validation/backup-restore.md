@@ -2,7 +2,8 @@
 
 Portable library archives use ZIP packages with `manifest.json`, `records.json`,
 and `media/<sha256>.<ext>`. Credentials and temporary signed URLs are excluded
-from exports.
+from exports. The native plugin streams through `ZipOutputStream` /
+`ZipInputStream`; JavaScript never receives whole-archive bytes on Android.
 
 ## Proven (web / Node contracts)
 
@@ -33,14 +34,29 @@ npm run typecheck
 npm run lint
 ```
 
+## Authored, awaiting CI emulator run
+
+Native `ArchivePlugin` / `LibraryArchiver` stream library-scope ZIP export,
+inspect, and remap import. JVM tests cover path rules, JSON allowlist codec,
+and collision remap. Instrumented tests are authored for the `android.yml`
+`instrumented` job (API 26 + 34). Do not treat the following as proven until
+that job is observed green:
+
+| Check                                                                                         | Evidence                     |
+| --------------------------------------------------------------------------------------------- | ---------------------------- |
+| Export → inspect → wipe → import preserves SHA-256 set, tags, and collections; idMap identity | `ArchiveInstrumentedTest`    |
+| Second import remaps colliding IDs; physical objects stay content-addressed                   | `ArchiveInstrumentedTest`    |
+| Tampered media byte rejected; prior library untouched                                         | `ArchiveInstrumentedTest`    |
+| `../evil` member flagged as `invalidPaths`; import refused                                    | `ArchiveInstrumentedTest`    |
+| Soft-trashed assets omitted from native library export                                        | `ArchiveInstrumentedTest`    |
+| Path / JSON / remap unit parity with the web schema                                           | `ArchivePathsTest` / JSON / Remap JVM tests |
+
+`scope: 'project' | 'character'` returns structured `unsupported_scope` (those
+record types do not exist yet).
+
 ## UNVERIFIED (do not claim done)
 
-- Physical **Android → fresh Android** archive round trip
+- Physical **Android → fresh Android** archive round trip (real SAF picker UI)
 - **Browser → Android** archive restore on device
 - **1 GiB** whole-archive transfer without holding the archive in JavaScript / process memory on device
 - Full **character / project** record closure beyond today’s library assets, revisions, tags, and collection membership
-- Native `ArchivePlugin` streaming writers/readers beyond the compiling skeleton (labeled `unverified` at runtime)
-
-Native bridge: `packages/native-bridge/src/archive.ts` and
-`ArchivePlugin.kt` compile and register, but device round-trips stay UNVERIFIED
-until Room/files library streams exist on hardware.
