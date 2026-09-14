@@ -29,8 +29,10 @@
 
 **Interfaces:** Copy the proposed shared contracts from design §8. `resolvePlatform(): 'android' | 'web'` selects adapters using the Capacitor runtime; never user-agent sniffing. `App` renders Library/Characters/Create/Projects, with queue and settings controls.
 
-- [ ] Scaffold the React/TypeScript workspace, add Capacitor Android, and commit the generated Android project. Confirm the template's Node/JDK/SDK/Gradle compatibility, pin dependencies and wrapper, and record exact versions in the foundation validation note. Keep native minimum SDK at 26.
-- [ ] Define workspace scripts and path aliases. Enforce boundaries: domain has no UI/platform imports; native modules are imported only by the Android adapter. Add the script contract used throughout the remaining plans:
+**Evidence (CI proved):** Implementation PR [#19](https://github.com/dkylepeppers-alt/char2vid/pull/19) on review-fix commit `75b8bae3dd8ce9637c2f8f41faae71d51be4f494`. Checks run [`34798595246`](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34798595246) (web + Android debug APK; artifact `char2vid-debug-34798595246-1`). CodeQL run [`34798594996`](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34798594996). See `docs/validation/android-foundation.md` for pinned toolchain and the explicit **UNVERIFIED** device/signing list.
+
+- [x] Scaffold the React/TypeScript workspace, add Capacitor Android, and commit the generated Android project. Confirm the template's Node/JDK/SDK/Gradle compatibility, pin dependencies and wrapper, and record exact versions in the foundation validation note. Keep native minimum SDK at 26.
+- [x] Define workspace scripts and path aliases. Enforce boundaries: domain has no UI/platform imports; native modules are imported only by the Android adapter. Add the script contract used throughout the remaining plans:
 
 ```json
 {
@@ -44,7 +46,7 @@
 }
 ```
 
-- [ ] Add a failing navigation test, then implement persistent route/draft state and touch-accessible controls:
+- [x] Add a failing navigation test, then implement persistent route/draft state and touch-accessible controls:
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -58,8 +60,12 @@ test('phone navigation survives reload', async ({ page }) => {
 });
 ```
 
-- [ ] Verify with `npm run typecheck`, `npm run build`, and `npx playwright test tests/e2e/navigation.spec.ts`. Build with `npx cap sync android` from `apps/studio`, then `./gradlew assembleDebug` in its `android` directory. CI uploads the debug APK as an artifact; use manual workflow dispatch and download/install on Android. No desktop IDE is required for that validation path.
+- [x] Verify with `npm run typecheck`, `npm run build`, and `npx playwright test tests/e2e/navigation.spec.ts`. Build with `npx cap sync android` from `apps/studio`, then `./gradlew assembleDebug` in its `android` directory. CI uploads the debug APK as an artifact; use manual workflow dispatch and download/install on Android. No desktop IDE is required for that validation path.
+  - CI proved typecheck, build, Playwright e2e, Capacitor sync, and debug APK assembly via run `34798595246` / artifact `char2vid-debug-34798595246-1`.
+  - **UNVERIFIED:** manual download/install of that APK onto a physical Android device.
 - [ ] Confirm Android back closes a sheet before navigating, rotation preserves the selected destination, and the keyboard does not hide primary input controls. Commit: `chore: establish web and Android studio foundations`.
+  - Implementation commit landed via [#19](https://github.com/dkylepeppers-alt/char2vid/pull/19); Playwright covers in-web back-sheet / focus behavior only.
+  - **UNVERIFIED (deferred):** physical-device system back, rotation, keyboard not hiding primary inputs, TalkBack/accessibility, lifecycle restoration, and signed-release verification. Tracked in `docs/validation/android-foundation.md` — do not mark done without device/release evidence.
 
 ## Task G2: Implement crash-safe media storage
 
