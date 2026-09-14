@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { Capacitor } from '@capacitor/core';
+
 import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 import { exportRevision } from '@char2vid/native-bridge/media-export';
 
@@ -46,16 +48,25 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
   async function handleExport(destination: 'gallery' | 'files' | 'share') {
     setExportNote(null);
     try {
-      const bytes = await streamToUint8Array(
-        await library.readRevision(asset.revisionId),
-      );
-      const result = await exportRevision({
-        revisionId: asset.revisionId,
-        destination,
-        bytes,
-        mime: asset.mime,
-        fileName: asset.name,
-      });
+      const native =
+        Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+      // Native export resolves the revision inside the plugin. Do not pull
+      // whole-file bytes through JavaScript on Android.
+      const payload = native
+        ? {
+            revisionId: asset.revisionId,
+            destination,
+          }
+        : {
+            revisionId: asset.revisionId,
+            destination,
+            bytes: await streamToUint8Array(
+              await library.readRevision(asset.revisionId),
+            ),
+            mime: asset.mime,
+            fileName: asset.name,
+          };
+      const result = await exportRevision(payload);
       setExportNote(
         result.status === 'saved'
           ? `Saved${result.displayName ? `: ${result.displayName}` : ''}`

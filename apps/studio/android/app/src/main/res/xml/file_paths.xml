@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider scope for share hand-offs. Only the transient share staging
+  directory under the app-owned library is exposed; never filesDir root,
+  the content-addressed objects/ store, the Room database, or external/cache paths.
+-->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
+    <files-path name="library_share" path="library/share/" />
 </paths>

@@ -38,4 +38,13 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      API 26–28 only: legacy public Pictures/Movies/Music writes for the gallery
+      export destination. API 29+ uses scoped MediaStore IS_PENDING rows and
+      needs no storage permission. Never requested at runtime; when absent the
+      plugin falls back to the SAF document picker.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 </manifest>
