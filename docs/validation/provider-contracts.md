@@ -74,7 +74,7 @@ catalog success is not credential validation.
 | Encoding             | multipart/form-data **or** JSON                                                             |
 | Multipart fields     | `prompt`, `image` or repeated `image[]`, optional `mask`, `model`, `size`, `n`              |
 | JSON fields          | `imageDataUrl` / `imageDataUrls` / `maskDataUrl` plus prompt/model                          |
-| Roles                | identity → `image`/`imageDataUrl`; extra refs → `image[]`/`imageDataUrls`; mask untyped     |
+| Roles                | identity/body/look/pose/composition/style → `image\|image[]\|imageDataUrl\|imageDataUrls`. Count selects singular vs plural; encoding selects multipart vs JSON. Mask untyped (`mask` / `maskDataUrl`). |
 | Limits               | Multipart size "strict" but not quantified. Generated URLs temporary.                       |
 | Result               | url or b64_json, same conventions as compat generations                                     |
 | Evidence             | metadata-only. [Image Edits](https://docs.nano-gpt.com/api-reference/endpoint/image-edits). |
@@ -91,7 +91,7 @@ the normalized route.
 | Auth                 | Bearer only. Endpoint page Auth line is `Authorization: Bearer`; embedded OpenAPI `security` is `bearerAuth` (`http`/`bearer`) with no `x-api-key` scheme on this path. [OpenAI-compatible image generation](https://docs.nano-gpt.com/api-reference/endpoint/image-generation-openai). |
 | Encoding             | JSON                                                                                                                                                                                                                                                                                    |
 | Fields               | `prompt` required; `model`, `n`, `size`, `response_format`, `user`, `imageDataUrl(s)`, `maskDataUrl`, `strength`, `guidance_scale`, `num_inference_steps`, `seed`, `kontext_max_mode`                                                                                                   |
-| Roles                | single ref → `imageDataUrl`; multi → `imageDataUrls`; mask → `maskDataUrl`. Remote URLs not accepted; convert to data URLs.                                                                                                                                                             |
+| Roles                | identity/body/look/pose/composition/style → `imageDataUrl\|imageDataUrls` (count, not role). Mask → `maskDataUrl`. Remote URLs not accepted; convert to data URLs. |
 | Encoded size         | Docs: uploads should be **4 MB or smaller after encoding**.                                                                                                                                                                                                                             |
 | Result               | `b64_json` default or `url` (~1 hour signed; may fall back to b64).                                                                                                                                                                                                                     |
 | Evidence             | metadata-only. [OpenAI-compatible image generation](https://docs.nano-gpt.com/api-reference/endpoint/image-generation-openai).                                                                                                                                                          |

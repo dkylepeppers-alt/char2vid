@@ -1054,6 +1054,23 @@ describe('route contract registry (P1)', () => {
     }
   });
 
+  it('maps compat image roles onto a singular/plural family instead of role cardinality', () => {
+    const generations = getRouteContract('image.compat.generations');
+    const edits = getRouteContract('image.compat.edits');
+    const alias = getRouteContract('image.compat.edit');
+
+    expect(generations.roleMapping.identity).toBe(
+      generations.roleMapping.look,
+    );
+    expect(generations.roleMapping.identity).toMatch(/imageDataUrl/);
+    expect(generations.roleMapping.identity).toMatch(/imageDataUrls/);
+
+    expect(edits.roleMapping.identity).toBe(edits.roleMapping.look);
+    expect(edits.roleMapping.identity).toMatch(/image/);
+    expect(edits.roleMapping.identity).toMatch(/image\[\]|imageDataUrls/);
+    expect(alias.roleMapping).toEqual(edits.roleMapping);
+  });
+
   it('records a metadata-only text operation contract without inventing fields', () => {
     const textRoutes = ROUTE_CONTRACTS.filter(
       (contract) => contract.operation === 'text',
@@ -1071,9 +1088,9 @@ describe('route contract registry (P1)', () => {
     const unresolved = primary!.unresolved.join(' ');
     expect(unresolved).toMatch(/\/responses/);
     expect(unresolved).toMatch(/\/messages/);
-    expect(primary!.evidence.some((item) => item.url.includes('text-generation'))).toBe(
-      true,
-    );
+    expect(
+      primary!.evidence.some((item) => item.url.includes('text-generation')),
+    ).toBe(true);
   });
 
   it('rejects an entry that claims observed without a fixture path', () => {

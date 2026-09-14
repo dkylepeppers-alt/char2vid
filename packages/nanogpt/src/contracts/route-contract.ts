@@ -182,6 +182,28 @@ const IMAGE_ROLES: Partial<Record<ReferenceRole, string>> = {
   style: 'input_references',
 };
 
+/** Singular vs plural is a count choice, not a role assignment. */
+const COMPAT_IMAGE_JSON_FAMILY = 'imageDataUrl|imageDataUrls';
+const COMPAT_IMAGE_JSON_ROLES: Partial<Record<ReferenceRole, string>> = {
+  identity: COMPAT_IMAGE_JSON_FAMILY,
+  body: COMPAT_IMAGE_JSON_FAMILY,
+  look: COMPAT_IMAGE_JSON_FAMILY,
+  pose: COMPAT_IMAGE_JSON_FAMILY,
+  composition: COMPAT_IMAGE_JSON_FAMILY,
+  style: COMPAT_IMAGE_JSON_FAMILY,
+};
+
+const COMPAT_IMAGE_EDIT_FAMILY =
+  'image|image[]|imageDataUrl|imageDataUrls';
+const COMPAT_IMAGE_EDIT_ROLES: Partial<Record<ReferenceRole, string>> = {
+  identity: COMPAT_IMAGE_EDIT_FAMILY,
+  body: COMPAT_IMAGE_EDIT_FAMILY,
+  look: COMPAT_IMAGE_EDIT_FAMILY,
+  pose: COMPAT_IMAGE_EDIT_FAMILY,
+  composition: COMPAT_IMAGE_EDIT_FAMILY,
+  style: COMPAT_IMAGE_EDIT_FAMILY,
+};
+
 /**
  * Registry populated only from research-snapshot evidence. No generation
  * response was captured, so no entry is `observed`. Catalog/endpoint
@@ -476,11 +498,7 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
       'seed',
       'kontext_max_mode',
     ],
-    roleMapping: {
-      identity: 'imageDataUrl',
-      look: 'imageDataUrls',
-      composition: 'imageDataUrls',
-    },
+    roleMapping: COMPAT_IMAGE_JSON_ROLES,
     limits: {
       encodedSize:
         'Docs say uploads should be 4 MB or smaller after encoding. Direct URL input is not supported.',
@@ -537,11 +555,7 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
       'imageDataUrls',
       'maskDataUrl',
     ],
-    roleMapping: {
-      identity: 'image',
-      look: 'image[]',
-      composition: 'image[]',
-    },
+    roleMapping: COMPAT_IMAGE_EDIT_ROLES,
     limits: {
       notes: [
         'Multipart uploads have undocumented strict size limits.',
@@ -585,11 +599,7 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
       'imageDataUrls',
       'maskDataUrl',
     ],
-    roleMapping: {
-      identity: 'image',
-      look: 'image[]',
-      composition: 'image[]',
-    },
+    roleMapping: COMPAT_IMAGE_EDIT_ROLES,
     limits: {
       notes: ['Documented alias of /api/v1/images/edits.'],
     },
