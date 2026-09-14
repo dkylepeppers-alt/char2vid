@@ -935,6 +935,37 @@ describe('refreshCatalogs (P1)', () => {
     expect(result.image).toMatchObject({ state: 'fresh', count: 0 });
   });
 
+  it('treats a recognized envelope with blocking record issues as a failed refresh', async () => {
+    const fetcher: CatalogFetcher = (url) =>
+      Promise.resolve(
+        urlToCatalog(url) === 'video'
+          ? {
+              status: 200,
+              body: { data: [{ name: 'nameless' }, 'not-an-object'] },
+            }
+          : { status: 200, body: { data: [{ id: 'ok' }] } },
+      );
+    const previous = previousVideo();
+
+    const result = await refreshCatalogs(fetcher, {
+      now: clock,
+      previous: { video: previous },
+    });
+
+    expect(result.video).toMatchObject({
+      state: 'stale',
+      count: 3,
+      fetchedAt: EARLIER,
+    });
+    expect(result.video.error).toMatch(/invalid_record|record_missing_id/);
+    expect(result.video.snapshot?.models.map((m) => m.id)).toEqual([
+      'v/1',
+      'v/2',
+      'v/3',
+    ]);
+    expect(result.image).toMatchObject({ state: 'fresh', count: 1 });
+  });
+
   it('reports unavailable when a 200 error object body has no previous snapshot', async () => {
     const fetcher: CatalogFetcher = (url) =>
       Promise.resolve(

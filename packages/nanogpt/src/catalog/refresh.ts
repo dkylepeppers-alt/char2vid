@@ -61,8 +61,7 @@ async function refreshOne(
   const fetchedAt = now();
   const normalized = normalizeCatalog(catalog, response.body, fetchedAt);
   const blockingEnvelope = normalized.issues.find(
-    (issue) =>
-      issue.modelId === undefined && issue.code === 'unrecognized_envelope',
+    (issue) => issue.modelId === undefined && issue.severity === 'blocking',
   );
   if (blockingEnvelope) {
     throw new Error(`${blockingEnvelope.code}: ${blockingEnvelope.message}`);
