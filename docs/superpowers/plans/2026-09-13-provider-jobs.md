@@ -27,8 +27,10 @@
 
 **Interfaces:** `normalizeCatalog(catalog, raw, fetchedAt): { models: ModelDescriptor[]; issues: CapabilityIssue[] }` accepts the four generation catalog names in design §8. `refreshCatalogs(): Promise<Record<string, { state: 'fresh' | 'stale' | 'unavailable'; count: number; fetchedAt?: string }>>` updates modalities independently. `normalizeControls(raw): ParameterControl[]` preserves wire types; `ParameterControl` has `key`, `kind: 'select' | 'boolean' | 'number' | 'text' | 'unsupported'`, optional `options/min/max/default`, and `raw`.
 
-- [ ] Retrieve current public catalogs, selected image endpoint metadata, and documentation. Record exact URLs, observation dates, hashes, and differences. Use small authored fixtures for mixed control schemas; label observed fixtures with source/date and remove signed URLs/credentials. Do not save entire documentation or account responses in tests.
-- [ ] Write the new-model, duplicate-name, mixed-parameter, unknown-control, and partial-refresh-failure cases. For example:
+- [x] Retrieve current public catalogs, selected image endpoint metadata, and documentation. Record exact URLs, observation dates, hashes, and differences. Use small authored fixtures for mixed control schemas; label observed fixtures with source/date and remove signed URLs/credentials. Do not save entire documentation or account responses in tests.
+  - Evidence: unauthenticated GETs on 2026-09-14 recorded in `tests/fixtures/nanogpt/catalogs.json` `provenance.liveRefresh` and `docs/validation/provider-contracts.md` (text 601, image 234, video 161, audio 87). gpt-image-2 and Seedream endpoint-metadata SHA-256 unchanged from the 2026-09-13 snapshot. Fixtures are labeled `authored` or `sanitized-observed` with source/date; no signed URLs or credentials. Docs were re-read, not dumped into tests.
+  - **UNVERIFIED:** authenticated catalog/personalized views; any generation response.
+- [x] Write the new-model, duplicate-name, mixed-parameter, unknown-control, and partial-refresh-failure cases. For example:
 
 ```ts
 import { expect, it } from 'vitest';
@@ -43,9 +45,14 @@ it('keeps distinct IDs sharing a display name', () => {
 });
 ```
 
-- [ ] Run `npx vitest run tests/contract/catalog.test.ts`, then implement independent fetch/caches and exact-ID merging. Normalize flat arrays/counts, nested `parameters/defaults`, and enum/range descriptors. `max_images` alone does not define maximum input references. Record conflicts rather than selecting a convenient value.
-- [ ] Define `RouteContract` with base URL, path, operation, auth style, allowed fields, role mapping, limits, response variants, verification state, evidence URL/date, and override expiry. Distinguish generic known contracts from unresolved family-specific parameters. OpenAPI generation must be selective because newer routes are absent and bases can be overridden.
-- [ ] Re-run focused tests, retrieve catalogs without generating, and commit: `feat: discover Nano-GPT models and normalize capabilities`.
+  - Evidence: `tests/contract/catalog.test.ts` covers new unknown IDs, the plan's duplicate-name example, mixed flat/nested/enum/range controls, `kind: 'unsupported'`, `max_images` as output count (not an input-reference limit), catalog-vs-endpoint conflicts, independent refresh stale/unavailable, envelope-level blocking refresh failures, and route-registry evidence/verification rules. Focused run: `npx vitest run tests/contract/catalog.test.ts` (48 passed).
+- [x] Run `npx vitest run tests/contract/catalog.test.ts`, then implement independent fetch/caches and exact-ID merging. Normalize flat arrays/counts, nested `parameters/defaults`, and enum/range descriptors. `max_images` alone does not define maximum input references. Record conflicts rather than selecting a convenient value.
+  - Evidence: `packages/nanogpt/src/catalog/{normalize,refresh}.ts` with injected fetcher/clock. Conflicts become `CapabilityIssue`s; limits stay unknown when sources disagree.
+- [x] Define `RouteContract` with base URL, path, operation, auth style, allowed fields, role mapping, limits, response variants, verification state, evidence URL/date, and override expiry. Distinguish generic known contracts from unresolved family-specific parameters. OpenAPI generation must be selective because newer routes are absent and bases can be overridden.
+  - Evidence: `packages/nanogpt/src/contracts/route-contract.ts` plus `docs/validation/provider-contracts.md`. Compat image path uses the OpenAPI server override (`https://nano-gpt.com/v1/images/generations`) and records the research-table `/api/v1/…` disagreement. No registry entry is `observed` (no generation fixture).
+- [x] Re-run focused tests, retrieve catalogs without generating, and commit: `feat: discover Nano-GPT models and normalize capabilities`.
+  - Evidence: focused catalog tests plus `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build` on this branch. Catalog retrieval was unauthenticated GET only.
+  - **UNVERIFIED:** every paid/authenticated generation, status, and download path listed in `docs/validation/provider-contracts.md` § UNVERIFIED.
 
 ## Task P2: Create authenticated service and temporary media transport
 
