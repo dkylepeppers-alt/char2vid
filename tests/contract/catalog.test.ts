@@ -146,6 +146,24 @@ describe('normalizeCatalog (P1)', () => {
     expect(result.models.some((model) => model.id === 'error')).toBe(false);
   });
 
+  it('rejects an error envelope even when the nested error object has a string id', () => {
+    const result = normalizeCatalog(
+      'image',
+      { error: { id: 'req_123', message: 'unavailable' } },
+      FETCHED_AT,
+    );
+    expect(result.models).toEqual([]);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'unrecognized_envelope',
+        catalog: 'image',
+        severity: 'blocking',
+      }),
+    );
+    expect(result.models.some((model) => model.id === 'error')).toBe(false);
+    expect(result.models.some((model) => model.id === 'req_123')).toBe(false);
+  });
+
   it('reports a record without an id instead of inventing one', () => {
     const result = normalizeCatalog(
       'audio',

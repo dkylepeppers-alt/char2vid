@@ -515,6 +515,11 @@ function extractEntries(raw: unknown):
     );
   }
   if (collection === undefined) {
+    // Error envelopes are never catalogs, even when the nested object
+    // carries a string id (`{ error: { id, message } }`).
+    if ('error' in raw) {
+      return undefined;
+    }
     const values = Object.values(raw);
     // Bare object maps are catalogs only when at least one value already
     // carries a string id. Key-as-id is reserved for data/models envelopes
