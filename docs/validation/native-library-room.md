@@ -7,7 +7,7 @@
 - Capacitor `Char2vidLibrary` typed plugin (`LibraryPlugin`) — no unrestricted SQL.
 - `packages/native-bridge/src/library.ts` wires `LibraryPort` to the plugin (chunked revision reads).
 - JVM unit coverage: path layout + PNG signature / SHA-256 streaming hash (`LibraryPathsTest`).
-- Native `ExportPlugin` / `MediaExporter` save transaction (MediaStore `IS_PENDING` on API 29+, legacy public directory on API 26–28 when `WRITE_EXTERNAL_STORAGE` is granted, otherwise SAF `ACTION_CREATE_DOCUMENT`; share via FileProvider scoped to `filesDir/library/share/`). FileProvider is not granted at filesDir root.
+- Native `ExportPlugin` / `MediaExporter` save transaction (MediaStore `IS_PENDING` on API 29+, legacy public directory on API 26–28 when `WRITE_EXTERNAL_STORAGE` is granted, otherwise SAF `ACTION_CREATE_DOCUMENT`; share via FileProvider scoped to `filesDir/library/share/`). FileProvider is not granted at filesDir root. The app never requests `WRITE_EXTERNAL_STORAGE`, so production API 26–28 gallery always takes the SAF fallback. The API 26 emulator cell is evidence of that SAF routing (`galleryUsesMediaStore` is false without the grant) plus an explicitly named optional-path test for the granted-legacy MediaStore writer — not proof of the production gallery path.
 
 Android CI (`android.yml`) `build` job runs `lintDebug`, `testDebugUnitTest`, and `assembleDebug`. The `instrumented` job (API 26 + 34 emulator matrix, `connectedDebugAndroidTest`) is authored.
 
@@ -16,8 +16,10 @@ Android CI (`android.yml`) `build` job runs `lintDebug`, `testDebugUnitTest`, an
 Do not treat these as proven until a GitHub Actions `instrumented` job on this branch is observed green.
 
 - Import → close/reopen → hash match (`LibraryImportInstrumentedTest`).
-- Gallery export publishes a MediaStore row with `IS_PENDING = 0`, matching byte count and SHA-256 (`ExportInstrumentedTest`).
+- API 29+ gallery export publishes a MediaStore row with `IS_PENDING = 0`, matching byte count and SHA-256 (`ExportInstrumentedTest.galleryExportPublishesVerifiedMediaStoreRow`).
+- API 26–28 without `WRITE_EXTERNAL_STORAGE` reports gallery-not-available / SAF routing (`ExportInstrumentedTest.galleryWithoutWriteExternalStorageRoutesToSaf`). Optional granted-legacy MediaStore path: `legacyGrantedWriteExternalStorageGalleryExportPublishesVerifiedMediaStoreRow`.
 - SAF cancel path returns `cancelled` without writing (`ExportInstrumentedTest`, driven with a null URI rather than UI automation).
+- Copy/verify failure deletes the incomplete destination and leaves the source revision intact (`ExportInstrumentedTest.copyFailureRemovesIncompleteDestinationAndPreservesSource`).
 
 ## UNVERIFIED
 
@@ -25,4 +27,4 @@ Do not treat these as proven until a GitHub Actions `instrumented` job on this b
 - Large-video import without whole-file base64 through JavaScript (on hardware).
 - Format/orientation metadata preservation and orientation-corrected thumbnails.
 - Browser OPFS-on-device (web adapter path; separate from this native slice).
-- API 26–28 gallery export when `WRITE_EXTERNAL_STORAGE` is **denied** (plugin falls back to SAF; not covered as a permission-denied emulator case beyond the SAF complete/cancel helpers).
+- Physical SAF `ACTION_CREATE_DOCUMENT` picker UI for API 26–28 gallery fallback (emulator asserts `galleryUsesMediaStore` is false without the grant and drives the file:// SAF helper; it does not launch the system picker).

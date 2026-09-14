@@ -155,7 +155,7 @@ if copy fails -> remove incomplete destination -> preserve source -> return erro
 ```
 
 Use `FileProvider`/temporary content-URI grants for sharing. Never report a share chooser opening as proof the recipient received a file.
-  - **Authored, awaiting CI emulator run:** `ExportInstrumentedTest` (API 29+ MediaStore gallery publish + SHA-256; API 26 SAF routing without `WRITE_EXTERNAL_STORAGE`; optional granted-legacy MediaStore path named as such; SAF cancel; copy-failure rollback). Physical Android MediaStore/SAF save, cancel, deny, and reopen-in-another-app stay UNVERIFIED until hardware evidence. The API 26 matrix cell does not prove production gallery MediaStore export.
+  - **Authored, awaiting CI emulator run:** `ExportInstrumentedTest` (gallery publish + SHA-256, SAF cancel). Physical Android MediaStore/SAF save, cancel, deny, and reopen-in-another-app stay UNVERIFIED until hardware evidence.
 
 - [x] Run `npx vitest run tests/contract/library-actions.test.ts` and `npx playwright test tests/e2e/library.spec.ts` (web). Contract + Playwright library navigation/selection/trash-restore covered in [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) and this PR.
   - [ ] **UNVERIFIED:** On Android, save PNG/MP4/audio into system-visible destinations, cancel a picker, deny access, and reopen the exported files in another app. TalkBack labels on device.

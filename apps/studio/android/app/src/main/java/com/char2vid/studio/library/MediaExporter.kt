@@ -40,6 +40,7 @@ import java.util.UUID
 class MediaExporter(
     private val context: Context,
     private val repo: MediaStoreRepository,
+    private val wrapCopyDestination: (OutputStream) -> OutputStream = { it },
 ) {
     sealed class Outcome {
         data class Saved(val uri: Uri, val displayName: String) : Outcome()
@@ -261,7 +262,7 @@ class MediaExporter(
     private fun copyAndVerify(source: MediaStoreRepository.RevisionSource, output: OutputStream) {
         val hashed =
             BufferedInputStream(FileInputStream(source.file)).use { input ->
-                BufferedOutputStream(output).use { out ->
+                BufferedOutputStream(wrapCopyDestination(output)).use { out ->
                     val result = MediaValidator.hashCopy(input, out)
                     out.flush()
                     result
