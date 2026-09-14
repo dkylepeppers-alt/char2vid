@@ -12,6 +12,7 @@ export {
 } from './library';
 export {
   openBrowserFileStore,
+  createIdbBlobFileStore,
   hashAndValidate,
   type FileStore,
   type StorageMode,

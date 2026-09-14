@@ -16,6 +16,8 @@ export interface FileStore {
   remove(path: string): Promise<void>;
   originalsByteLength(): Promise<number>;
   availableBytes?(): Promise<number | undefined>;
+  /** Release underlying resources (IndexedDB connection, etc.). */
+  close?(): Promise<void>;
 }
 
 export function finalRelativePath(sha256: string): string {
@@ -108,17 +110,20 @@ export interface OpfsFileStoreOptions {
   rootName?: string;
   /** When OPFS is unavailable, reject IDB blob writes larger than this. */
   idbFallbackLimitBytes?: number;
+  /** IndexedDB database name used by the blob fallback store. */
+  idbBlobDbName?: string;
 }
 
 /**
- * Prefer OPFS for originals; fall back to an in-memory/IDB-friendly Map of
- * blobs when OPFS is unavailable (still usable in browsers without OPFS).
+ * Prefer OPFS for originals; fall back to a durable IndexedDB blob object
+ * store when OPFS is unavailable (crash-safe without OPFS, size-capped).
  */
 export async function openBrowserFileStore(
   options: OpfsFileStoreOptions = {},
 ): Promise<FileStore> {
   const limit = options.idbFallbackLimitBytes ?? 32 * 1024 * 1024;
   const rootName = options.rootName ?? 'char2vid-media';
+  const idbBlobDbName = options.idbBlobDbName ?? 'char2vid-blobs';
 
   if (typeof navigator !== 'undefined' && navigator.storage?.getDirectory) {
     try {
@@ -126,11 +131,11 @@ export async function openBrowserFileStore(
       const dir = await root.getDirectoryHandle(rootName, { create: true });
       return createOpfsFileStore(dir);
     } catch {
-      // fall through to IDB blob map
+      // fall through to IndexedDB blob store
     }
   }
 
-  return createIdbBlobFileStore(limit);
+  return createIdbBlobFileStore(limit, idbBlobDbName);
 }
 
 function createOpfsFileStore(root: FileSystemDirectoryHandle): FileStore {
@@ -218,68 +223,149 @@ function createOpfsFileStore(root: FileSystemDirectoryHandle): FileStore {
   };
 }
 
-function createIdbBlobFileStore(limitBytes: number): FileStore {
-  const blobs = new Map<string, Uint8Array>();
+type BlobRecord = { path: string; data: ArrayBuffer };
+
+function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () =>
+      reject(request.error ?? new Error('IDB request failed'));
+  });
+}
+
+function idbTransactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('IDB transaction failed'));
+    tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'));
+  });
+}
+
+async function openBlobDatabase(dbName: string): Promise<IDBDatabase> {
+  if (typeof indexedDB === 'undefined') {
+    throw new Error('IndexedDB is unavailable for blob fallback');
+  }
+  const request = indexedDB.open(dbName, 1);
+  request.onupgradeneeded = () => {
+    const db = request.result;
+    if (!db.objectStoreNames.contains('blobs')) {
+      db.createObjectStore('blobs', { keyPath: 'path' });
+    }
+  };
+  return idbRequest(request);
+}
+
+/**
+ * Durable IndexedDB object-store for media blobs keyed by relative path.
+ * Survives close/reopen of the library (and page reload) under the same dbName.
+ */
+export async function createIdbBlobFileStore(
+  limitBytes: number,
+  dbName = 'char2vid-blobs',
+): Promise<FileStore> {
+  const db = await openBlobDatabase(dbName);
+
+  async function putBlob(path: string, bytes: Uint8Array): Promise<void> {
+    const tx = db.transaction('blobs', 'readwrite');
+    const store = tx.objectStore('blobs');
+    const record: BlobRecord = {
+      path,
+      data: bytes.slice().buffer,
+    };
+    store.put(record);
+    await idbTransactionDone(tx);
+  }
+
+  async function getBlob(path: string): Promise<Uint8Array | undefined> {
+    const tx = db.transaction('blobs', 'readonly');
+    const store = tx.objectStore('blobs');
+    const record = await idbRequest(
+      store.get(path) as IDBRequest<BlobRecord | undefined>,
+    );
+    await idbTransactionDone(tx);
+    if (!record) {
+      return undefined;
+    }
+    return new Uint8Array(record.data.slice(0));
+  }
+
+  async function deleteBlob(path: string): Promise<void> {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').delete(path);
+    await idbTransactionDone(tx);
+  }
+
+  async function hasBlob(path: string): Promise<boolean> {
+    const tx = db.transaction('blobs', 'readonly');
+    const key = await idbRequest(tx.objectStore('blobs').getKey(path));
+    await idbTransactionDone(tx);
+    return key !== undefined;
+  }
+
+  function rejectOversize(bytes: Uint8Array): void {
+    if (bytes.byteLength > limitBytes) {
+      throw new Error(
+        `IDB blob fallback rejects payloads larger than ${limitBytes} bytes`,
+      );
+    }
+  }
 
   return {
     mode: 'idb-blob',
-    writeTemp(importId, bytes) {
-      if (bytes.byteLength > limitBytes) {
-        return Promise.reject(
-          new Error(
-            `IDB blob fallback rejects payloads larger than ${limitBytes} bytes`,
-          ),
-        );
-      }
+    async writeTemp(importId, bytes) {
+      rejectOversize(bytes);
       const path = tempRelativePath(importId);
-      blobs.set(path, bytes.slice());
-      return Promise.resolve(path);
+      await putBlob(path, bytes);
+      return path;
     },
-    readBytes(path) {
-      const value = blobs.get(path);
+    async readBytes(path) {
+      const value = await getBlob(path);
       if (!value) {
-        return Promise.reject(new Error(`missing blob path: ${path}`));
+        throw new Error(`missing blob path: ${path}`);
       }
-      return Promise.resolve(value.slice());
+      return value;
     },
     pathExists(path) {
-      return Promise.resolve(blobs.has(path));
+      return hasBlob(path);
     },
-    promote(tempPath, sha256) {
+    async promote(tempPath, sha256) {
       const finalPath = finalRelativePath(sha256);
-      if (blobs.has(finalPath)) {
-        blobs.delete(tempPath);
-        return Promise.resolve(finalPath);
+      if (await hasBlob(finalPath)) {
+        await deleteBlob(tempPath);
+        return finalPath;
       }
-      const bytes = blobs.get(tempPath);
+      const bytes = await getBlob(tempPath);
       if (!bytes) {
-        return Promise.reject(new Error(`missing temp path: ${tempPath}`));
+        throw new Error(`missing temp path: ${tempPath}`);
       }
-      if (bytes.byteLength > limitBytes) {
-        return Promise.reject(
-          new Error(
-            `IDB blob fallback rejects payloads larger than ${limitBytes} bytes`,
-          ),
-        );
-      }
-      blobs.set(finalPath, bytes);
-      blobs.delete(tempPath);
-      return Promise.resolve(finalPath);
+      rejectOversize(bytes);
+      await putBlob(finalPath, bytes);
+      await deleteBlob(tempPath);
+      return finalPath;
     },
-    remove(path) {
-      blobs.delete(path);
-      return Promise.resolve();
+    async remove(path) {
+      await deleteBlob(path);
     },
-    originalsByteLength() {
+    async originalsByteLength() {
+      const tx = db.transaction('blobs', 'readonly');
+      const store = tx.objectStore('blobs');
+      const records = await idbRequest(
+        store.getAll() as IDBRequest<BlobRecord[]>,
+      );
+      await idbTransactionDone(tx);
       let total = 0;
-      for (const [path, bytes] of blobs) {
-        if (path.startsWith('objects/')) {
-          total += bytes.byteLength;
+      for (const record of records) {
+        if (record.path.startsWith('objects/')) {
+          total += record.data.byteLength;
         }
       }
-      return Promise.resolve(total);
+      return total;
+    },
+    close() {
+      db.close();
+      return Promise.resolve();
     },
   };
 }
 
-export { createIdbBlobFileStore, createOpfsFileStore };
+export { createOpfsFileStore };

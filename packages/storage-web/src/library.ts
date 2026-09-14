@@ -39,6 +39,7 @@ export async function openWebLibrary(
     (await openBrowserFileStore({
       rootName: options.rootName,
       idbFallbackLimitBytes: options.idbFallbackLimitBytes,
+      idbBlobDbName: options.idbBlobDbName ?? `${dbName}-blobs`,
     }));
   const engine = new LibraryEngine({
     files,
@@ -64,9 +65,9 @@ export async function openWebLibrary(
     storageUsage() {
       return engine.storageUsage();
     },
-    close() {
+    async close() {
+      await files.close?.();
       db.close();
-      return Promise.resolve();
     },
     physicalObjectCount() {
       return engine.physicalObjectCount();
