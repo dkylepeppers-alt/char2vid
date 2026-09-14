@@ -506,6 +506,37 @@ describe('normalizeCatalog (P1)', () => {
     );
   });
 
+  it('records disagreement between route formats and supported_formats instead of preferring the route list', () => {
+    const result = normalizeCatalog(
+      'image',
+      {
+        data: [
+          {
+            id: 'fixture/format-disagree',
+            capabilities: { image_generation: true },
+            supported_parameters: {
+              supported_formats: ['png', 'jpeg'],
+              input_image_constraints: {
+                route: { formats: ['png', 'webp'] },
+              },
+            },
+          },
+        ],
+      },
+      FETCHED_AT,
+    );
+    const model = result.models[0]!;
+    expect(model.limits.inputFormats).toBeUndefined();
+    expect(model.verification).toBe('conflict');
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        modelId: 'fixture/format-disagree',
+        code: 'input_format_conflict',
+        severity: 'blocking',
+      }),
+    );
+  });
+
   it('records a capability flag that contradicts a control default', () => {
     const video = normalizeCatalog(
       'video',

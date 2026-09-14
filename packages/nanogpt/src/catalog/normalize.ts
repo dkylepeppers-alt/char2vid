@@ -58,6 +58,10 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return false;
 }
 
+function stringSetEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value) => b.includes(value));
+}
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
@@ -315,11 +319,23 @@ function extractLimits(sp: JsonObject): {
     constraints && isJsonObject(constraints['provider'])
       ? constraints['provider']
       : undefined;
-  const formats =
-    (route && asStringArray(route['formats'])) ??
-    asStringArray(sp['supported_formats']);
-  if (formats) {
-    limits.inputFormats = formats;
+  const routeFormats = route ? asStringArray(route['formats']) : undefined;
+  const supportedFormats = asStringArray(sp['supported_formats']);
+  if (routeFormats !== undefined && supportedFormats !== undefined) {
+    if (stringSetEqual(routeFormats, supportedFormats)) {
+      limits.inputFormats = routeFormats;
+    } else {
+      issues.push({
+        code: 'input_format_conflict',
+        field: 'formats',
+        severity: 'blocking',
+        message: `route.formats (${JSON.stringify(routeFormats)}) disagrees with supported_formats (${JSON.stringify(supportedFormats)}); input formats stay unknown.`,
+      });
+    }
+  } else if (routeFormats !== undefined) {
+    limits.inputFormats = routeFormats;
+  } else if (supportedFormats !== undefined) {
+    limits.inputFormats = supportedFormats;
   }
   const routeBytes = route ? asNumber(route['max_bytes']) : undefined;
   const providerBytes = provider ? asNumber(provider['max_bytes']) : undefined;
@@ -711,6 +727,7 @@ const LIMIT_FIELDS_TO_CLEAR: Record<string, (keyof ModelLimits)[]> = {
   fixed_image_count: ['fixedImageCount'],
   max_bytes: ['inputMaxBytes'],
   formats: ['inputFormats'],
+  supported_formats: ['inputFormats'],
   min_width: ['inputPixels'],
   min_height: ['inputPixels'],
   max_width: ['inputPixels'],
