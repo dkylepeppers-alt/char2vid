@@ -42,16 +42,16 @@ and collision remap. Instrumented tests are authored for the `android.yml`
 `instrumented` job (API 26 + 34). Do not treat the following as proven until
 that job is observed green:
 
-| Check                                                                                         | Evidence                                    |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Export → inspect → wipe → import preserves SHA-256 set, tags, and collections; idMap identity | `ArchiveInstrumentedTest`                   |
-| Second import remaps colliding IDs; physical objects stay content-addressed                   | `ArchiveInstrumentedTest`                   |
-| Tampered media byte rejected; prior library untouched                                         | `ArchiveInstrumentedTest`                   |
-| `../evil` member flagged as `invalidPaths`; import refused                                    | `ArchiveInstrumentedTest`                   |
-| Soft-trashed assets omitted from native library export                                        | `ArchiveInstrumentedTest`                   |
+| Check                                                                                           | Evidence                                    |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Export → inspect → wipe → import preserves SHA-256 set, tags, and collections; idMap identity   | `ArchiveInstrumentedTest`                   |
+| Second import remaps colliding IDs; physical objects stay content-addressed                     | `ArchiveInstrumentedTest`                   |
+| Tampered media byte rejected; prior library untouched                                           | `ArchiveInstrumentedTest`                   |
+| `../evil` member flagged as `invalidPaths`; import refused                                      | `ArchiveInstrumentedTest`                   |
+| Soft-trashed assets omitted from native library export                                          | `ArchiveInstrumentedTest`                   |
 | Import is bound to one inspected ZIP snapshot (changing source between opens cannot swap bytes) | `ArchiveInstrumentedTest`                   |
-| Import scratch ZIP is removed after success and after a rejected archive                       | `ArchiveInstrumentedTest`                   |
-| Path / JSON / remap unit parity with the web schema                                           | `ArchivePathsTest` / JSON / Remap JVM tests |
+| Import scratch ZIP is removed after success and after a rejected archive                        | `ArchiveInstrumentedTest`                   |
+| Path / JSON / remap unit parity with the web schema                                             | `ArchivePathsTest` / JSON / Remap JVM tests |
 
 `scope: 'project' | 'character'` returns structured `unsupported_scope` (those
 record types do not exist yet).
