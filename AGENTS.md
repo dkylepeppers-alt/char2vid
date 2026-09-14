@@ -45,3 +45,8 @@ Read `docs/validation/android-foundation.md` for the pinned Android toolchain. R
 - Preserve unrelated changes. Do not mark plan tasks complete without their required evidence, or claim an APK was built or installed unless that happened.
 - Keep secrets and temporary signed URLs out of logs, fixtures, issue bodies, exports, and screenshots.
 - When a change adds a dependency, explain its purpose and keep it in the owning workspace. Pin versions and update the lockfile. Do not preinstall dependencies for unimplemented milestones.
+
+## Cursor Cloud specific instructions
+
+- Run every workspace command on the Node version in `.nvmrc` (currently 24.19.0), matching `engines.node` (`24.x`). A Cloud Agent's default `node` on `PATH` can be an older runtime that masks engine mismatches, so verify `node --version` reports `v24.x` first; if it does not, activate the pinned version from the repository root with `nvm use` (run `nvm install` beforehand if the version is missing).
+- The E2E suite requires the Playwright Chromium browser. Install it once per environment with `npx playwright install --with-deps chromium` before running `npm run test:e2e`.
