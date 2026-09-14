@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/contracts.ts"
+    ".": "./src/contracts.ts",
+    "./storage": "./src/storage.ts",
+    "./asset-schema": "./src/asset-schema.ts"
   },
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
   }
 }
