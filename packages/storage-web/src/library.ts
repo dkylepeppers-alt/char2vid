@@ -3,6 +3,8 @@ import type {
   ImportSource,
   LibraryPort,
 } from '@char2vid/domain/storage';
+import type { LibraryActionRequest } from '@char2vid/domain/library-actions';
+import type { AssetQuery } from '@char2vid/domain/library-query';
 
 import { DexieMetaStore, openChar2vidDb } from './dexie-meta';
 import {
@@ -20,12 +22,14 @@ export interface WebLibraryOptions extends OpfsFileStoreOptions {
   files?: FileStore;
 }
 
+/**
+ * Production web library surface. Hard purge stays on the engine / Node test
+ * helpers only — not part of this API.
+ */
 export interface WebLibraryHandle extends LibraryPort {
   readonly mode: FileStore['mode'];
   close(): Promise<void>;
   physicalObjectCount(): Promise<number>;
-  purgeLogicalAsset(id: string): Promise<void>;
-  readonly engine: LibraryEngine;
 }
 
 export async function openWebLibrary(
@@ -48,7 +52,6 @@ export async function openWebLibrary(
   });
 
   return {
-    engine,
     mode: files.mode,
     importMedia(source: ImportSource): Promise<AssetRecord> {
       return engine.importMedia(source);
@@ -65,15 +68,18 @@ export async function openWebLibrary(
     storageUsage() {
       return engine.storageUsage();
     },
+    queryAssets(query: AssetQuery) {
+      return engine.queryAssets(query);
+    },
+    applyLibraryAction(request: LibraryActionRequest) {
+      return engine.applyLibraryAction(request);
+    },
     async close() {
       await files.close?.();
       db.close();
     },
     physicalObjectCount() {
       return engine.physicalObjectCount();
-    },
-    purgeLogicalAsset(id) {
-      return engine.purgeLogicalAsset(id);
     },
   };
 }

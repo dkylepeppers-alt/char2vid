@@ -1,3 +1,6 @@
+import type { LibraryActionsPort } from './library-actions';
+import type { LibraryQueryPort } from './library-query';
+
 export interface AssetRecord {
   id: string;
   revisionId: string;
@@ -8,6 +11,13 @@ export interface AssetRecord {
   bytes: number;
   state: 'pending' | 'available' | 'missing';
   createdAt: string;
+  favorite: boolean;
+  /** Integer 0–5, or null when unset. */
+  rating: number | null;
+  /** Primary folder placement; null means library root. */
+  folderId: string | null;
+  /** Soft-delete timestamp; null when not in trash. */
+  trashedAt: string | null;
 }
 
 export interface ImportSource {
@@ -18,7 +28,7 @@ export interface ImportSource {
   mime: string;
 }
 
-export interface LibraryPort {
+export interface LibraryPort extends LibraryQueryPort, LibraryActionsPort {
   importMedia(source: ImportSource): Promise<AssetRecord>;
   getAsset(id: string): Promise<AssetRecord | undefined>;
   readRevision(revisionId: string): Promise<ReadableStream<Uint8Array>>;

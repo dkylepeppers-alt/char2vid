@@ -1,6 +1,9 @@
 import type { AssetRecord } from '@char2vid/domain/storage';
+import { normalizeAssetRecord } from '@char2vid/domain/asset-schema';
 
 import type {
+  AssetTagRow,
+  CollectionMember,
   JournalEntry,
   MetaStore,
   PhysicalObject,
@@ -12,6 +15,8 @@ interface MetaSnapshot {
   assets: Record<string, AssetRecord>;
   revisions: Record<string, RevisionRecord>;
   physical: Record<string, PhysicalObject>;
+  collectionMembers: Record<string, CollectionMember>;
+  assetTags: Record<string, AssetTagRow>;
 }
 
 export type MetaPersister = {
@@ -20,7 +25,41 @@ export type MetaPersister = {
 };
 
 function emptySnapshot(): MetaSnapshot {
-  return { journal: {}, assets: {}, revisions: {}, physical: {} };
+  return {
+    journal: {},
+    assets: {},
+    revisions: {},
+    physical: {},
+    collectionMembers: {},
+    assetTags: {},
+  };
+}
+
+function memberKey(collectionId: string, assetId: string): string {
+  return `${collectionId}\0${assetId}`;
+}
+
+function tagKey(assetId: string, tag: string): string {
+  return `${assetId}\0${tag}`;
+}
+
+function coerceSnapshot(
+  raw: Partial<MetaSnapshot> | MetaSnapshot,
+): MetaSnapshot {
+  const base = emptySnapshot();
+  return {
+    journal: raw.journal ?? base.journal,
+    assets: Object.fromEntries(
+      Object.entries(raw.assets ?? {}).map(([id, asset]) => [
+        id,
+        normalizeAssetRecord(asset),
+      ]),
+    ),
+    revisions: raw.revisions ?? base.revisions,
+    physical: raw.physical ?? base.physical,
+    collectionMembers: raw.collectionMembers ?? base.collectionMembers,
+    assetTags: raw.assetTags ?? base.assetTags,
+  };
 }
 
 /** In-memory meta with optional durable persister (atomic JSON file, etc.). */
@@ -38,7 +77,7 @@ export class JsonMetaStore implements MetaStore {
       return;
     }
     if (this.persister) {
-      this.snapshot = await this.persister.load();
+      this.snapshot = coerceSnapshot(await this.persister.load());
     }
     this.loaded = true;
   }
@@ -73,13 +112,14 @@ export class JsonMetaStore implements MetaStore {
 
   async putAsset(asset: AssetRecord): Promise<void> {
     await this.ensureLoaded();
-    this.snapshot.assets[asset.id] = asset;
+    this.snapshot.assets[asset.id] = normalizeAssetRecord(asset);
     await this.persist();
   }
 
   async getAsset(id: string): Promise<AssetRecord | undefined> {
     await this.ensureLoaded();
-    return this.snapshot.assets[id];
+    const asset = this.snapshot.assets[id];
+    return asset ? normalizeAssetRecord(asset) : undefined;
   }
 
   async deleteAsset(id: string): Promise<void> {
@@ -90,7 +130,9 @@ export class JsonMetaStore implements MetaStore {
 
   async listAssets(): Promise<AssetRecord[]> {
     await this.ensureLoaded();
-    return Object.values(this.snapshot.assets);
+    return Object.values(this.snapshot.assets).map((a) =>
+      normalizeAssetRecord(a),
+    );
   }
 
   async putRevision(revision: RevisionRecord): Promise<void> {
@@ -137,6 +179,73 @@ export class JsonMetaStore implements MetaStore {
     return Object.keys(this.snapshot.physical).length;
   }
 
+  async listCollectionMembers(
+    collectionId?: string,
+  ): Promise<CollectionMember[]> {
+    await this.ensureLoaded();
+    const all = Object.values(this.snapshot.collectionMembers);
+    return collectionId
+      ? all.filter((m) => m.collectionId === collectionId)
+      : all;
+  }
+
+  async putCollectionMember(member: CollectionMember): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.collectionMembers[
+      memberKey(member.collectionId, member.assetId)
+    ] = member;
+    await this.persist();
+  }
+
+  async deleteCollectionMember(
+    collectionId: string,
+    assetId: string,
+  ): Promise<void> {
+    await this.ensureLoaded();
+    delete this.snapshot.collectionMembers[memberKey(collectionId, assetId)];
+    await this.persist();
+  }
+
+  async deleteCollectionMembersForAsset(assetId: string): Promise<void> {
+    await this.ensureLoaded();
+    for (const [key, member] of Object.entries(
+      this.snapshot.collectionMembers,
+    )) {
+      if (member.assetId === assetId) {
+        delete this.snapshot.collectionMembers[key];
+      }
+    }
+    await this.persist();
+  }
+
+  async listAssetTags(assetId?: string): Promise<AssetTagRow[]> {
+    await this.ensureLoaded();
+    const all = Object.values(this.snapshot.assetTags);
+    return assetId ? all.filter((t) => t.assetId === assetId) : all;
+  }
+
+  async putAssetTag(row: AssetTagRow): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.assetTags[tagKey(row.assetId, row.tag)] = row;
+    await this.persist();
+  }
+
+  async deleteAssetTag(assetId: string, tag: string): Promise<void> {
+    await this.ensureLoaded();
+    delete this.snapshot.assetTags[tagKey(assetId, tag)];
+    await this.persist();
+  }
+
+  async deleteAssetTagsForAsset(assetId: string): Promise<void> {
+    await this.ensureLoaded();
+    for (const [key, row] of Object.entries(this.snapshot.assetTags)) {
+      if (row.assetId === assetId) {
+        delete this.snapshot.assetTags[key];
+      }
+    }
+    await this.persist();
+  }
+
   async commitAvailable(args: {
     asset: AssetRecord;
     revision: RevisionRecord;
@@ -144,7 +253,7 @@ export class JsonMetaStore implements MetaStore {
     importId: string;
   }): Promise<void> {
     await this.ensureLoaded();
-    this.snapshot.assets[args.asset.id] = args.asset;
+    this.snapshot.assets[args.asset.id] = normalizeAssetRecord(args.asset);
     this.snapshot.revisions[args.revision.id] = args.revision;
     this.snapshot.physical[args.physical.sha256] = args.physical;
     delete this.snapshot.journal[args.importId];

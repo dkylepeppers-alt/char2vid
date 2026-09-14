@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/contracts.ts",
     "./storage": "./src/storage.ts",
-    "./asset-schema": "./src/asset-schema.ts"
+    "./asset-schema": "./src/asset-schema.ts",
+    "./library-query": "./src/library-query.ts",
+    "./library-actions": "./src/library-actions.ts"
   },
   "scripts": {
     "build": "tsc --build",

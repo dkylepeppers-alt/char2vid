@@ -24,10 +24,13 @@ export interface TestLibraryHandle {
   close(): Promise<void>;
   physicalObjectCount(): Promise<number>;
   /**
-   * G2 test helper: remove one logical asset and GC the physical object only
-   * when no remaining revisions reference it. G3 adds trash on LibraryPort.
+   * Test-only hard purge with reference-counted physical GC. Not on
+   * production `openWebLibrary`.
    */
   purgeLogicalAsset(id: string): Promise<void>;
+  /** Test-only: rewrite createdAt for pagination stability fixtures. */
+  forceCreatedAt(assetId: string, createdAt: string): Promise<void>;
+  listJournal(): Promise<unknown[]>;
   /** Absolute path used for this library (for close/reopen). */
   location: string;
 }
@@ -64,6 +67,12 @@ export async function openTestLibrary(
     },
     purgeLogicalAsset(id: string) {
       return handle.purgeLogicalAsset(id);
+    },
+    forceCreatedAt(assetId: string, createdAt: string) {
+      return handle.forceCreatedAt(assetId, createdAt);
+    },
+    listJournal() {
+      return handle.listJournal();
     },
   };
 }

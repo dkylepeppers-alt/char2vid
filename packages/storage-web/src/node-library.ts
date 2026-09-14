@@ -5,6 +5,8 @@ import type {
   ImportSource,
   LibraryPort,
 } from '@char2vid/domain/storage';
+import type { LibraryActionRequest } from '@char2vid/domain/library-actions';
+import type { AssetQuery } from '@char2vid/domain/library-query';
 
 import { JsonMetaStore } from './json-meta';
 import { createJsonFilePersister, createNodeFileStore } from './node-files';
@@ -15,10 +17,13 @@ export interface NodeLibraryOptions {
   fault?: FaultPoint;
 }
 
+/** Node/test library: includes hard purge for shared-file contract tests. */
 export interface NodeLibraryHandle extends LibraryPort {
   close(): Promise<void>;
   physicalObjectCount(): Promise<number>;
   purgeLogicalAsset(id: string): Promise<void>;
+  forceCreatedAt(assetId: string, createdAt: string): Promise<void>;
+  listJournal(): Promise<unknown[]>;
   readonly engine: LibraryEngine;
 }
 
@@ -52,6 +57,12 @@ export function openNodeLibrary(
     storageUsage() {
       return engine.storageUsage();
     },
+    queryAssets(query: AssetQuery) {
+      return engine.queryAssets(query);
+    },
+    applyLibraryAction(request: LibraryActionRequest) {
+      return engine.applyLibraryAction(request);
+    },
     close() {
       // Durable state already flushed per mutation.
       return Promise.resolve();
@@ -61,6 +72,12 @@ export function openNodeLibrary(
     },
     purgeLogicalAsset(id: string) {
       return engine.purgeLogicalAsset(id);
+    },
+    forceCreatedAt(assetId: string, createdAt: string) {
+      return engine.forceCreatedAt(assetId, createdAt);
+    },
+    listJournal() {
+      return engine.listJournal();
     },
   };
 

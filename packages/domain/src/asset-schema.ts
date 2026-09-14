@@ -20,6 +20,10 @@ export const assetRecordSchema: z.ZodType<AssetRecord> = z
     bytes: z.number().int().nonnegative(),
     state: assetStateSchema,
     createdAt: z.string().datetime({ offset: true }),
+    favorite: z.boolean(),
+    rating: z.union([z.number().int().min(0).max(5), z.null()]),
+    folderId: z.union([z.string().min(1), z.null()]),
+    trashedAt: z.union([z.string().datetime({ offset: true }), z.null()]),
   })
   .superRefine((asset, ctx) => {
     if (asset.state === 'pending') {
@@ -72,4 +76,29 @@ export function parseAssetRecord(value: unknown): AssetRecord {
 
 export function parseImportSource(value: unknown): ImportSource {
   return importSourceSchema.parse(value);
+}
+
+/** Fill organization defaults for records persisted before G3. */
+export function normalizeAssetRecord(
+  value: Partial<AssetRecord> &
+    Pick<
+      AssetRecord,
+      | 'id'
+      | 'revisionId'
+      | 'kind'
+      | 'name'
+      | 'mime'
+      | 'sha256'
+      | 'bytes'
+      | 'state'
+      | 'createdAt'
+    >,
+): AssetRecord {
+  return parseAssetRecord({
+    favorite: false,
+    rating: null,
+    folderId: null,
+    trashedAt: null,
+    ...value,
+  });
 }
