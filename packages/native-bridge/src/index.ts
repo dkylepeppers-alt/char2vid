@@ -21,3 +21,14 @@ export {
   type ExportRevisionRequest,
   type ExportRevisionResult,
 } from './media-export';
+
+export {
+  exportArchiveNative,
+  inspectArchiveNative,
+  importArchiveNative,
+  type ArchiveScope,
+  type ExportArchiveRequest,
+  type ExportArchiveNativeResult,
+  type InspectArchiveNativeResult,
+  type ImportArchiveNativeResult,
+} from './archive';

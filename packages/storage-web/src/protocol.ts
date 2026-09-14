@@ -101,6 +101,17 @@ export interface MetaStore {
     physical: PhysicalObject;
     importId: string;
   }): Promise<void>;
+
+  /**
+   * Atomically commit durable archive metadata after media objects are staged.
+   * Physical objects are written separately (content-addressed) before this call.
+   */
+  commitArchiveImport(args: {
+    assets: AssetRecord[];
+    revisions: RevisionRecord[];
+    collectionMembers: CollectionMember[];
+    assetTags: AssetTagRow[];
+  }): Promise<void>;
 }
 
 export class ImportFaultError extends Error {
@@ -799,5 +810,18 @@ export class LibraryEngine {
 
   async listJournal(): Promise<JournalEntry[]> {
     return this.meta.listJournal();
+  }
+
+  /** Host surface for G4 portable archives. */
+  getArchiveHost(): {
+    meta: MetaStore;
+    files: FileStore;
+    purgeLogicalAsset(id: string): Promise<void>;
+  } {
+    return {
+      meta: this.meta,
+      files: this.files,
+      purgeLogicalAsset: (id: string) => this.purgeLogicalAsset(id),
+    };
   }
 }

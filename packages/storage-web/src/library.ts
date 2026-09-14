@@ -30,6 +30,7 @@ export interface WebLibraryHandle extends LibraryPort {
   readonly mode: FileStore['mode'];
   close(): Promise<void>;
   physicalObjectCount(): Promise<number>;
+  getArchiveHost(): ReturnType<LibraryEngine['getArchiveHost']>;
 }
 
 export async function openWebLibrary(
@@ -80,6 +81,9 @@ export async function openWebLibrary(
     },
     physicalObjectCount() {
       return engine.physicalObjectCount();
+    },
+    getArchiveHost() {
+      return engine.getArchiveHost();
     },
   };
 }

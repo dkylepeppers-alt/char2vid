@@ -28,3 +28,15 @@ export {
 } from './files';
 export { sha256HexAsync } from './hash';
 export { openNodeLibrary, type NodeLibraryHandle } from './node-library';
+
+export {
+  exportArchive,
+  inspectArchive,
+  importArchive,
+  type ArchiveHost,
+  type ArchiveSource,
+  type ExportArchiveRequest,
+  type ExportArchiveResult,
+  type ImportArchiveOptions,
+  type ImportArchiveResult,
+} from './archive';

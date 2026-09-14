@@ -25,6 +25,7 @@ export interface NodeLibraryHandle extends LibraryPort {
   forceCreatedAt(assetId: string, createdAt: string): Promise<void>;
   listJournal(): Promise<unknown[]>;
   readonly engine: LibraryEngine;
+  getArchiveHost(): ReturnType<LibraryEngine['getArchiveHost']>;
 }
 
 export function openNodeLibrary(
@@ -78,6 +79,9 @@ export function openNodeLibrary(
     },
     listJournal() {
       return engine.listJournal();
+    },
+    getArchiveHost() {
+      return engine.getArchiveHost();
     },
   };
 

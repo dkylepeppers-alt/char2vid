@@ -106,7 +106,7 @@ export interface LibraryPort {
 `openTestLibrary({ location, fault? })` creates a temporary real browser-storage test environment or service-side test filesystem with the same transaction protocol; it returns `{ library: LibraryPort, close(): Promise<void>, physicalObjectCount(): Promise<number> }`. Native instrumentation independently runs the import/close/reopen checks against Room/files, rather than treating the web adapter's test as native proof. Fault values are `after-write` and `after-promote`.
 
 - [x] Add a persistence test with a small valid image fixture, import, close/reopen the repository, and compare the re-read content hash. Add fault injection after file promotion and a shared-file test proving removal of one logical asset does not remove a file referenced by another.
-  - Evidence: [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) web/Node FS contracts (`tests/contract/storage.contract.test.ts`, IDB blob fallback in `storage-idb.contract.test.ts`). Shared-hash purge via test helper proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28); `applyLibraryAction` permanent-delete shared-hash proof (trash → permanent-delete) in hygiene follow-up.
+  - Evidence: [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) web/Node FS contracts (`tests/contract/storage.contract.test.ts`, IDB blob fallback in `storage-idb.contract.test.ts`). Shared-hash purge via test helper proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28); `applyLibraryAction` permanent-delete shared-hash proof (trash → permanent-delete) in hygiene follow-up ([#31](https://github.com/dkylepeppers-alt/char2vid/pull/31)).
 - [x] Run `npx vitest run tests/contract/storage.contract.test.ts` and implement tables for assets, revisions, physical objects, and import journal **for the web/Node adapters**. SQLite/Room schema remains outstanding (native). Target SQL constraints for native:
 
 ```sql
@@ -132,7 +132,7 @@ CREATE TABLE import_journal (
 
 ## Task G3: Build organization, playback, and native exports
 
-**Evidence:** query/actions/soft trash/membership — [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29); gallery UI, selection, export bridge, Playwright library e2e — [#30](https://github.com/dkylepeppers-alt/char2vid/pull/30); trash-before-permanent-delete gate + honest share status — hygiene follow-up.
+**Evidence:** query/actions/soft trash/membership — [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29); gallery UI, selection, export bridge, Playwright library e2e — [#30](https://github.com/dkylepeppers-alt/char2vid/pull/30); trash-before-permanent-delete gate + honest share status — hygiene follow-up ([#31](https://github.com/dkylepeppers-alt/char2vid/pull/31)).
 **Still open / UNVERIFIED:** physical Android MediaStore export, device TalkBack, OPFS-on-device, Kotlin/Room library storage (G2 remainder).
 
 **Create:** `packages/domain/src/library-query.ts`, `packages/domain/src/library-actions.ts`, `apps/studio/src/features/library/LibraryPage.tsx`, `AssetDetail.tsx`, `SelectionBar.tsx` in that directory, `packages/native-bridge/src/media-export.ts`, `apps/studio/android/app/src/main/java/com/char2vid/studio/library/ExportPlugin.kt`, `tests/contract/library-actions.test.ts`, `tests/e2e/library.spec.ts`.
@@ -140,7 +140,7 @@ CREATE TABLE import_journal (
 **Interfaces:** `queryAssets({ text?, kind?, folderId?, collectionId?, tags?, favorite?, sort, cursor?, limit }): Promise<{ assets: AssetRecord[]; nextCursor?: string }>` uses stable `(sortValue,id)` ordering. `applyLibraryAction({ assetIds, action, value? }): Promise<void>` supports tag, favorite, rating, collection, folder, trash, and restore. `exportRevision({ revisionId, destination: 'gallery' | 'files' | 'share' }): Promise<{ status: 'saved' | 'shared' | 'cancelled'; displayName?: string }>` is platform-owned (`shared` = share sheet handed off, not recipient proof). `permanent-delete` requires prior soft trash (`trashedAt`).
 
 - [x] Write a contract case for one asset belonging to two collections, being removed from one, then being trashed/restored without changing its file hash. Add a pagination case with identical timestamps to prevent duplicate/missing grid items.
-  - Evidence: [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) `tests/contract/library-actions.test.ts`. Shared-hash `permanent-delete` via `applyLibraryAction` (trash → permanent-delete) proved in follow-up hygiene PR.
+  - Evidence: [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) `tests/contract/library-actions.test.ts`. Shared-hash `permanent-delete` via `applyLibraryAction` (trash → permanent-delete) proved in [#31](https://github.com/dkylepeppers-alt/char2vid/pull/31).
 - [x] Implement relational membership tables and indexes; use soft deletion for Trash and reference-counted physical deletion only on explicit permanent removal ([#29](https://github.com/dkylepeppers-alt/char2vid/pull/29)). Build gallery UI with batch selection, search/filter wired to `queryAssets`, fit-to-screen detail, image/video/audio playback hooks, and provenance display (this PR: `LibraryPage` / `AssetDetail` / `SelectionBar`; CSS grid + cursor load-more — full windowing virtualization not required for this slice).
 - [ ] Implement native picker and export actions on device. Export **contract** + compiling `ExportPlugin` skeleton + web download/share adapter land in this PR. The native save transaction remains:
 
@@ -167,7 +167,10 @@ Use `FileProvider`/temporary content-URI grants for sharing. Never report a shar
 
 Archive version 1 includes `manifest.json`, `records.json`, and `media/<sha256>.<extension>`. Record serializers export only allowlisted durable fields; UI prompts and character records can contain arbitrary Unicode text.
 
-- [ ] Add actual archive round-trip tests and malicious-path tests before implementing import. Use these assertions in the archive test:
+**Evidence (web):** portable library archives PR (this slice) — domain schema/remap, web `exportArchive` / `inspectArchive` / `importArchive({ conflict: 'remap' })`, contract tests, Settings `BackupPage`, compiling `ArchivePlugin` skeleton, `docs/validation/backup-restore.md`.
+**Still open / UNVERIFIED:** Android↔Android and browser↔Android device round trips; 1 GiB streaming without whole-archive memory allocation; full character/project record closure.
+
+- [x] Add actual archive round-trip tests and malicious-path tests before implementing import. Use these assertions in the archive test:
 
 ```ts
 import { expect, it } from 'vitest';
@@ -181,10 +184,15 @@ it('accepts a relative media member', () => {
 });
 ```
 
-- [ ] Implement path normalization, count/expanded-size limits, checksum verification, a collision map, and a dependency-closure exporter. Remap every ID reference in characters, looks, shots, graph edges, and timeline records. Keep this traversal schema-owned so future record types cannot silently lose links.
-- [ ] Implement staging import with rollback, schema-version dispatch, and migration backups. Exclude credentials and signed URLs. Interrupted exports leave no apparently complete archive; interrupted imports leave the existing library intact.
-- [ ] Run `npx vitest run tests/contract/archive.test.ts`. Perform Android → fresh Android and browser → Android round trips. After later milestones add character/project records to the same tests. Measure a 1 GiB archive without whole-archive memory allocation.
-- [ ] Commit: `feat: add portable library and project archives`.
+  - Evidence: `tests/contract/archive.test.ts` (web/Node).
+
+- [x] Implement path normalization, count/expanded-size limits, checksum verification, a collision map, and a dependency-closure exporter for **library** scope. Remap helpers cover assets/revisions/tags/memberships plus schema-owned stub traversal for characters, looks, shots, graph edges, and timeline records so future types cannot silently lose links.
+  - Evidence: `packages/domain/src/archive-schema.ts`, `archive-remap.ts`, `packages/storage-web/src/archive.ts`.
+- [x] Implement staging import with rollback, schema-version dispatch, and migration-oriented inspect-before-mutate. Exclude credentials and signed URLs. Interrupted exports leave no apparently complete archive; interrupted/rejected imports leave the existing library intact (**web/Node**).
+  - Evidence: contract tests + `docs/validation/backup-restore.md`.
+- [ ] Run `npx vitest run tests/contract/archive.test.ts` (web proved in this PR). Perform Android → fresh Android and browser → Android round trips. After later milestones add character/project records to the same tests. Measure a 1 GiB archive without whole-archive memory allocation.
+  - **UNVERIFIED:** device archive round-trips and 1 GiB streaming measurement — leave unchecked until hardware evidence.
+- [x] Commit (web slice): `feat(archive): G4 portable library archives (web)` (this PR). Full native device archive commit remains open.
 
 ## Milestone acceptance
 

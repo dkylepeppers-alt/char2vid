@@ -639,3 +639,51 @@ textarea {
   background: #caff63;
   border-color: #caff63;
 }
+
+.backup-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.backup-panel h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+
+.backup-panel p {
+  margin: 0;
+  color: #c4c7bf;
+  line-height: 1.45;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.secondary-action.file-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid #3a3f38;
+  border-radius: 999px;
+  background: #1a1d19;
+  cursor: pointer;
+}
+
+.secondary-action.file-action:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.backup-status {
+  margin: 0;
+  color: #caff63;
+  font-size: 0.92rem;
+}
+
+.backup-status-error {
+  color: #ff8f8f;
+}
