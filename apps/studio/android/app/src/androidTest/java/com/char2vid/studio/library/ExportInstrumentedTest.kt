@@ -326,15 +326,6 @@ class ExportInstrumentedTest {
         }
         val verb = if (grant) "grant" else "revoke"
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        try {
-            if (grant) {
-                automation.grantRuntimePermission(context.packageName, permission)
-            } else {
-                automation.revokeRuntimePermission(context.packageName, permission)
-            }
-        } catch (_: Exception) {
-            // Some emulators reject UiAutomation permission APIs; pm is the fallback.
-        }
         val pfd = automation.executeShellCommand("pm $verb ${context.packageName} $permission")
         android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes() }
         val deadline = System.currentTimeMillis() + 5_000
