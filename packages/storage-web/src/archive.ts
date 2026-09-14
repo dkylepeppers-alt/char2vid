@@ -327,6 +327,7 @@ export async function inspectArchive(
     return report;
   }
 
+  const hashedByPath = new Map<string, string>();
   for (const file of manifest.files) {
     if (
       !validateArchivePath(file.path) ||
@@ -347,6 +348,7 @@ export async function inspectArchive(
       );
     }
     const digest = await sha256HexAsync(data);
+    hashedByPath.set(file.path, digest);
     if (digest !== file.sha256) {
       report.errors.push(`checksum mismatch for ${file.path}`);
     }
@@ -358,14 +360,119 @@ export async function inspectArchive(
     }
   }
 
+  // Every zip media member must be inventoried in manifest.files. Empty or
+  // incomplete files lists with media present must fail inspect.
+  const manifestPaths = new Set(manifest.files.map((f) => f.path));
+  for (const name of names) {
+    if (!name.startsWith('media/')) {
+      continue;
+    }
+    if (!manifestPaths.has(name)) {
+      report.errors.push(`media member ${name} not listed in manifest.files`);
+    }
+  }
+  if (
+    names.some((n) => n.startsWith('media/')) &&
+    manifest.files.length === 0
+  ) {
+    report.errors.push(
+      'manifest.files is empty while media members exist in the archive',
+    );
+  }
+
+  const revisionById = new Map(
+    records.revisions.map((revision) => [revision.id, revision]),
+  );
+  const fileBySha = new Map(manifest.files.map((file) => [file.sha256, file]));
+
   for (const asset of records.assets) {
     if (asset.state !== 'available') {
       report.errors.push(`archive asset ${asset.id} is not available`);
       continue;
     }
     const path = mediaArchivePath(asset.sha256, asset.mime);
-    if (!entries[path] && !manifest.files.some((f) => f.path === path)) {
+    const listed = manifest.files.find((f) => f.path === path);
+    if (!listed) {
       report.missingFiles.push(path);
+      report.errors.push(
+        `asset ${asset.id} media path ${path} not listed in manifest.files`,
+      );
+      continue;
+    }
+    if (!entries[path]) {
+      report.missingFiles.push(path);
+      report.errors.push(
+        `asset ${asset.id} media member ${path} missing from zip`,
+      );
+      continue;
+    }
+
+    const fileDigest = hashedByPath.get(path);
+    if (!fileDigest) {
+      report.errors.push(
+        `asset ${asset.id} media path ${path} was not hashed during inspect`,
+      );
+    } else if (
+      fileDigest !== asset.sha256 ||
+      listed.sha256 !== asset.sha256 ||
+      fileDigest !== listed.sha256
+    ) {
+      report.errors.push(
+        `digest cross-check failed for asset ${asset.id}: asset/manifest/file sha256 disagree`,
+      );
+    }
+    if (listed.mime !== asset.mime) {
+      report.errors.push(
+        `asset ${asset.id} mime ${asset.mime} does not match manifest ${listed.mime}`,
+      );
+    }
+    if (listed.bytes !== asset.bytes) {
+      report.errors.push(
+        `asset ${asset.id} bytes ${asset.bytes} does not match manifest ${listed.bytes}`,
+      );
+    }
+
+    const revision = revisionById.get(asset.revisionId);
+    if (!revision) {
+      report.errors.push(
+        `asset ${asset.id} revision ${asset.revisionId} missing from records`,
+      );
+      continue;
+    }
+    if (revision.assetId !== asset.id) {
+      report.errors.push(
+        `revision ${revision.id} assetId ${revision.assetId} does not match asset ${asset.id}`,
+      );
+    }
+    if (revision.sha256 !== asset.sha256) {
+      report.errors.push(
+        `digest cross-check failed for asset ${asset.id}: revision sha256 disagrees`,
+      );
+    }
+    if (fileDigest && revision.sha256 !== fileDigest) {
+      report.errors.push(
+        `digest cross-check failed for asset ${asset.id}: revision/file sha256 disagree`,
+      );
+    }
+  }
+
+  for (const revision of records.revisions) {
+    const listed = fileBySha.get(revision.sha256);
+    if (!listed) {
+      report.errors.push(
+        `revision ${revision.id} sha256 not listed in manifest.files`,
+      );
+      continue;
+    }
+    const fileDigest = hashedByPath.get(listed.path);
+    if (!fileDigest) {
+      report.errors.push(
+        `revision ${revision.id} media path ${listed.path} was not hashed during inspect`,
+      );
+    } else if (fileDigest !== revision.sha256) {
+      report.errors.push(
+        `digest cross-check failed for revision ${revision.id}: file sha256 disagrees`,
+      );
     }
   }
 

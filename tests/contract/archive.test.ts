@@ -173,6 +173,151 @@ describe('portable library archives', () => {
     expect(report.invalidPaths.length).toBeGreaterThan(0);
   });
 
+  it('rejects empty or missing manifest.files when media members are present', async () => {
+    const png = await loadPng();
+    const source = await openTestLibrary();
+    let zipBytes: Uint8Array;
+    try {
+      await source.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'tiny.png',
+        mime: 'image/png',
+      });
+      zipBytes = (
+        await exportArchive(source.getArchiveHost(), {
+          scope: 'library',
+        })
+      ).bytes;
+    } finally {
+      await source.close();
+    }
+
+    const entries = unzipSync(zipBytes);
+    const mediaPath = Object.keys(entries).find((k) => k.startsWith('media/'));
+    expect(mediaPath).toBeDefined();
+    const manifest = JSON.parse(strFromU8(entries['manifest.json']!)) as {
+      files: unknown[];
+    };
+    expect(manifest.files.length).toBeGreaterThan(0);
+
+    manifest.files = [];
+    entries['manifest.json'] = strToU8(
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    const emptyFilesZip = zipSync(entries);
+
+    const emptyReport = await inspectArchive({ bytes: emptyFilesZip });
+    expect(emptyReport.ok).toBe(false);
+    expect(
+      emptyReport.errors.some(
+        (e) =>
+          /manifest\.files is empty/i.test(e) ||
+          /not listed in manifest\.files/i.test(e),
+      ),
+    ).toBe(true);
+
+    // Incomplete inventory: drop the media path from files while leaving the
+    // zip member and asset records intact.
+    const incomplete = unzipSync(zipBytes);
+    const incompleteManifest = JSON.parse(
+      strFromU8(incomplete['manifest.json']!),
+    ) as { files: Array<{ path: string }> };
+    incompleteManifest.files = incompleteManifest.files.filter(
+      (f) => f.path !== mediaPath,
+    );
+    incomplete['manifest.json'] = strToU8(
+      `${JSON.stringify(incompleteManifest, null, 2)}\n`,
+    );
+    const incompleteZip = zipSync(incomplete);
+    const incompleteReport = await inspectArchive({ bytes: incompleteZip });
+    expect(incompleteReport.ok).toBe(false);
+    expect(
+      incompleteReport.errors.some((e) =>
+        /not listed in manifest\.files/i.test(e),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects digest or path cross-check failures across asset/revision/media', async () => {
+    const png = await loadPng();
+    const source = await openTestLibrary();
+    let zipBytes: Uint8Array;
+    try {
+      await source.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'tiny.png',
+        mime: 'image/png',
+      });
+      zipBytes = (
+        await exportArchive(source.getArchiveHost(), {
+          scope: 'library',
+        })
+      ).bytes;
+    } finally {
+      await source.close();
+    }
+
+    const entries = unzipSync(zipBytes);
+    const records = JSON.parse(strFromU8(entries['records.json']!)) as {
+      assets: Array<{
+        id: string;
+        sha256: string;
+        revisionId: string;
+        mime: string;
+        bytes: number;
+      }>;
+      revisions: Array<{
+        id: string;
+        assetId: string;
+        sha256: string;
+      }>;
+    };
+    expect(records.assets).toHaveLength(1);
+    expect(records.revisions).toHaveLength(1);
+
+    // Keep asset/media paths aligned but disagree revision digest vs asset/file.
+    const forgedSha =
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    records.revisions[0]!.sha256 = forgedSha;
+    entries['records.json'] = strToU8(`${JSON.stringify(records, null, 2)}\n`);
+    const badDigestZip = zipSync(entries);
+
+    const digestReport = await inspectArchive({ bytes: badDigestZip });
+    expect(digestReport.ok).toBe(false);
+    expect(
+      digestReport.errors.some((e) => /digest cross-check failed/i.test(e)),
+    ).toBe(true);
+
+    // Path/mime mismatch: keep hashes but point the asset at a wrong media path
+    // by forging mime so mediaArchivePath diverges from the listed file.
+    const pathEntries = unzipSync(zipBytes);
+    const pathRecords = JSON.parse(strFromU8(pathEntries['records.json']!)) as {
+      assets: Array<{
+        id: string;
+        sha256: string;
+        mime: string;
+        bytes: number;
+      }>;
+    };
+    pathRecords.assets[0]!.mime = 'image/jpeg';
+    pathEntries['records.json'] = strToU8(
+      `${JSON.stringify(pathRecords, null, 2)}\n`,
+    );
+    const badPathZip = zipSync(pathEntries);
+    const pathReport = await inspectArchive({ bytes: badPathZip });
+    expect(pathReport.ok).toBe(false);
+    expect(
+      pathReport.errors.some(
+        (e) =>
+          /not listed in manifest\.files/i.test(e) ||
+          /mime .* does not match/i.test(e) ||
+          /digest cross-check failed/i.test(e),
+      ),
+    ).toBe(true);
+  });
+
   it('rejects checksum-mismatched media without mutating the library', async () => {
     const png = await loadPng();
     const lib = await openTestLibrary();
