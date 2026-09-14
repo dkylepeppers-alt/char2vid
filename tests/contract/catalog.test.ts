@@ -3,10 +3,19 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
+  PUBLIC_CATALOG_URLS,
+  type GenerationCatalog,
+  type NormalizedCatalog,
+} from '../../packages/nanogpt/src/catalog/catalog-schema';
+import {
   mergeEndpointMetadata,
   normalizeCatalog,
   normalizeControls,
 } from '../../packages/nanogpt/src/catalog/normalize';
+import {
+  refreshCatalogs,
+  type CatalogFetcher,
+} from '../../packages/nanogpt/src/catalog/refresh';
 
 interface Fixture {
   label: 'authored' | 'sanitized-observed';
@@ -635,5 +644,155 @@ describe('normalizeControls (P1)', () => {
     expect(controls).toEqual([
       expect.objectContaining({ key: 'fps', kind: 'select', default: 24 }),
     ]);
+  });
+});
+
+describe('refreshCatalogs (P1)', () => {
+  const NOW = '2026-09-14T12:00:00.000Z';
+  const EARLIER = '2026-09-13T06:00:00.000Z';
+  const clock = () => NOW;
+
+  function urlToCatalog(url: string): GenerationCatalog {
+    const found = (
+      Object.keys(PUBLIC_CATALOG_URLS) as GenerationCatalog[]
+    ).find((catalog) => PUBLIC_CATALOG_URLS[catalog] === url);
+    if (!found) {
+      throw new Error(`unexpected URL ${url}`);
+    }
+    return found;
+  }
+
+  function previousVideo(): NormalizedCatalog {
+    return {
+      catalog: 'video',
+      fetchedAt: EARLIER,
+      url: PUBLIC_CATALOG_URLS.video,
+      ...normalizeCatalog(
+        'video',
+        { data: [{ id: 'v/1' }, { id: 'v/2' }, { id: 'v/3' }] },
+        EARLIER,
+      ),
+    };
+  }
+
+  it('leaves other modalities fresh when one fetch throws, marking it stale from the previous snapshot', async () => {
+    const calls: string[] = [];
+    const fetcher: CatalogFetcher = (url) => {
+      calls.push(url);
+      const catalog = urlToCatalog(url);
+      if (catalog === 'video') {
+        return Promise.reject(new Error('ECONNRESET'));
+      }
+      const count = { text: 3, image: 2, audio: 1, video: 0 }[catalog];
+      return Promise.resolve({
+        status: 200,
+        body: {
+          data: Array.from({ length: count }, (_, i) => ({
+            id: `${catalog}/${i}`,
+          })),
+        },
+      });
+    };
+    const previous = previousVideo();
+
+    const result = await refreshCatalogs(fetcher, {
+      now: clock,
+      previous: { video: previous },
+    });
+
+    expect(calls.sort()).toEqual(Object.values(PUBLIC_CATALOG_URLS).sort());
+    expect(result.text).toMatchObject({
+      state: 'fresh',
+      count: 3,
+      fetchedAt: NOW,
+    });
+    expect(result.image).toMatchObject({
+      state: 'fresh',
+      count: 2,
+      fetchedAt: NOW,
+    });
+    expect(result.audio).toMatchObject({
+      state: 'fresh',
+      count: 1,
+      fetchedAt: NOW,
+    });
+    expect(result.video).toMatchObject({
+      state: 'stale',
+      count: 3,
+      fetchedAt: EARLIER,
+    });
+    expect(result.video.error).toContain('ECONNRESET');
+    expect(result.video.snapshot?.models.map((m) => m.id)).toEqual([
+      'v/1',
+      'v/2',
+      'v/3',
+    ]);
+    expect(result.image.snapshot?.url).toBe(PUBLIC_CATALOG_URLS.image);
+    expect(result.image.snapshot?.models.map((m) => m.id)).toEqual([
+      'image/0',
+      'image/1',
+    ]);
+  });
+
+  it('reports unavailable with count 0 when a catalog fails and nothing was cached', async () => {
+    const fetcher: CatalogFetcher = (url) =>
+      Promise.resolve(
+        urlToCatalog(url) === 'audio'
+          ? { status: 503, body: { error: 'maintenance' } }
+          : { status: 200, body: { data: [{ id: 'x' }] } },
+      );
+
+    const result = await refreshCatalogs(fetcher, { now: clock });
+
+    expect(result.audio.state).toBe('unavailable');
+    expect(result.audio.count).toBe(0);
+    expect(result.audio.fetchedAt).toBeUndefined();
+    expect(result.audio.snapshot).toBeUndefined();
+    expect(result.audio.error).toContain('503');
+    for (const catalog of ['text', 'image', 'video'] as const) {
+      expect(result[catalog]).toMatchObject({ state: 'fresh', count: 1 });
+    }
+  });
+
+  it('treats an unrecognized 200 body as a failure instead of an empty fresh catalog', async () => {
+    const fetcher: CatalogFetcher = (url) =>
+      Promise.resolve(
+        urlToCatalog(url) === 'video'
+          ? { status: 200, body: { message: 'temporarily unavailable' } }
+          : { status: 200, body: [] },
+      );
+    const previous = previousVideo();
+
+    const result = await refreshCatalogs(fetcher, {
+      now: clock,
+      previous: { video: previous },
+    });
+
+    expect(result.video).toMatchObject({
+      state: 'stale',
+      count: 3,
+      fetchedAt: EARLIER,
+    });
+    expect(result.video.error).toContain('unrecognized_envelope');
+    expect(result.image).toMatchObject({ state: 'fresh', count: 0 });
+  });
+
+  it('uses the overridden URLs and the injected clock only', async () => {
+    const calls: string[] = [];
+    const fetcher: CatalogFetcher = (url) => {
+      calls.push(url);
+      return Promise.resolve({ status: 200, body: { data: [{ id: 'm' }] } });
+    };
+    const result = await refreshCatalogs(fetcher, {
+      now: () => '2030-01-01T00:00:00.000Z',
+      urls: { image: 'https://proxy.example/images' },
+    });
+    expect(calls).toContain('https://proxy.example/images');
+    expect(calls).not.toContain(PUBLIC_CATALOG_URLS.image);
+    expect(result.image.fetchedAt).toBe('2030-01-01T00:00:00.000Z');
+    expect(result.image.snapshot?.url).toBe('https://proxy.example/images');
+    expect(result.image.snapshot?.models[0]?.fetchedAt).toBe(
+      '2030-01-01T00:00:00.000Z',
+    );
   });
 });
