@@ -486,7 +486,14 @@ function extractEntries(raw: unknown):
   }
   if (collection === undefined) {
     const values = Object.values(raw);
-    if (values.length > 0 && values.every(isJsonObject)) {
+    // Bare object maps are catalogs only when at least one value already
+    // carries a string id. Key-as-id is reserved for data/models envelopes
+    // so `{ error: { message } }` cannot become a model named "error".
+    if (
+      values.length > 0 &&
+      values.every(isJsonObject) &&
+      values.some((value) => typeof value['id'] === 'string')
+    ) {
       return {
         entries: Object.entries(raw).map(([key, value]) => ({ key, value })),
       };

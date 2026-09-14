@@ -130,6 +130,22 @@ describe('normalizeCatalog (P1)', () => {
     expect(keyed.issues).toEqual([]);
   });
 
+  it('does not treat an object-shaped error body as a catalog map', () => {
+    const result = normalizeCatalog(
+      'video',
+      { error: { message: 'down' } },
+      FETCHED_AT,
+    );
+    expect(result.models).toEqual([]);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'unrecognized_envelope',
+        catalog: 'video',
+      }),
+    );
+    expect(result.models.some((model) => model.id === 'error')).toBe(false);
+  });
+
   it('reports a record without an id instead of inventing one', () => {
     const result = normalizeCatalog(
       'audio',
@@ -783,6 +799,54 @@ describe('refreshCatalogs (P1)', () => {
     });
     expect(result.video.error).toContain('unrecognized_envelope');
     expect(result.image).toMatchObject({ state: 'fresh', count: 0 });
+  });
+
+  it('keeps a previous snapshot stale when a 200 error object body arrives', async () => {
+    const fetcher: CatalogFetcher = (url) =>
+      Promise.resolve(
+        urlToCatalog(url) === 'video'
+          ? { status: 200, body: { error: { message: 'down' } } }
+          : { status: 200, body: [] },
+      );
+    const previous = previousVideo();
+
+    const result = await refreshCatalogs(fetcher, {
+      now: clock,
+      previous: { video: previous },
+    });
+
+    expect(result.video).toMatchObject({
+      state: 'stale',
+      count: 3,
+      fetchedAt: EARLIER,
+    });
+    expect(result.video.error).toContain('unrecognized_envelope');
+    expect(result.video.snapshot?.models.map((m) => m.id)).toEqual([
+      'v/1',
+      'v/2',
+      'v/3',
+    ]);
+    expect(result.image).toMatchObject({ state: 'fresh', count: 0 });
+  });
+
+  it('reports unavailable when a 200 error object body has no previous snapshot', async () => {
+    const fetcher: CatalogFetcher = (url) =>
+      Promise.resolve(
+        urlToCatalog(url) === 'audio'
+          ? { status: 200, body: { error: { message: 'down' } } }
+          : { status: 200, body: { data: [{ id: 'x' }] } },
+      );
+
+    const result = await refreshCatalogs(fetcher, { now: clock });
+
+    expect(result.audio.state).toBe('unavailable');
+    expect(result.audio.count).toBe(0);
+    expect(result.audio.fetchedAt).toBeUndefined();
+    expect(result.audio.snapshot).toBeUndefined();
+    expect(result.audio.error).toContain('unrecognized_envelope');
+    for (const catalog of ['text', 'image', 'video'] as const) {
+      expect(result[catalog]).toMatchObject({ state: 'fresh', count: 1 });
+    }
   });
 
   it('uses the overridden URLs and the injected clock only', async () => {
