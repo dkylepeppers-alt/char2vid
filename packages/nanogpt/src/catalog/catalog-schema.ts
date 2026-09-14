@@ -50,11 +50,16 @@ export interface ParameterControl {
  * wire fields the limits were read from.
  */
 export interface ModelLimits {
+  /**
+   * Maximum output images. Taken from `max_output_images`, or from
+   * `max_images` when that is the only output-count field. Both stay
+   * unknown when the two disagree.
+   */
   maxOutputImages?: number;
   /**
    * Maximum input references. Set only from `max_input_images` and/or
-   * `input_image_constraints.max_items` when they agree. `max_images` alone
-   * never defines this value.
+   * `input_image_constraints.max_items` when they agree. `max_images` is
+   * an output count and never defines this value.
    */
   maxInputReferences?: number;
   fixedImageCount?: number;

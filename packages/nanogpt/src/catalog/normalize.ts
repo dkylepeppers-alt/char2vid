@@ -255,8 +255,22 @@ function extractLimits(sp: JsonObject): {
   const limits: ModelLimits = { raw };
 
   const maxOutputImages = asNumber(sp['max_output_images']);
-  if (maxOutputImages !== undefined) {
+  const maxImages = asNumber(sp['max_images']);
+  if (maxOutputImages !== undefined && maxImages !== undefined) {
+    if (maxOutputImages === maxImages) {
+      limits.maxOutputImages = maxOutputImages;
+    } else {
+      issues.push({
+        code: 'output_image_limit_conflict',
+        field: 'max_images',
+        severity: 'blocking',
+        message: `max_images (${maxImages}) disagrees with max_output_images (${maxOutputImages}); the output count stays unknown.`,
+      });
+    }
+  } else if (maxOutputImages !== undefined) {
     limits.maxOutputImages = maxOutputImages;
+  } else if (maxImages !== undefined) {
+    limits.maxOutputImages = maxImages;
   }
   const fixedImageCount = asNumber(sp['fixed_image_count']);
   if (fixedImageCount !== undefined) {
@@ -693,6 +707,7 @@ const LIMIT_FIELDS_TO_CLEAR: Record<string, (keyof ModelLimits)[]> = {
     'inputFormats',
   ],
   max_output_images: ['maxOutputImages'],
+  max_images: ['maxOutputImages'],
   fixed_image_count: ['fixedImageCount'],
   max_bytes: ['inputMaxBytes'],
   formats: ['inputFormats'],

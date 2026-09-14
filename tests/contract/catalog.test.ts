@@ -390,6 +390,63 @@ describe('normalizeCatalog (P1)', () => {
     );
   });
 
+  it('uses max_images as the output count when max_output_images is absent', () => {
+    const result = normalizeCatalog(
+      'image',
+      {
+        data: [
+          {
+            id: 'fixture/max-images-only',
+            capabilities: { image_generation: true },
+            supported_parameters: { max_images: 3 },
+          },
+        ],
+      },
+      FETCHED_AT,
+    );
+    const model = result.models[0]!;
+    expect(model.limits.maxOutputImages).toBe(3);
+    expect(model.limits.maxInputReferences).toBeUndefined();
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        modelId: 'fixture/max-images-only',
+        code: 'input_reference_limit_unknown',
+        field: 'max_images',
+        severity: 'advisory',
+      }),
+    );
+  });
+
+  it('records disagreement between max_images and max_output_images instead of choosing', () => {
+    const result = normalizeCatalog(
+      'image',
+      {
+        data: [
+          {
+            id: 'fixture/output-disagree',
+            capabilities: { image_generation: true },
+            supported_parameters: {
+              max_images: 1,
+              max_output_images: 4,
+            },
+          },
+        ],
+      },
+      FETCHED_AT,
+    );
+    const model = result.models[0]!;
+    expect(model.limits.maxOutputImages).toBeUndefined();
+    expect(model.verification).toBe('conflict');
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        modelId: 'fixture/output-disagree',
+        code: 'output_image_limit_conflict',
+        field: 'max_images',
+        severity: 'blocking',
+      }),
+    );
+  });
+
   it('derives the input reference limit and byte limits when the sources agree', () => {
     const image = normalizeCatalog(
       'image',
