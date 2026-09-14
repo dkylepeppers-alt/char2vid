@@ -34,13 +34,13 @@ npm run typecheck
 npm run lint
 ```
 
-## Authored, awaiting CI emulator run
+## Proven (emulator, CI run 34893229015)
 
 Native `ArchivePlugin` / `LibraryArchiver` stream library-scope ZIP export,
 inspect, and remap import. JVM tests cover path rules, JSON allowlist codec,
-and collision remap. Instrumented tests are authored for the `android.yml`
-`instrumented` job (API 26 + 34). Do not treat the following as proven until
-that job is observed green:
+and collision remap. Instrumented tests passed on the `android.yml`
+`instrumented` job (API 26 + 34) in
+[CI run 34893229015](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34893229015):
 
 | Check                                                                                           | Evidence                                    |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------- |
