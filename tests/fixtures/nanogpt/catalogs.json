@@ -7,8 +7,86 @@
     "notes": [
       "Records labeled 'sanitized-observed' are byte-for-byte subsets of public, unauthenticated GET responses. They contained no credentials or signed URLs; the only sanitization is omission of unrelated records.",
       "Records labeled 'authored' are hand-written to exercise a control shape. Their field shapes come from the cited sources; option lists were truncated and IDs prefixed with 'fixture/' where the record is not a real catalog entry.",
-      "No generation endpoint was called and no API key was used to build these fixtures."
-    ]
+      "No generation endpoint was called and no API key was used to build these fixtures.",
+      "liveRefresh below is observation metadata only (URL, date, sha256, counts, bytes). Full catalog bodies were not stored."
+    ],
+    "liveRefresh": {
+      "observedDateUtc": "2026-09-14",
+      "scope": "Unauthenticated public GET; no API key; no generation.",
+      "catalogs": {
+        "text": {
+          "url": "https://nano-gpt.com/api/v1/models?detailed=true",
+          "status": 200,
+          "count": 601,
+          "bytes": 668141,
+          "sha256": "873a35c44e765c257e85af5c855221668592c512d2ae55d766f08bb11382e600",
+          "snapshotCount": 606,
+          "snapshotSha256": "07887277d5ad8232ff64d39d0d2ab1051513256cd3180015a489e5d406353f7b"
+        },
+        "image": {
+          "url": "https://nano-gpt.com/api/v1/images/models",
+          "status": 200,
+          "count": 234,
+          "bytes": 263132,
+          "sha256": "e0cca25a135147f93cd13b2f8bf35a08cf950feb3bb1fef9fa37f209559be0e0",
+          "snapshotCount": 232,
+          "snapshotSha256": "faf5701ce6d8bd238aac9dec9f754f78c32fc0aa9e25838766db9d65ee159bb1"
+        },
+        "image-legacy": {
+          "url": "https://nano-gpt.com/api/v1/image-models",
+          "status": 200,
+          "count": 234,
+          "bytes": 241052,
+          "sha256": "3d16bfd2c04fcb959587df605c70534b9fe7dae55c890ae8646525353deff9bf",
+          "snapshotCount": 232,
+          "snapshotSha256": "ac04940b99c0813b7db6aa1b9db7b6dbd30167bbd24e54a27dbaace95997a3a7"
+        },
+        "video": {
+          "url": "https://nano-gpt.com/api/v1/video-models?detailed=true",
+          "status": 200,
+          "count": 161,
+          "bytes": 323070,
+          "sha256": "39028e73ca6ba608b792f47047cc8163aff330b4e34ede15ad0deb98f8ba3542",
+          "snapshotCount": 161,
+          "snapshotSha256": "8511afa97d4b6e07122b1d844ffebc9c685fb54592156ae18879aa54fb8e4a51"
+        },
+        "audio": {
+          "url": "https://nano-gpt.com/api/v1/audio-models",
+          "status": 200,
+          "count": 87,
+          "bytes": 62835,
+          "sha256": "f10fdafed05b093ebab7aabd1162fdf5097b0d360852741eb151ee3ada727603",
+          "snapshotCount": 85,
+          "snapshotSha256": "35977b9b8e39c0602f1478639e6e96ef43e2c6a609d7d9aac601d06399a69bb3"
+        }
+      },
+      "imageEndpointMetadata": {
+        "gpt-image-2": {
+          "url": "https://nano-gpt.com/api/v1/images/models/gpt-image-2/endpoints",
+          "status": 200,
+          "bytes": 2024,
+          "sha256": "42ff4542c025078f32f7d04aa8dd9bbe77ec709007e16fb4d45ad9bdc3002f92",
+          "unchangedFromSnapshot": true
+        },
+        "bytedance/seedream-v5.0-pro": {
+          "url": "https://nano-gpt.com/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints",
+          "status": 200,
+          "bytes": 2351,
+          "sha256": "c4f074c2bd79a85f72ae9475c4a3c1ff5dadf740a8a5d9d3c2b6d5435e309cf8",
+          "unchangedFromSnapshot": true
+        }
+      },
+      "stillPresent": [
+        "birefnet/v2",
+        "bytedance/seedream-v5.0-pro",
+        "gpt-image-2",
+        "bytedance/seedance-2.5",
+        "bytedance/seedance-2.5-turbo",
+        "elevenlabs/music",
+        "xai-tts",
+        "Whisper-Large-V3"
+      ]
+    }
   },
   "fixtures": {
     "imageMixed": {
