@@ -246,8 +246,43 @@ describe('normalizeCatalog (P1)', () => {
     expect(ops(video.models, 'bytedance/seedance-2.5')).toEqual([
       'video-generate',
       'video-edit',
+      'video-extend',
     ]);
     expect(ops(text.models, 'fixture/text-a')).toEqual(['text']);
+  });
+
+  it('advertises video-extend when a catalog mode option lists it', () => {
+    const video = normalizeCatalog(
+      'video',
+      fixture('videoNested').body,
+      FETCHED_AT,
+    );
+    const seedance = video.models.find(
+      (m) => m.id === 'bytedance/seedance-2.5',
+    )!;
+    expect(seedance.operations).toContain('video-extend');
+
+    const generateOnly = normalizeCatalog(
+      'video',
+      {
+        data: [
+          {
+            id: 'fixture/generate-only',
+            capabilities: { video_generation: true },
+            supported_parameters: {
+              parameters: {
+                mode: {
+                  type: 'select',
+                  options: [{ value: 'text-to-video' }],
+                },
+              },
+            },
+          },
+        ],
+      },
+      FETCHED_AT,
+    );
+    expect(generateOnly.models[0]!.operations).toEqual(['video-generate']);
   });
 
   it('normalizes flat array descriptors and nested parameters without coercing wire types', () => {

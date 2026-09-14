@@ -407,6 +407,7 @@ function inferOperations(
   catalog: GenerationCatalog,
   caps: JsonObject,
   category: unknown,
+  controls: ParameterControl[] = [],
 ): Operation[] {
   const ops: Operation[] = [];
   switch (catalog) {
@@ -428,6 +429,13 @@ function inferOperations(
         ops.push('video-generate');
       }
       if (flag(caps, 'video_to_video')) ops.push('video-edit');
+      const modeValues = controls
+        .filter((control) => control.key === 'mode')
+        .flatMap((control) => control.options ?? [])
+        .map((option) => option.value);
+      if (modeValues.includes('video-extend')) {
+        ops.push('video-extend');
+      }
       break;
     case 'audio': {
       const musicFlag = Object.keys(caps).some(
@@ -587,7 +595,12 @@ function buildModel(
   const { limits, issues: limitIssues, remaining } = extractLimits(supported);
   const { controls, issues: controlIssues } =
     normalizeControlsDetailed(remaining);
-  const operations = inferOperations(catalog, capabilities, record['category']);
+  const operations = inferOperations(
+    catalog,
+    capabilities,
+    record['category'],
+    controls,
+  );
 
   const local: LocalIssue[] = [
     ...extraIssues,
