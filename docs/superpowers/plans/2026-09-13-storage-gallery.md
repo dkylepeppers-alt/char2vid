@@ -69,6 +69,9 @@ test('phone navigation survives reload', async ({ page }) => {
 
 ## Task G2: Implement crash-safe media storage
 
+**Evidence (web):** [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) (crash-safe browser/Node library + IDB fallback); residual abandon/purge-surface cleanups in [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29).
+**Still open:** Kotlin/Room `LibraryPlugin`, OPFS-on-device, native instrumentation.
+
 **Create:** `packages/domain/src/storage.ts`, `packages/domain/src/asset-schema.ts`, `packages/storage-web/src/library.ts`, `packages/storage-web/src/files.ts`, `packages/native-bridge/src/library.ts`, `apps/studio/android/app/src/main/java/com/char2vid/studio/library/LibraryPlugin.kt`, `LibraryDatabase.kt`, `MediaStoreRepository.kt` in that directory, `tests/contract/storage.contract.test.ts`, `tests/helpers/open-test-library.ts`.
 
 **Interfaces:**
@@ -102,8 +105,9 @@ export interface LibraryPort {
 
 `openTestLibrary({ location, fault? })` creates a temporary real browser-storage test environment or service-side test filesystem with the same transaction protocol; it returns `{ library: LibraryPort, close(): Promise<void>, physicalObjectCount(): Promise<number> }`. Native instrumentation independently runs the import/close/reopen checks against Room/files, rather than treating the web adapter's test as native proof. Fault values are `after-write` and `after-promote`.
 
-- [ ] Add a persistence test with a small valid image fixture, import, close/reopen the repository, and compare the re-read content hash. Add fault injection after file promotion and a shared-file test proving removal of one logical asset does not remove a file referenced by another.
-- [ ] Run `npx vitest run tests/contract/storage.contract.test.ts` and confirm the initial failure. Implement tables for assets, revisions, physical objects, and import journal. SQLite schema must include these constraints:
+- [x] Add a persistence test with a small valid image fixture, import, close/reopen the repository, and compare the re-read content hash. Add fault injection after file promotion and a shared-file test proving removal of one logical asset does not remove a file referenced by another.
+  - Evidence: [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) web/Node FS contracts (`tests/contract/storage.contract.test.ts`, IDB blob fallback in `storage-idb.contract.test.ts`). Shared-hash purge via test helper proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28); `applyLibraryAction` permanent-delete shared-hash proof in this PR.
+- [x] Run `npx vitest run tests/contract/storage.contract.test.ts` and implement tables for assets, revisions, physical objects, and import journal **for the web/Node adapters**. SQLite/Room schema remains outstanding (native). Target SQL constraints for native:
 
 ```sql
 CREATE TABLE physical_objects (
@@ -120,19 +124,25 @@ CREATE TABLE import_journal (
 );
 ```
 
-- [ ] Stream into a temporary object, verify file signature/size/hash, promote, then transactionally register its revision and clear the journal. Implement restart reconciliation for every stage. Add typed Room commands rather than exposing unrestricted SQL to the UI. Web fallback stores blobs only when OPFS is unavailable, shows the storage mode, and rejects allocations that exceed its configured fallback limit.
-- [ ] Run the focused contract tests and native instrumentation. Test storage-full and malformed input failures, picker-URI copying, and an import of a large video without full-file base64 transfer through JavaScript. Preserve format/orientation metadata; generate thumbnails from corrected orientation without modifying originals.
-- [ ] Commit: `feat: add crash-safe native and browser media storage`.
+- [x] Stream into a temporary object, verify file signature/size/hash, promote, then transactionally register its revision and clear the journal. Implement restart reconciliation for every stage (**web/Node**). Web fallback stores blobs only when OPFS is unavailable, shows the storage mode, and rejects allocations that exceed its configured fallback limit ([#28](https://github.com/dkylepeppers-alt/char2vid/pull/28)).
+  - [ ] **UNVERIFIED / remaining:** typed Room commands, Kotlin/Room native library storage, OPFS-on-device proof.
+- [ ] Run native instrumentation. Test picker-URI copying and an import of a large video without full-file base64 transfer through JavaScript on device. Preserve format/orientation metadata; generate thumbnails from corrected orientation without modifying originals.
+  - Web contract coverage for storage-full / malformed input: proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). **UNVERIFIED:** native instrumentation, large-video native path, orientation/thumbnail pipeline.
+- [x] Commit (web slice): `feat: add crash-safe browser media storage` via [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Native Room/files commit remains open.
 
 ## Task G3: Build organization, playback, and native exports
+
+**Evidence:** query/actions/soft trash/membership — [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29); gallery UI, selection, export bridge, Playwright library e2e, permanent-delete shared-hash contract — this PR.
+**Still open / UNVERIFIED:** physical Android MediaStore export, device TalkBack, OPFS-on-device, Kotlin/Room library storage (G2 remainder).
 
 **Create:** `packages/domain/src/library-query.ts`, `packages/domain/src/library-actions.ts`, `apps/studio/src/features/library/LibraryPage.tsx`, `AssetDetail.tsx`, `SelectionBar.tsx` in that directory, `packages/native-bridge/src/media-export.ts`, `apps/studio/android/app/src/main/java/com/char2vid/studio/library/ExportPlugin.kt`, `tests/contract/library-actions.test.ts`, `tests/e2e/library.spec.ts`.
 
 **Interfaces:** `queryAssets({ text?, kind?, folderId?, collectionId?, tags?, favorite?, sort, cursor?, limit }): Promise<{ assets: AssetRecord[]; nextCursor?: string }>` uses stable `(sortValue,id)` ordering. `applyLibraryAction({ assetIds, action, value? }): Promise<void>` supports tag, favorite, rating, collection, folder, trash, and restore. `exportRevision({ revisionId, destination: 'gallery' | 'files' | 'share' }): Promise<{ status: 'saved' | 'cancelled'; displayName?: string }>` is platform-owned.
 
-- [ ] Write a contract case for one asset belonging to two collections, being removed from one, then being trashed/restored without changing its file hash. Add a pagination case with identical timestamps to prevent duplicate/missing grid items.
-- [ ] Implement relational membership tables and indexes; use soft deletion for Trash and reference-counted physical deletion only on explicit permanent removal. Build a virtualized gallery, batch selection, search/filter, fit-to-screen detail, video/audio playback, and provenance display.
-- [ ] Implement native picker and export actions. The native save transaction is:
+- [x] Write a contract case for one asset belonging to two collections, being removed from one, then being trashed/restored without changing its file hash. Add a pagination case with identical timestamps to prevent duplicate/missing grid items.
+  - Evidence: [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) `tests/contract/library-actions.test.ts`. Shared-hash `permanent-delete` via `applyLibraryAction` proved in this PR.
+- [x] Implement relational membership tables and indexes; use soft deletion for Trash and reference-counted physical deletion only on explicit permanent removal ([#29](https://github.com/dkylepeppers-alt/char2vid/pull/29)). Build gallery UI with batch selection, search/filter wired to `queryAssets`, fit-to-screen detail, image/video/audio playback hooks, and provenance display (this PR: `LibraryPage` / `AssetDetail` / `SelectionBar`; CSS grid + cursor load-more — full windowing virtualization not required for this slice).
+- [ ] Implement native picker and export actions on device. Export **contract** + compiling `ExportPlugin` skeleton + web download/share adapter land in this PR. The native save transaction remains:
 
 ```text
 resolve immutable revision -> open source stream
@@ -143,9 +153,11 @@ if copy fails -> remove incomplete destination -> preserve source -> return erro
 ```
 
 Use `FileProvider`/temporary content-URI grants for sharing. Never report a share chooser opening as proof the recipient received a file.
+  - **UNVERIFIED:** physical Android MediaStore/SAF save, cancel, deny, and reopen-in-another-app. Plugin currently returns honest `cancelled` / UNVERIFIED labeling until Room library streams exist.
 
-- [ ] Run `npx vitest run tests/contract/library-actions.test.ts` and `npx playwright test tests/e2e/library.spec.ts`. On Android, save PNG/MP4/audio into system-visible destinations, cancel a picker, deny access, and reopen the exported files in another app. Check 48-pixel controls and TalkBack labels.
-- [ ] Commit: `feat: add organized gallery and native media export`.
+- [x] Run `npx vitest run tests/contract/library-actions.test.ts` and `npx playwright test tests/e2e/library.spec.ts` (web). Contract + Playwright library navigation/selection/trash-restore covered in [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) and this PR.
+  - [ ] **UNVERIFIED:** On Android, save PNG/MP4/audio into system-visible destinations, cancel a picker, deny access, and reopen the exported files in another app. TalkBack labels on device.
+- [x] Commit (web UI + export bridge slice): `feat(library): G3 gallery UI, selection, and export bridge` (this PR). Full native MediaStore export commit remains open.
 
 ## Task G4: Implement portable archives and migration recovery
 

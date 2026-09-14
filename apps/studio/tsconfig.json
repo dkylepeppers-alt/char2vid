@@ -4,13 +4,28 @@
     "baseUrl": ".",
     "paths": {
       "@char2vid/domain": ["../../packages/domain/src/contracts.ts"],
-      "@char2vid/native-bridge": ["../../packages/native-bridge/src/index.ts"]
+      "@char2vid/native-bridge": ["../../packages/native-bridge/src/index.ts"],
+      "@char2vid/domain/*": ["../../packages/domain/src/*"],
+      "@char2vid/storage-web": ["../../packages/storage-web/src/index.ts"],
+      "@char2vid/storage-web/library": [
+        "../../packages/storage-web/src/library.ts"
+      ],
+      "@char2vid/native-bridge/media-export": [
+        "../../packages/native-bridge/src/media-export.ts"
+      ]
     },
     "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo"
   },
   "include": ["src", "vite.config.ts", "capacitor.config.ts"],
   "references": [
-    { "path": "../../packages/domain" },
-    { "path": "../../packages/native-bridge" }
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/native-bridge"
+    },
+    {
+      "path": "../../packages/storage-web"
+    }
   ]
 }

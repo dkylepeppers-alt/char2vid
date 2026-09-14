@@ -388,3 +388,254 @@ textarea {
     }
   }
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.library-page {
+  display: grid;
+  gap: 18px;
+}
+
+.library-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.library-toolbar-main,
+.library-toolbar-actions,
+.selection-actions,
+.asset-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.library-search input,
+.library-toolbar select {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #3a3e37;
+  border-radius: 999px;
+  background: #1c1f1b;
+  color: inherit;
+  font: inherit;
+}
+
+.library-search input {
+  min-width: min(100%, 220px);
+}
+
+.primary-action.library-import {
+  color: #101210;
+  background: #caff63;
+  border-color: #caff63;
+  cursor: pointer;
+}
+
+.primary-action.library-import:disabled {
+  color: #777c73;
+  background: #1c1f1b;
+  border-color: #3a3e37;
+  cursor: not-allowed;
+}
+
+.selection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid #3a3e37;
+  border-radius: 16px;
+  background: #171a16;
+}
+
+.selection-count {
+  margin: 0;
+  font-weight: 650;
+  color: #f5f4ee;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+}
+
+.library-card {
+  position: relative;
+  display: grid;
+  border: 1px solid #30342e;
+  border-radius: 16px;
+  background: #171a16;
+  overflow: hidden;
+}
+
+.library-card.is-selected {
+  border-color: #caff63;
+  box-shadow: 0 0 0 1px #caff63;
+}
+
+.library-card-select {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  left: 8px;
+  min-width: 48px;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+}
+
+.library-card-select input {
+  width: 22px;
+  height: 22px;
+}
+
+.library-card-open {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-height: 148px;
+  padding: 48px 14px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.library-card-kind {
+  color: #9da398;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.library-card-name {
+  font-weight: 650;
+  word-break: break-word;
+}
+
+.library-card-meta {
+  color: #9da398;
+  font-size: 0.85rem;
+}
+
+.library-empty {
+  margin-top: 8px;
+}
+
+.library-load-more {
+  justify-self: center;
+}
+
+.asset-detail-scrim {
+  position: fixed;
+  z-index: 12;
+  inset: 0;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  padding: max(16px, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.asset-detail {
+  width: min(100%, 920px);
+  max-height: min(92dvh, 960px);
+  overflow: auto;
+  padding: 18px 22px 24px;
+  border: 1px solid #3a3f37;
+  border-radius: 24px;
+  background: #1c1f1b;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.asset-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.asset-preview.fit-to-screen {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  max-height: min(55dvh, 520px);
+  margin: 16px 0;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #101210;
+}
+
+.asset-preview img,
+.asset-preview video {
+  max-width: 100%;
+  max-height: min(55dvh, 520px);
+  object-fit: contain;
+}
+
+.asset-preview audio {
+  width: min(100%, 420px);
+}
+
+.provenance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.provenance div {
+  padding: 10px 12px;
+  border: 1px solid #30342e;
+  border-radius: 12px;
+  background: #141613;
+}
+
+.provenance dt {
+  margin: 0 0 4px;
+  color: #9da398;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.provenance dd {
+  margin: 0;
+  color: #f5f4ee;
+  word-break: break-word;
+}
+
+.provenance .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.export-note {
+  margin: 8px 0 0;
+}
+
+.status-chip[aria-pressed='true'] {
+  color: #101210;
+  background: #caff63;
+  border-color: #caff63;
+}

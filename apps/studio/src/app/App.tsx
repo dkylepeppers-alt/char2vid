@@ -10,6 +10,7 @@ import {
 } from './navigation';
 import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
+import { LibraryPage } from '../features/library/LibraryPage';
 
 const ROUTE_KEY = 'char2vid.selected-route';
 const DRAFT_KEY = 'char2vid.create-draft';
@@ -177,7 +178,9 @@ export function App() {
             <h1>{destinationLabels[destination]}</h1>
           </div>
 
-          {destination === 'create' ? (
+          {destination === 'library' ? (
+            <LibraryPage />
+          ) : destination === 'create' ? (
             <section className="draft-card" aria-labelledby="draft-title">
               <div>
                 <p className="section-kicker">Draft</p>

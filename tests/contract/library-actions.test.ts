@@ -250,6 +250,57 @@ describe('library actions and query (G3)', () => {
     }
   });
 
+  it('keeps shared physical object until both assets are permanently deleted', async () => {
+    const png = await loadPng();
+    const expectedHash = sha256(png);
+    const opened = await openTestLibrary();
+
+    try {
+      const a = await opened.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'shared-a.png',
+        mime: 'image/png',
+      });
+      const b = await opened.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'shared-b.png',
+        mime: 'image/png',
+      });
+
+      expect(a.id).not.toBe(b.id);
+      expect(a.sha256).toBe(expectedHash);
+      expect(b.sha256).toBe(expectedHash);
+      expect(await opened.physicalObjectCount()).toBe(1);
+
+      await opened.library.applyLibraryAction({
+        assetIds: [a.id],
+        action: 'permanent-delete',
+      });
+      expect(await opened.library.getAsset(a.id)).toBeUndefined();
+      expect(await opened.library.getAsset(b.id)).toMatchObject({
+        id: b.id,
+        sha256: expectedHash,
+      });
+      expect(await opened.physicalObjectCount()).toBe(1);
+
+      const bytes = await streamToBytes(
+        await opened.library.readRevision(b.revisionId),
+      );
+      expect(sha256(bytes)).toBe(expectedHash);
+
+      await opened.library.applyLibraryAction({
+        assetIds: [b.id],
+        action: 'permanent-delete',
+      });
+      expect(await opened.library.getAsset(b.id)).toBeUndefined();
+      expect(await opened.physicalObjectCount()).toBe(0);
+    } finally {
+      await opened.close();
+    }
+  });
+
   it('keeps hard purge on test helpers only, not openWebLibrary', async () => {
     await import('fake-indexeddb/auto');
     const { createIdbBlobFileStore, openWebLibrary } =

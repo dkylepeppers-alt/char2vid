@@ -13,3 +13,11 @@ export async function listenForNativeBack(
 export async function exitNativeApp(): Promise<void> {
   await App.exitApp();
 }
+
+export {
+  exportRevision,
+  type ExportDestination,
+  type ExportRevisionOptions,
+  type ExportRevisionRequest,
+  type ExportRevisionResult,
+} from './media-export';
