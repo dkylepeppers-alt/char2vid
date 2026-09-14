@@ -1054,6 +1054,28 @@ describe('route contract registry (P1)', () => {
     }
   });
 
+  it('records a metadata-only text operation contract without inventing fields', () => {
+    const textRoutes = ROUTE_CONTRACTS.filter(
+      (contract) => contract.operation === 'text',
+    );
+    expect(textRoutes.length).toBeGreaterThan(0);
+    const primary = textRoutes.find(
+      (contract) => contract.path === '/api/v1/chat/completions',
+    );
+    expect(primary).toMatchObject({
+      operation: 'text',
+      method: 'POST',
+      verification: 'metadata-only',
+      allowedFields: [],
+    });
+    const unresolved = primary!.unresolved.join(' ');
+    expect(unresolved).toMatch(/\/responses/);
+    expect(unresolved).toMatch(/\/messages/);
+    expect(primary!.evidence.some((item) => item.url.includes('text-generation'))).toBe(
+      true,
+    );
+  });
+
   it('rejects an entry that claims observed without a fixture path', () => {
     const problems = validateRouteRegistry([
       baseContract({ verification: 'observed', fixturePath: undefined }),

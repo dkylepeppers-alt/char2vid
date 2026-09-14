@@ -332,6 +332,40 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
     ],
   },
   {
+    id: 'text.chat.completions',
+    family: 'text',
+    baseUrl: NANOGPT_ORIGIN,
+    path: '/api/v1/chat/completions',
+    method: 'POST',
+    operation: 'text',
+    auth: 'bearer-or-x-api-key',
+    requestEncoding: 'json',
+    allowedFields: [],
+    roleMapping: {},
+    limits: {},
+    responseVariants: [
+      {
+        kind: 'unverified',
+        description:
+          'Success envelope not inventoried in the 2026-09-13 research snapshot.',
+      },
+    ],
+    resultDelivery: 'inline',
+    contractKind: 'generic',
+    unresolved: [
+      'Request field inventory (model, messages, temperature, and other OpenAI-style keys) is not in the 2026-09-13 research snapshot; do not invent fields for P3 adapters.',
+      'Variant transports /responses and /messages are listed without a documented /api prefix, method, or field list.',
+      'Vision/video input and structured output are documented as optional and UNVERIFIED.',
+      'No captured text generation response. Default among the three listed transports is /api/v1/chat/completions only because research lists it first.',
+    ],
+    verification: 'metadata-only',
+    evidence: [
+      docs('/api-reference/text-generation.md'),
+      docs('/api-reference/endpoint/chat-completion.md'),
+      docs('/api-reference/miscellaneous/video-input.md'),
+    ],
+  },
+  {
     id: 'image.endpoint-metadata',
     family: 'image-normalized',
     baseUrl: NANOGPT_ORIGIN,

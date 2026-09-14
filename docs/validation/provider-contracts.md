@@ -204,6 +204,20 @@ rejected before credentials.
 Verification: fixture (authored or sanitized-observed subsets in
 `tests/fixtures/nanogpt/catalogs.json`). Not a generation test.
 
+### Text generation — `text.chat.completions`
+
+| Item                 | Recorded contract                                                                                                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base / method / path | `https://nano-gpt.com` `POST /api/v1/chat/completions`                                                                                                                                                                                            |
+| Auth                 | Bearer or x-api-key (same inference-route observation as other paid routes; not generation-tested)                                                                                                                                                |
+| Allowed fields       | **None recorded.** The 2026-09-13 research snapshot lists the path, not a field inventory. Do not invent `model` / `messages` / `temperature`.                                                                                                    |
+| Variants             | Research also lists `/responses` and `/messages` without an `/api` prefix, method, or fields. **UNVERIFIED**; not separate registry rows.                                                                                                         |
+| Result               | Success envelope **not inventoried**.                                                                                                                                                                                                             |
+| Evidence             | metadata-only. [Text generation](https://docs.nano-gpt.com/api-reference/text-generation), [Chat Completion](https://docs.nano-gpt.com/api-reference/endpoint/chat-completion), [video input](https://docs.nano-gpt.com/api-reference/miscellaneous/video-input). |
+
+P3 `adapters/text.ts` must not treat this row as a field contract. Re-read
+the docs pages with a spending budget before serializing.
+
 ## Documented conflicts (recorded, not resolved)
 
 1. Compat image path `/v1/images/generations` vs research table
@@ -222,7 +236,7 @@ Verification: fixture (authored or sanitized-observed subsets in
 Everything that needs a real key and a spending budget. Do not check these
 off from fixtures.
 
-- Any `POST` to image, video, audio, TTS, STT, or voice-clone routes
+- Any `POST` to image, video, audio, TTS, STT, voice-clone, or text routes
 - Actual accepted-vs-advertised field behavior per model family
 - Normalized image success envelope (url vs b64 vs other)
 - Video status envelope actually returned for a live `vid_…` job
