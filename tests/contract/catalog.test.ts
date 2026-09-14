@@ -1107,7 +1107,7 @@ describe('route contract registry (P1)', () => {
   }
 
   it('accepts the shipped registry: every entry has dated evidence and a verification state', () => {
-    expect(validateRouteRegistry(ROUTE_CONTRACTS)).toEqual([]);
+    expect(validateRouteRegistry(ROUTE_CONTRACTS, '2026-09-14')).toEqual([]);
     expect(ROUTE_CONTRACTS.length).toBeGreaterThan(0);
     for (const contract of ROUTE_CONTRACTS) {
       expect(contract.evidence.length).toBeGreaterThan(0);
@@ -1216,6 +1216,27 @@ describe('route contract registry (P1)', () => {
         }),
       ]),
     ).toEqual([expect.stringMatching(/test\.route.*override.*expiresOnUtc/)]);
+  });
+
+  it('reports an override whose expiry is before the injected date', () => {
+    const override = {
+      reason: 'x',
+      expiresOnUtc: '2026-01-01',
+      sourceUrl: 'https://docs.nano-gpt.com/x.md',
+    };
+    expect(
+      validateRouteRegistry([baseContract({ override })], '2026-09-14'),
+    ).toEqual([expect.stringMatching(/test\.route.*override.*expired/)]);
+    expect(
+      validateRouteRegistry(
+        [
+          baseContract({
+            override: { ...override, expiresOnUtc: '2026-12-13' },
+          }),
+        ],
+        '2026-09-14',
+      ),
+    ).toEqual([]);
   });
 
   it('builds URLs from each contract base so video routes never gain a /v1 prefix', () => {

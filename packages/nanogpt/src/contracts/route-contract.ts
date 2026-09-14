@@ -81,6 +81,7 @@ function live(path: string, date = REOBSERVED): RouteEvidence {
 
 export function validateRouteRegistry(
   contracts: readonly RouteContract[],
+  nowUtc: string = new Date().toISOString().slice(0, 10),
 ): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
@@ -106,11 +107,14 @@ export function validateRouteRegistry(
     ) {
       problems.push(`${contract.id} metadata-only must state unresolved items`);
     }
-    if (
-      contract.override !== undefined &&
-      !ISO_DATE.test(contract.override.expiresOnUtc)
-    ) {
-      problems.push(`${contract.id} override expiresOnUtc`);
+    if (contract.override !== undefined) {
+      if (!ISO_DATE.test(contract.override.expiresOnUtc)) {
+        problems.push(`${contract.id} override expiresOnUtc`);
+      } else if (contract.override.expiresOnUtc < nowUtc) {
+        problems.push(
+          `${contract.id} override expired on ${contract.override.expiresOnUtc}`,
+        );
+      }
     }
   }
   return problems;
