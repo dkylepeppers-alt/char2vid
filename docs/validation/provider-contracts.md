@@ -67,17 +67,17 @@ catalog success is not credential validation.
 
 ### Image edits / masks — `image.compat.edits` and alias `image.compat.edit`
 
-| Item                 | Recorded contract                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| Base / method / path | `https://nano-gpt.com` `POST /api/v1/images/edits` and alias `POST /api/v1/images/edit`     |
-| Auth                 | Bearer or x-api-key                                                                         |
-| Encoding             | multipart/form-data **or** JSON                                                             |
-| Multipart fields     | `prompt`, `image` or repeated `image[]`, optional `mask`, `model`, `size`, `n`              |
-| JSON fields          | `imageDataUrl` / `imageDataUrls` / `maskDataUrl` plus prompt/model                          |
+| Item                 | Recorded contract                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base / method / path | `https://nano-gpt.com` `POST /api/v1/images/edits` and alias `POST /api/v1/images/edit`                                                                                                                 |
+| Auth                 | Bearer or x-api-key                                                                                                                                                                                     |
+| Encoding             | multipart/form-data **or** JSON                                                                                                                                                                         |
+| Multipart fields     | `prompt`, `image` or repeated `image[]`, optional `mask`, `model`, `size`, `n`                                                                                                                          |
+| JSON fields          | `imageDataUrl` / `imageDataUrls` / `maskDataUrl` plus prompt/model                                                                                                                                      |
 | Roles                | identity/body/look/pose/composition/style → `image\|image[]\|imageDataUrl\|imageDataUrls`. Count selects singular vs plural; encoding selects multipart vs JSON. Mask untyped (`mask` / `maskDataUrl`). |
-| Limits               | Multipart size "strict" but not quantified. Generated URLs temporary.                       |
-| Result               | url or b64_json, same conventions as compat generations                                     |
-| Evidence             | metadata-only. [Image Edits](https://docs.nano-gpt.com/api-reference/endpoint/image-edits). |
+| Limits               | Multipart size "strict" but not quantified. Generated URLs temporary.                                                                                                                                   |
+| Result               | url or b64_json, same conventions as compat generations                                                                                                                                                 |
+| Evidence             | metadata-only. [Image Edits](https://docs.nano-gpt.com/api-reference/endpoint/image-edits).                                                                                                             |
 
 Normalized image-to-image also uses `POST /api/v1/images` with
 `input_references` (preferred for new work). Masks are **not** documented on
@@ -91,7 +91,7 @@ the normalized route.
 | Auth                 | Bearer only. Endpoint page Auth line is `Authorization: Bearer`; embedded OpenAPI `security` is `bearerAuth` (`http`/`bearer`) with no `x-api-key` scheme on this path. [OpenAI-compatible image generation](https://docs.nano-gpt.com/api-reference/endpoint/image-generation-openai). |
 | Encoding             | JSON                                                                                                                                                                                                                                                                                    |
 | Fields               | `prompt` required; `model`, `n`, `size`, `response_format`, `user`, `imageDataUrl(s)`, `maskDataUrl`, `strength`, `guidance_scale`, `num_inference_steps`, `seed`, `kontext_max_mode`                                                                                                   |
-| Roles                | identity/body/look/pose/composition/style → `imageDataUrl\|imageDataUrls` (count, not role). Mask → `maskDataUrl`. Remote URLs not accepted; convert to data URLs. |
+| Roles                | identity/body/look/pose/composition/style → `imageDataUrl\|imageDataUrls` (count, not role). Mask → `maskDataUrl`. Remote URLs not accepted; convert to data URLs.                                                                                                                      |
 | Encoded size         | Docs: uploads should be **4 MB or smaller after encoding**.                                                                                                                                                                                                                             |
 | Result               | `b64_json` default or `url` (~1 hour signed; may fall back to b64).                                                                                                                                                                                                                     |
 | Evidence             | metadata-only. [OpenAI-compatible image generation](https://docs.nano-gpt.com/api-reference/endpoint/image-generation-openai).                                                                                                                                                          |
@@ -116,6 +116,8 @@ unchanged 2026-09-14):
 2026-09-14):
 
 - Nested `supported_parameters.parameters` / `defaults`.
+- `mode` options include `video-extend`; the descriptor advertises
+  `video-extend` so compatibility queries for that operation keep the model.
 - `audio_generation: false` while `generate_audio` switch defaults **true**.
   Recorded as `capability_control_conflict`; do not enable audio from either
   boolean alone.
@@ -206,13 +208,13 @@ Verification: fixture (authored or sanitized-observed subsets in
 
 ### Text generation — `text.chat.completions`
 
-| Item                 | Recorded contract                                                                                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base / method / path | `https://nano-gpt.com` `POST /api/v1/chat/completions`                                                                                                                                                                                            |
-| Auth                 | Bearer or x-api-key (same inference-route observation as other paid routes; not generation-tested)                                                                                                                                                |
-| Allowed fields       | **None recorded.** The 2026-09-13 research snapshot lists the path, not a field inventory. Do not invent `model` / `messages` / `temperature`.                                                                                                    |
-| Variants             | Research also lists `/responses` and `/messages` without an `/api` prefix, method, or fields. **UNVERIFIED**; not separate registry rows.                                                                                                         |
-| Result               | Success envelope **not inventoried**.                                                                                                                                                                                                             |
+| Item                 | Recorded contract                                                                                                                                                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base / method / path | `https://nano-gpt.com` `POST /api/v1/chat/completions`                                                                                                                                                                                                            |
+| Auth                 | Bearer or x-api-key (same inference-route observation as other paid routes; not generation-tested)                                                                                                                                                                |
+| Allowed fields       | **None recorded.** The 2026-09-13 research snapshot lists the path, not a field inventory. Do not invent `model` / `messages` / `temperature`.                                                                                                                    |
+| Variants             | Research also lists `/responses` and `/messages` without an `/api` prefix, method, or fields. **UNVERIFIED**; not separate registry rows.                                                                                                                         |
+| Result               | Success envelope **not inventoried**.                                                                                                                                                                                                                             |
 | Evidence             | metadata-only. [Text generation](https://docs.nano-gpt.com/api-reference/text-generation), [Chat Completion](https://docs.nano-gpt.com/api-reference/endpoint/chat-completion), [video input](https://docs.nano-gpt.com/api-reference/miscellaneous/video-input). |
 
 P3 `adapters/text.ts` must not treat this row as a field contract. Re-read

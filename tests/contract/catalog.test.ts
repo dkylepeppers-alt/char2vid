@@ -1071,7 +1071,9 @@ describe('refreshCatalogs (P1)', () => {
 
     expect(result.video.state).toBe('unavailable');
     expect(result.video.error).toBeDefined();
-    expect(result.video.error).not.toMatch(/sk-secret|session=abc|k_live|signedtoken/);
+    expect(result.video.error).not.toMatch(
+      /sk-secret|session=abc|k_live|signedtoken/,
+    );
     expect(result.video.error).toMatch(/\[redacted\]/);
   });
 });
@@ -1129,9 +1131,7 @@ describe('route contract registry (P1)', () => {
     const edits = getRouteContract('image.compat.edits');
     const alias = getRouteContract('image.compat.edit');
 
-    expect(generations.roleMapping.identity).toBe(
-      generations.roleMapping.look,
-    );
+    expect(generations.roleMapping.identity).toBe(generations.roleMapping.look);
     expect(generations.roleMapping.identity).toMatch(/imageDataUrl/);
     expect(generations.roleMapping.identity).toMatch(/imageDataUrls/);
 

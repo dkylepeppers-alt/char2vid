@@ -126,15 +126,18 @@ export function routeUrl(
   params?: Record<string, string>,
 ): string {
   const unused = { ...(params ?? {}) };
-  const path = contract.path.replace(/\{([^{}]+)\}/g, (_match, name: string) => {
-    const value = unused[name];
-    if (value === undefined) {
-      throw new Error(`missing path param ${name} for ${contract.id}`);
-    }
-    delete unused[name];
-    // Model IDs contain slashes that are real path segments; keep them.
-    return encodeURI(value);
-  });
+  const path = contract.path.replace(
+    /\{([^{}]+)\}/g,
+    (_match, name: string) => {
+      const value = unused[name];
+      if (value === undefined) {
+        throw new Error(`missing path param ${name} for ${contract.id}`);
+      }
+      delete unused[name];
+      // Model IDs contain slashes that are real path segments; keep them.
+      return encodeURI(value);
+    },
+  );
   const url = new URL(path, `${contract.baseUrl.replace(/\/$/, '')}/`);
   for (const [key, value] of Object.entries(unused)) {
     url.searchParams.set(key, value);
@@ -197,8 +200,7 @@ const COMPAT_IMAGE_JSON_ROLES: Partial<Record<ReferenceRole, string>> = {
   style: COMPAT_IMAGE_JSON_FAMILY,
 };
 
-const COMPAT_IMAGE_EDIT_FAMILY =
-  'image|image[]|imageDataUrl|imageDataUrls';
+const COMPAT_IMAGE_EDIT_FAMILY = 'image|image[]|imageDataUrl|imageDataUrls';
 const COMPAT_IMAGE_EDIT_ROLES: Partial<Record<ReferenceRole, string>> = {
   identity: COMPAT_IMAGE_EDIT_FAMILY,
   body: COMPAT_IMAGE_EDIT_FAMILY,
