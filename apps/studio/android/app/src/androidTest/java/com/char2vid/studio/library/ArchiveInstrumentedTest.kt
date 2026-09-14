@@ -23,7 +23,8 @@ import java.util.zip.ZipOutputStream
 
 /**
  * G4 native archive: streaming export → inspect → wipe → import round trip,
- * collision remap, tamper rejection, and traversal rejection on an emulator.
+ * collision remap, tamper rejection, traversal rejection, and import bound to
+ * one inspected ZIP snapshot on an emulator.
  *
  * Android↔Android on physical hardware and browser↔Android restores remain
  * UNVERIFIED until run on a device with a real SAF picker.
@@ -247,5 +248,65 @@ class ArchiveInstrumentedTest {
         assertEquals(live.id, records.getJSONArray("assets").getJSONObject(0).getString("id"))
         assertEquals(1, entries.keys.count { it.startsWith("media/") })
         assertEquals(1, JSONObject(String(entries["manifest.json"]!!)).getJSONArray("files").length())
+    }
+
+    @Test
+    fun importBindsToFirstOpenedSnapshotNotLaterUriContent() {
+        val first = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "first.png")
+        val zipA = exportToScratch()
+        val shaA = first.sha256
+
+        repo = InstrumentedFixtures.resetLibrary(context)
+        archiver = LibraryArchiver(context, repo)
+        val second = InstrumentedFixtures.importFixture(context, repo, "tiny-red.png", "second.png")
+        val zipB = exportToScratch()
+        val shaB = second.sha256
+        assertNotEquals(shaA, shaB)
+
+        repo = InstrumentedFixtures.resetLibrary(context)
+        archiver = LibraryArchiver(context, repo)
+        var opens = 0
+        val result =
+            archiver.importArchive(
+                {
+                    opens += 1
+                    FileInputStream(if (opens == 1) zipA else zipB)
+                },
+                conflict = "remap",
+            )
+        assertEquals(1, opens)
+        assertEquals(1, result.importedAssets)
+        assertEquals(setOf(shaA), shaSet(repo))
+        assertFalse(shaSet(repo).contains(shaB))
+        assertEquals(emptyList<String>(), InstrumentedFixtures.tempEntries(context))
+    }
+
+    @Test
+    fun importScratchIsRemovedAfterRejectedArchive() {
+        val prior = InstrumentedFixtures.importFixture(context, repo, "tiny.png", "keep.png")
+        val evil = scratchFile("evil-snapshot")
+        writeZip(
+            linkedMapOf(
+                "manifest.json" to "{}".toByteArray(),
+                "../evil" to "nope".toByteArray(),
+            ),
+            evil,
+        )
+        var opens = 0
+        try {
+            archiver.importArchive(
+                {
+                    opens += 1
+                    FileInputStream(evil)
+                },
+                conflict = "remap",
+            )
+            fail("import must refuse unsafe paths")
+        } catch (error: LibraryException) {
+            assertEquals(LibraryException.ARCHIVE_REJECTED, error.code)
+        }
+        assertEquals(1, opens)
+        assertEquals(listOf(prior.id), assetIds(repo))
+        assertEquals(emptyList<String>(), InstrumentedFixtures.tempEntries(context))
     }
 }

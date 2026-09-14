@@ -26,9 +26,11 @@ import java.util.zip.ZipOutputStream
  * - export only live (`trashedAt == null`), `available` assets and their closure;
  * - inspect validates paths, count/size limits, manifest/records schemas, and
  *   cross-checks asset/revision/manifest/file digests without mutating anything;
- * - import stages media to a private scratch directory, re-verifies SHA-256,
- *   remaps colliding IDs, promotes objects, then commits records in one Room
- *   transaction; any failure rolls back staged temps and promoted orphans.
+ * - import copies the source URI once into a scratch ZIP, then inspects, stages,
+ *   and commits from that snapshot (never re-opens the user URI); staging
+ *   re-verifies SHA-256, remaps colliding IDs, promotes objects, then commits
+ *   records in one Room transaction; any failure rolls back staged temps and
+ *   promoted orphans.
  *
  * Everything streams: `ZipOutputStream` / `ZipInputStream`, 64 KiB buffers,
  * and only the two JSON members are ever buffered in memory.
@@ -447,11 +449,33 @@ class LibraryArchiver(
     /**
      * Inspect, stage, verify, remap, promote, commit. The existing library is
      * untouched unless the final Room transaction succeeds.
+     *
+     * The source is copied once into a private scratch ZIP. Inspect, scan, and
+     * staging all read that snapshot so a SAF/`content:`/`file:` URI that
+     * changes between opens cannot be validated as ZIP A and committed as ZIP B.
+     * The user URI is never re-opened after the snapshot exists.
      */
     fun importArchive(open: () -> InputStream, conflict: String): ImportResult {
         if (conflict != "remap") {
             throw LibraryException(LibraryException.INVALID_ARGUMENT, "unsupported conflict mode: $conflict")
         }
+        val snapshotDir = repo.createScratchDir("archive-import-source")
+        val snapshot = File(snapshotDir, "source.zip")
+        try {
+            BufferedInputStream(open()).use { input ->
+                BufferedOutputStream(FileOutputStream(snapshot)).use { output ->
+                    input.copyTo(output)
+                    output.flush()
+                }
+            }
+            return importSnapshot(snapshot)
+        } finally {
+            snapshotDir.deleteRecursively()
+        }
+    }
+
+    private fun importSnapshot(snapshot: File): ImportResult {
+        val open: () -> InputStream = { FileInputStream(snapshot) }
         val report = inspect(open)
         if (!report.ok) {
             throw LibraryException(

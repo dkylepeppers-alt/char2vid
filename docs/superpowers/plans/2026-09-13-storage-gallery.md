@@ -155,7 +155,7 @@ if copy fails -> remove incomplete destination -> preserve source -> return erro
 ```
 
 Use `FileProvider`/temporary content-URI grants for sharing. Never report a share chooser opening as proof the recipient received a file.
-  - **Authored, awaiting CI emulator run:** `ExportInstrumentedTest` (gallery publish + SHA-256, SAF cancel). Physical Android MediaStore/SAF save, cancel, deny, and reopen-in-another-app stay UNVERIFIED until hardware evidence.
+  - **Authored, awaiting CI emulator run:** `ExportInstrumentedTest` (API 29+ MediaStore gallery publish + SHA-256; API 26 SAF routing without `WRITE_EXTERNAL_STORAGE`; optional granted-legacy MediaStore path named as such; SAF cancel; copy-failure rollback). Physical Android MediaStore/SAF save, cancel, deny, and reopen-in-another-app stay UNVERIFIED until hardware evidence. The API 26 matrix cell does not prove production gallery MediaStore export.
 
 - [x] Run `npx vitest run tests/contract/library-actions.test.ts` and `npx playwright test tests/e2e/library.spec.ts` (web). Contract + Playwright library navigation/selection/trash-restore covered in [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) and this PR.
   - [ ] **UNVERIFIED:** On Android, save PNG/MP4/audio into system-visible destinations, cancel a picker, deny access, and reopen the exported files in another app. TalkBack labels on device.
@@ -193,7 +193,7 @@ it('accepts a relative media member', () => {
 - [x] Implement staging import with rollback, schema-version dispatch, and migration-oriented inspect-before-mutate. Exclude credentials and signed URLs. Interrupted exports leave no apparently complete archive; interrupted/rejected imports leave the existing library intact (**web/Node**).
   - Evidence: contract tests + `docs/validation/backup-restore.md`.
 - [ ] Run `npx vitest run tests/contract/archive.test.ts` (web proved). Perform Android → fresh Android and browser → Android round trips on hardware. After later milestones add character/project records to the same tests. Measure a 1 GiB archive without whole-archive memory allocation.
-  - **Authored, awaiting CI emulator run:** `ArchiveInstrumentedTest` (export → inspect → wipe → import, tamper rejection, `../evil` invalidPaths). Physical-device archive round-trips and 1 GiB streaming measurement stay UNVERIFIED.
+  - **Authored, awaiting CI emulator run:** `ArchiveInstrumentedTest` (export → inspect → wipe → import, tamper rejection, `../evil` invalidPaths, import bound to one inspected snapshot). Physical-device archive round-trips and 1 GiB streaming measurement stay UNVERIFIED.
 - [x] Commit (web slice): `feat(archive): G4 portable library archives (web)` via [#32](https://github.com/dkylepeppers-alt/char2vid/pull/32). Native streaming archive plugin authored; emulator proof awaiting CI; physical-device round-trips remain open.
 
 ## Milestone acceptance

@@ -49,6 +49,8 @@ that job is observed green:
 | Tampered media byte rejected; prior library untouched                                         | `ArchiveInstrumentedTest`                   |
 | `../evil` member flagged as `invalidPaths`; import refused                                    | `ArchiveInstrumentedTest`                   |
 | Soft-trashed assets omitted from native library export                                        | `ArchiveInstrumentedTest`                   |
+| Import is bound to one inspected ZIP snapshot (changing source between opens cannot swap bytes) | `ArchiveInstrumentedTest`                   |
+| Import scratch ZIP is removed after success and after a rejected archive                       | `ArchiveInstrumentedTest`                   |
 | Path / JSON / remap unit parity with the web schema                                           | `ArchivePathsTest` / JSON / Remap JVM tests |
 
 `scope: 'project' | 'character'` returns structured `unsupported_scope` (those
