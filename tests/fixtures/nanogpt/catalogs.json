@@ -5,7 +5,7 @@
     "snapshotObservedDateUtc": "2026-09-13",
     "reobservedDateUtc": "2026-09-14",
     "notes": [
-      "Records labeled 'sanitized-observed' are byte-for-byte subsets of public, unauthenticated GET responses. They contained no credentials or signed URLs; the only sanitization is omission of unrelated records.",
+      "Records labeled 'sanitized-observed' come from public, unauthenticated GET responses and contain no credentials or signed URLs. Besides omitting unrelated records, field-level edits: imageEndpointMetadataGptImage2 drops each endpoint's in-record pricing[] (and public_pricing) from the snapshot body; imageCatalogGptImage2 wraps the snapshot observedParameterExamples gpt-image-2 record in an object/data/meta envelope and adds object/name on the record, which the snapshot example does not include.",
       "Records labeled 'authored' are hand-written to exercise a control shape. Their field shapes come from the cited sources; option lists were truncated and IDs prefixed with 'fixture/' where the record is not a real catalog entry.",
       "No generation endpoint was called and no API key was used to build these fixtures.",
       "liveRefresh below is observation metadata only (URL, date, sha256, counts, bytes). Full catalog bodies were not stored."

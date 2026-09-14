@@ -7,7 +7,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ENDPOINT_METADATA_PATH = /^\/api\/v1\/images\/models\/.+\/endpoints$/;
 
 export type RouteVerification = 'metadata-only' | 'fixture' | 'observed';
-export type RouteAuth = 'none-public' | 'bearer-or-x-api-key';
+export type RouteAuth = 'none-public' | 'bearer' | 'bearer-or-x-api-key';
 export type RequestEncoding =
   'none' | 'json' | 'multipart' | 'json-or-multipart';
 export type ResultDelivery = 'catalog' | 'inline' | 'job' | 'inline-or-job';
@@ -416,7 +416,7 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
     path: '/v1/images/generations',
     method: 'POST',
     operation: 'image-generate',
-    auth: 'bearer-or-x-api-key',
+    auth: 'bearer',
     requestEncoding: 'json',
     allowedFields: [
       'model',
@@ -445,6 +445,7 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
       notes: [
         'OpenAPI overrides the default /api server to https://nano-gpt.com for this path.',
         'The research summary table listed /api/v1/images/generations; the endpoint page and OpenAPI use /v1/images/generations. The page+OpenAPI path is recorded here.',
+        'Auth on this path is Bearer only (page Auth line and OpenAPI bearerAuth); x-api-key is not documented here.',
       ],
     },
     responseVariants: [
