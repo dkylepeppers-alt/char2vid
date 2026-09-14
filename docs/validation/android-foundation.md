@@ -14,4 +14,14 @@ Release builds receive `releaseVersionName` and `releaseVersionCode` Gradle prop
 
 The repository checks cover formatting, linting, strict TypeScript, unit tests, production web build, Capacitor sync, Android lint/unit tests, and debug APK assembly. The release workflow repeats the scaffold checks, enforces increasing Android version codes, signs an APK, verifies its signature, and records release metadata.
 
-For review-fix commit `75b8bae3dd8ce9637c2f8f41faae71d51be4f494`, GitHub Actions run `34798595246` passed formatting, linting, strict types, 24 unit tests, Playwright navigation and modal-focus scenarios, Android lint and unit tests, debug APK assembly, artifact packaging, and the aggregate `ci-gate`. It produced artifact `char2vid-debug-34798595246-1`, containing the debug APK and its checksum. CodeQL run `34798594996` also passed. Physical-device checks remain open for system back behavior, rotation, keyboard layout, and lifecycle restoration. No signing credentials were available, so signed release verification also remains pending an authorized workflow run.
+Implementation landed in PR [#19](https://github.com/dkylepeppers-alt/char2vid/pull/19). For review-fix commit `75b8bae3dd8ce9637c2f8f41faae71d51be4f494`, GitHub Actions run [`34798595246`](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34798595246) passed formatting, linting, strict types, 24 unit tests, Playwright navigation and modal-focus scenarios, Android lint and unit tests, debug APK assembly, artifact packaging, and the aggregate `ci-gate`. It produced artifact `char2vid-debug-34798595246-1`, containing the debug APK and its checksum. CodeQL run [`34798594996`](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34798594996) also passed.
+
+### UNVERIFIED (not done — do not check off without evidence)
+
+- Manual download/install of the debug APK onto a physical Android device
+- System back: sheet closes before navigate / exit
+- Rotation preserves the selected destination
+- Keyboard does not hide primary input controls
+- TalkBack / accessibility
+- Lifecycle restoration
+- Signed release verification (no signing credentials / authorized release workflow run yet)
