@@ -3,6 +3,15 @@ export type {
   ImportSource,
   LibraryPort,
 } from '@char2vid/domain/storage';
+export type {
+  AssetQuery,
+  AssetQueryResult,
+  AssetSort,
+} from '@char2vid/domain/library-query';
+export type {
+  LibraryActionKind,
+  LibraryActionRequest,
+} from '@char2vid/domain/library-actions';
 export {
   openWebLibrary,
   ImportFaultError,

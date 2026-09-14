@@ -59,23 +59,26 @@ export function createNodeFileStore(rootDir: string): FileStore {
 }
 
 export function createJsonFilePersister(metaPath: string) {
+  const empty = () => ({
+    journal: {},
+    assets: {},
+    revisions: {},
+    physical: {},
+    collectionMembers: {},
+    assetTags: {},
+  });
+
   return {
     async load() {
       try {
         const raw = await readFile(metaPath, 'utf8');
-        return JSON.parse(raw) as {
-          journal: Record<string, never>;
-          assets: Record<string, never>;
-          revisions: Record<string, never>;
-          physical: Record<string, never>;
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        return {
+          ...empty(),
+          ...parsed,
         };
       } catch {
-        return {
-          journal: {},
-          assets: {},
-          revisions: {},
-          physical: {},
-        };
+        return empty();
       }
     },
     async save(snapshot: unknown) {
