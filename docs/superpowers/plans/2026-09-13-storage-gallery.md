@@ -71,7 +71,7 @@ test('phone navigation survives reload', async ({ page }) => {
 
 **Evidence (web):** [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) (crash-safe browser/Node library + IDB fallback); residual abandon/purge-surface cleanups in [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29).
 **Evidence (native Room slice):** typed `Char2vidLibrary` plugin + Room schema + journaled import (this PR). Compile/unit proof via Android CI `assembleDebug` / `testDebugUnitTest`.
-**Still open / UNVERIFIED:** OPFS-on-device, physical-device / emulator instrumentation (import close/reopen hash, large-video native path, orientation/thumbnails).
+**Still open / UNVERIFIED:** OPFS-on-device; physical-device instrumentation (Photo Picker/SAF import on hardware, large-video native path, orientation/thumbnails). Import → close/reopen hash match is Proven on emulator (`LibraryImportInstrumentedTest`, CI run 34893229015).
 
 **Create:** `packages/domain/src/storage.ts`, `packages/domain/src/asset-schema.ts`, `packages/storage-web/src/library.ts`, `packages/storage-web/src/files.ts`, `packages/native-bridge/src/library.ts`, `apps/studio/android/app/src/main/java/com/char2vid/studio/library/LibraryPlugin.kt`, `LibraryDatabase.kt`, `MediaStoreRepository.kt` in that directory, `tests/contract/storage.contract.test.ts`, `tests/helpers/open-test-library.ts`.
 
@@ -129,7 +129,7 @@ CREATE TABLE import_journal (
   - [x] Typed Room commands + Kotlin/Room native library storage (this PR; CI compile/unit).
   - [ ] **UNVERIFIED:** OPFS-on-device proof.
 - [ ] Run native instrumentation. Test picker-URI copying and an import of a large video without full-file base64 transfer through JavaScript on device. Preserve format/orientation metadata; generate thumbnails from corrected orientation without modifying originals.
-  - Web contract coverage for storage-full / malformed input: proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Instrumented test source `LibraryImportInstrumentedTest` exists but is **UNVERIFIED** (not run in GH Actions — no emulator job). **UNVERIFIED:** physical-device instrumentation, large-video native path, orientation/thumbnail pipeline.
+  - Web contract coverage for storage-full / malformed input: proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). **Proven (emulator, CI run 34893229015):** `LibraryImportInstrumentedTest` (import → close/reopen → hash match). **UNVERIFIED:** physical-device Photo Picker/SAF import, large-video native path, orientation/thumbnail pipeline.
 - [x] Commit (web slice): `feat: add crash-safe browser media storage` via [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Native Room/files slice: this PR (`Refs #2` only — do not close).
 
 ## Task G3: Build organization, playback, and native exports
