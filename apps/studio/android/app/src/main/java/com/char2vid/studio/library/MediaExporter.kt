@@ -202,7 +202,11 @@ class MediaExporter(
 
     @Suppress("DEPRECATION")
     private fun exportToLegacyExternalStorage(source: MediaStoreRepository.RevisionSource): Outcome.Saved {
-        val dir = File(Environment.getExternalStoragePublicDirectory(publicDirectoryFor(source.kind)), APP_FOLDER)
+        val publicRoot = Environment.getExternalStoragePublicDirectory(publicDirectoryFor(source.kind))
+        if (!publicRoot.mkdirs() && !publicRoot.isDirectory) {
+            throw LibraryException(LibraryException.DESTINATION_UNAVAILABLE, "unable to create public media folder")
+        }
+        val dir = File(publicRoot, APP_FOLDER)
         if (!dir.mkdirs() && !dir.isDirectory) {
             throw LibraryException(LibraryException.DESTINATION_UNAVAILABLE, "unable to create public media folder")
         }

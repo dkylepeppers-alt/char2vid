@@ -93,6 +93,7 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           channel: stable
+          sdcard-path-or-size: 512M
           working-directory: apps/studio/android
           # :app only — root connectedDebugAndroidTest also assembles
           # capacitor-cordova-android-plugins androidTest and fails on a

@@ -102,6 +102,19 @@ class ExportInstrumentedTest {
         )
         grantLegacyWritePermission()
         exporter = MediaExporter(context, repo)
+        assertTrue(
+            "granted WRITE_EXTERNAL_STORAGE must select the legacy MediaStore writer",
+            exporter.galleryUsesMediaStore("image"),
+        )
+        @Suppress("DEPRECATION")
+        val pictures = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES)
+        pictures.mkdirs()
+        val dest = File(pictures, MediaExporter.APP_FOLDER)
+        dest.mkdirs()
+        Assume.assumeTrue(
+            "optional legacy public Pictures/char2vid is not writable on this emulator",
+            dest.isDirectory && dest.canWrite(),
+        )
         assertGalleryPublishMatchesRevision()
     }
 
@@ -313,6 +326,15 @@ class ExportInstrumentedTest {
         }
         val verb = if (grant) "grant" else "revoke"
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        try {
+            if (grant) {
+                automation.grantRuntimePermission(context.packageName, permission)
+            } else {
+                automation.revokeRuntimePermission(context.packageName, permission)
+            }
+        } catch (_: Exception) {
+            // Some emulators reject UiAutomation permission APIs; pm is the fallback.
+        }
         val pfd = automation.executeShellCommand("pm $verb ${context.packageName} $permission")
         android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes() }
         val deadline = System.currentTimeMillis() + 5_000
