@@ -119,13 +119,21 @@ export function validateRouteRegistry(
 /** Join `baseUrl` + `path` without inventing a `/v1` prefix. */
 export function routeUrl(
   contract: RouteContract,
-  query?: Record<string, string>,
+  params?: Record<string, string>,
 ): string {
-  const url = new URL(contract.path, `${contract.baseUrl.replace(/\/$/, '')}/`);
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
+  const unused = { ...(params ?? {}) };
+  const path = contract.path.replace(/\{([^{}]+)\}/g, (_match, name: string) => {
+    const value = unused[name];
+    if (value === undefined) {
+      throw new Error(`missing path param ${name} for ${contract.id}`);
     }
+    delete unused[name];
+    // Model IDs contain slashes that are real path segments; keep them.
+    return encodeURI(value);
+  });
+  const url = new URL(path, `${contract.baseUrl.replace(/\/$/, '')}/`);
+  for (const [key, value] of Object.entries(unused)) {
+    url.searchParams.set(key, value);
   }
   return url.toString();
 }

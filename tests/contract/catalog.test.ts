@@ -1096,6 +1096,32 @@ describe('route contract registry (P1)', () => {
     );
   });
 
+  it('substitutes path template params on endpoint-metadata contracts', () => {
+    expect(
+      routeUrl(getRouteContract('image.endpoint-metadata'), {
+        modelId: 'gpt-image-2',
+      }),
+    ).toBe('https://nano-gpt.com/api/v1/images/models/gpt-image-2/endpoints');
+    expect(
+      routeUrl(getRouteContract('image.endpoint-metadata'), {
+        modelId: 'bytedance/seedream-v5.0-pro',
+      }),
+    ).toBe(
+      'https://nano-gpt.com/api/v1/images/models/bytedance/seedream-v5.0-pro/endpoints',
+    );
+    expect(() => routeUrl(getRouteContract('image.endpoint-metadata'))).toThrow(
+      /modelId/,
+    );
+    expect(
+      routeUrl(getRouteContract('video.status'), {
+        modelId: 'unused',
+        requestId: 'vid_abc',
+      }),
+    ).toBe(
+      'https://nano-gpt.com/api/video/status?modelId=unused&requestId=vid_abc',
+    );
+  });
+
   it('resolves endpoint metadata paths only against the Nano-GPT origin', () => {
     expect(
       resolveEndpointMetadataUrl(
