@@ -420,7 +420,7 @@ function inferOperations(
         ops.push('image-edit');
       }
       break;
-    case 'video':
+    case 'video': {
       if (
         flag(caps, 'video_generation') ||
         flag(caps, 'text_to_video') ||
@@ -437,6 +437,7 @@ function inferOperations(
         ops.push('video-extend');
       }
       break;
+    }
     case 'audio': {
       const musicFlag = Object.keys(caps).some(
         (key) => caps[key] === true && /(^|_)music($|_)/.test(key),
