@@ -14,3 +14,6 @@ ext {
     androidxEspressoCoreVersion = '3.7.0'
     cordovaAndroidVersion = '14.0.1'
 }
+    roomVersion = '2.7.2'
+    coroutinesVersion = '1.9.0'
+

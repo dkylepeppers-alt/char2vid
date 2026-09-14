@@ -42,6 +42,14 @@ export function BackupPage() {
     setStatus({ kind: 'working', message: 'Exporting library archive…' });
     try {
       const library = await getStudioLibrary();
+      if (!library.getArchiveHost) {
+        setStatus({
+          kind: 'error',
+          message:
+            'UNVERIFIED: portable archive export requires the web library host; Room-backed native archive is not wired',
+        });
+        return;
+      }
       const result = await exportArchive(library.getArchiveHost(), {
         scope: 'library',
       });
@@ -76,6 +84,14 @@ export function BackupPage() {
       }
       setStatus({ kind: 'working', message: 'Importing archive (remap)…' });
       const library = await getStudioLibrary();
+      if (!library.getArchiveHost) {
+        setStatus({
+          kind: 'error',
+          message:
+            'UNVERIFIED: portable archive import requires the web library host; Room-backed native archive is not wired',
+        });
+        return;
+      }
       const result = await importArchive(
         library.getArchiveHost(),
         { bytes },

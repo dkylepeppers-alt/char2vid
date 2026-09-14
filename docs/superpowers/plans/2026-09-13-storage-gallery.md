@@ -70,7 +70,8 @@ test('phone navigation survives reload', async ({ page }) => {
 ## Task G2: Implement crash-safe media storage
 
 **Evidence (web):** [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) (crash-safe browser/Node library + IDB fallback); residual abandon/purge-surface cleanups in [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29).
-**Still open:** Kotlin/Room `LibraryPlugin`, OPFS-on-device, native instrumentation.
+**Evidence (native Room slice):** typed `Char2vidLibrary` plugin + Room schema + journaled import (this PR). Compile/unit proof via Android CI `assembleDebug` / `testDebugUnitTest`.
+**Still open / UNVERIFIED:** OPFS-on-device, physical-device / emulator instrumentation (import close/reopen hash, large-video native path, orientation/thumbnails).
 
 **Create:** `packages/domain/src/storage.ts`, `packages/domain/src/asset-schema.ts`, `packages/storage-web/src/library.ts`, `packages/storage-web/src/files.ts`, `packages/native-bridge/src/library.ts`, `apps/studio/android/app/src/main/java/com/char2vid/studio/library/LibraryPlugin.kt`, `LibraryDatabase.kt`, `MediaStoreRepository.kt` in that directory, `tests/contract/storage.contract.test.ts`, `tests/helpers/open-test-library.ts`.
 
@@ -107,7 +108,7 @@ export interface LibraryPort {
 
 - [x] Add a persistence test with a small valid image fixture, import, close/reopen the repository, and compare the re-read content hash. Add fault injection after file promotion and a shared-file test proving removal of one logical asset does not remove a file referenced by another.
   - Evidence: [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28) web/Node FS contracts (`tests/contract/storage.contract.test.ts`, IDB blob fallback in `storage-idb.contract.test.ts`). Shared-hash purge via test helper proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28); `applyLibraryAction` permanent-delete shared-hash proof (trash → permanent-delete) in hygiene follow-up ([#31](https://github.com/dkylepeppers-alt/char2vid/pull/31)).
-- [x] Run `npx vitest run tests/contract/storage.contract.test.ts` and implement tables for assets, revisions, physical objects, and import journal **for the web/Node adapters**. SQLite/Room schema remains outstanding (native). Target SQL constraints for native:
+- [x] Run `npx vitest run tests/contract/storage.contract.test.ts` and implement tables for assets, revisions, physical objects, and import journal **for the web/Node adapters**. Native Room entities/DAO match the target columns/UNIQUE constraints below (CHECK `byte_length >= 0` and journal `stage` enforced in repository). Target SQL constraints for native:
 
 ```sql
 CREATE TABLE physical_objects (
@@ -124,16 +125,17 @@ CREATE TABLE import_journal (
 );
 ```
 
-- [x] Stream into a temporary object, verify file signature/size/hash, promote, then transactionally register its revision and clear the journal. Implement restart reconciliation for every stage (**web/Node**). Web fallback stores blobs only when OPFS is unavailable, shows the storage mode, and rejects allocations that exceed its configured fallback limit ([#28](https://github.com/dkylepeppers-alt/char2vid/pull/28)).
-  - [ ] **UNVERIFIED / remaining:** typed Room commands, Kotlin/Room native library storage, OPFS-on-device proof.
+- [x] Stream into a temporary object, verify file signature/size/hash, promote, then transactionally register its revision and clear the journal. Implement restart reconciliation for every stage (**web/Node** + **native Room**). Web fallback stores blobs only when OPFS is unavailable, shows the storage mode, and rejects allocations that exceed its configured fallback limit ([#28](https://github.com/dkylepeppers-alt/char2vid/pull/28)). Native: `MediaStoreRepository` copies picker/SAF/`file://` into app-owned files; `LibraryPlugin` exposes typed commands only (no unrestricted SQL).
+  - [x] Typed Room commands + Kotlin/Room native library storage (this PR; CI compile/unit).
+  - [ ] **UNVERIFIED:** OPFS-on-device proof.
 - [ ] Run native instrumentation. Test picker-URI copying and an import of a large video without full-file base64 transfer through JavaScript on device. Preserve format/orientation metadata; generate thumbnails from corrected orientation without modifying originals.
-  - Web contract coverage for storage-full / malformed input: proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). **UNVERIFIED:** native instrumentation, large-video native path, orientation/thumbnail pipeline.
-- [x] Commit (web slice): `feat: add crash-safe browser media storage` via [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Native Room/files commit remains open.
+  - Web contract coverage for storage-full / malformed input: proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Instrumented test source `LibraryImportInstrumentedTest` exists but is **UNVERIFIED** (not run in GH Actions — no emulator job). **UNVERIFIED:** physical-device instrumentation, large-video native path, orientation/thumbnail pipeline.
+- [x] Commit (web slice): `feat: add crash-safe browser media storage` via [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Native Room/files slice: this PR (`Refs #2` only — do not close).
 
 ## Task G3: Build organization, playback, and native exports
 
 **Evidence:** query/actions/soft trash/membership — [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29); gallery UI, selection, export bridge, Playwright library e2e — [#30](https://github.com/dkylepeppers-alt/char2vid/pull/30); trash-before-permanent-delete gate + honest share status — hygiene follow-up ([#31](https://github.com/dkylepeppers-alt/char2vid/pull/31)).
-**Still open / UNVERIFIED:** physical Android MediaStore export, device TalkBack, OPFS-on-device, Kotlin/Room library storage (G2 remainder).
+**Still open / UNVERIFIED:** physical Android MediaStore export, device TalkBack, OPFS-on-device, native library instrumentation on device (G2 remainder).
 
 **Create:** `packages/domain/src/library-query.ts`, `packages/domain/src/library-actions.ts`, `apps/studio/src/features/library/LibraryPage.tsx`, `AssetDetail.tsx`, `SelectionBar.tsx` in that directory, `packages/native-bridge/src/media-export.ts`, `apps/studio/android/app/src/main/java/com/char2vid/studio/library/ExportPlugin.kt`, `tests/contract/library-actions.test.ts`, `tests/e2e/library.spec.ts`.
 
