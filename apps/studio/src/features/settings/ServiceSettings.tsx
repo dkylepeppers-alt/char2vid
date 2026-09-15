@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { resolvePlatform } from '../../app/platform';
+import {
+  nativeTokenForOrigin,
+  normalizeServiceOrigin,
+  serviceOriginMessage,
+} from './service-origin';
 
 const SERVICE_URL_KEY = 'char2vid.service-origin';
 
@@ -17,7 +22,7 @@ interface SessionInfo {
 }
 
 function originFromInput(value: string): string {
-  return value.trim().replace(/\/$/, '');
+  return normalizeServiceOrigin(value);
 }
 
 async function serviceFetch(
@@ -53,6 +58,7 @@ export function ServiceSettings() {
   const [apiKey, setApiKey] = useState('');
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [nativeToken, setNativeToken] = useState<string | undefined>();
+  const [tokenOrigin, setTokenOrigin] = useState<string | undefined>();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
   useEffect(() => {
@@ -68,14 +74,19 @@ export function ServiceSettings() {
       if (stored) {
         setOrigin(stored.serviceOrigin);
         setNativeToken(stored.deviceToken);
+        setTokenOrigin(stored.serviceOrigin);
       }
     });
   }, [native]);
 
+  const boundToken = nativeTokenForOrigin(nativeToken, tokenOrigin, origin);
+
   const refreshSession = useCallback(
-    async (token = nativeToken) => {
-      const base = originFromInput(origin);
-      if (!base) {
+    async (token = boundToken) => {
+      let base: string;
+      try {
+        base = originFromInput(origin);
+      } catch {
         return;
       }
       const response = await serviceFetch(
@@ -90,7 +101,7 @@ export function ServiceSettings() {
       }
       setSession((await response.json()) as SessionInfo);
     },
-    [nativeToken, origin],
+    [boundToken, origin],
   );
 
   useEffect(() => {
@@ -98,9 +109,9 @@ export function ServiceSettings() {
   }, [refreshSession]);
 
   const onSetup = useCallback(async () => {
-    const base = originFromInput(origin);
     setStatus({ kind: 'working', message: 'Completing service setup…' });
     try {
+      const base = originFromInput(origin);
       const response = await serviceFetch(base, '/studio-api/setup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -119,15 +130,15 @@ export function ServiceSettings() {
     } catch (error) {
       setStatus({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Setup failed',
+        message: serviceOriginMessage(error, 'Setup failed'),
       });
     }
   }, [login, origin, password, setupToken]);
 
   const onLogin = useCallback(async () => {
-    const base = originFromInput(origin);
     setStatus({ kind: 'working', message: 'Signing in…' });
     try {
+      const base = originFromInput(origin);
       const response = await serviceFetch(base, '/studio-api/session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -145,7 +156,7 @@ export function ServiceSettings() {
       if (!response.ok) {
         throw new Error(body.error ?? 'Sign-in failed');
       }
-      let token = nativeToken;
+      let token = boundToken;
       if (native && body.deviceToken && body.deviceId) {
         const { saveNativeServiceSession } =
           await import('@char2vid/native-bridge/credentials');
@@ -156,6 +167,7 @@ export function ServiceSettings() {
         });
         token = body.deviceToken;
         setNativeToken(body.deviceToken);
+        setTokenOrigin(base);
       }
       setPassword('');
       await refreshSession(token);
@@ -168,18 +180,18 @@ export function ServiceSettings() {
     } catch (error) {
       setStatus({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Sign-in failed',
+        message: serviceOriginMessage(error, 'Sign-in failed'),
       });
     }
-  }, [login, native, nativeToken, origin, password, refreshSession]);
+  }, [boundToken, login, native, origin, password, refreshSession]);
 
   const onSaveKey = useCallback(async () => {
-    const base = originFromInput(origin);
     setStatus({
       kind: 'working',
       message: 'Submitting provider key to the service…',
     });
     try {
+      const base = originFromInput(origin);
       const response = await serviceFetch(
         base,
         '/studio-api/provider-key',
@@ -188,7 +200,7 @@ export function ServiceSettings() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ apiKey }),
         },
-        nativeToken,
+        boundToken,
       );
       const body = (await response.json()) as {
         error?: string;
@@ -207,27 +219,34 @@ export function ServiceSettings() {
     } catch (error) {
       setStatus({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Provider key failed',
+        message: serviceOriginMessage(error, 'Provider key failed'),
       });
     }
-  }, [apiKey, nativeToken, origin, refreshSession]);
+  }, [apiKey, boundToken, origin, refreshSession]);
 
   const onRevoke = useCallback(async () => {
-    const base = originFromInput(origin);
     setStatus({ kind: 'working', message: 'Revoking this device session…' });
     try {
-      await serviceFetch(
+      const base = originFromInput(origin);
+      const response = await serviceFetch(
         base,
         '/studio-api/session',
         { method: 'DELETE' },
-        nativeToken,
+        boundToken,
       );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? 'Revoke failed');
+      }
       if (native) {
         const { clearNativeServiceSession } =
           await import('@char2vid/native-bridge/credentials');
         await clearNativeServiceSession();
       }
       setNativeToken(undefined);
+      setTokenOrigin(undefined);
       setSession(null);
       setStatus({
         kind: 'ok',
@@ -236,10 +255,10 @@ export function ServiceSettings() {
     } catch (error) {
       setStatus({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Revoke failed',
+        message: serviceOriginMessage(error, 'Revoke failed'),
       });
     }
-  }, [native, nativeToken, origin]);
+  }, [boundToken, native, origin]);
 
   return (
     <section className="backup-panel" aria-labelledby="service-title">
