@@ -12,6 +12,7 @@ import {
   getJobForOwner,
   listJobsPage,
   listOutputs,
+  markSaveProgress,
   submitJob,
   toReceipt,
 } from './repository.ts';
@@ -109,6 +110,30 @@ export function registerJobRoutes(
     return toReceipt(
       deps.db,
       cancelJob(deps.db, actor.ownerId, params.id, deps.now()),
+    );
+  });
+
+  app.post('/studio-api/jobs/:id/save-progress', (request) => {
+    const actor = requireSession(deps.db, request);
+    assertMutationCsrf(actor, request, deps.publicOrigin);
+    const params = request.params as { id: string };
+    const body = request.body as { saveState?: unknown };
+    if (
+      body.saveState !== 'downloading' &&
+      body.saveState !== 'verifying' &&
+      body.saveState !== 'failed'
+    ) {
+      throw new HttpError(400, 'invalid_save_state');
+    }
+    return toReceipt(
+      deps.db,
+      markSaveProgress(
+        deps.db,
+        actor.ownerId,
+        params.id,
+        body.saveState,
+        deps.now(),
+      ),
     );
   });
 

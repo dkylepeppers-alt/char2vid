@@ -40,6 +40,9 @@ describe('normalizeVideoStatus (P4)', () => {
   });
 
   it('maps nested pending and failed envelopes without inventing URLs', () => {
+    expect(
+      normalizeVideoStatus({ data: { status: 'IN_QUEUE' } }),
+    ).toMatchObject({ state: 'running' });
     expect(normalizeVideoStatus({ data: { status: 'PENDING' } })).toMatchObject(
       { state: 'running' },
     );

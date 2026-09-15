@@ -15,6 +15,9 @@ function costLabel(job: JobView): string {
   if (cost.state === 'final' && cost.amount !== undefined) {
     return `final ${cost.amount}`;
   }
+  if (cost.state === 'estimate' && cost.durationSeconds !== undefined) {
+    return `estimate ${cost.durationSeconds}s`;
+  }
   if (cost.state === 'reservation' && cost.durationSeconds !== undefined) {
     return `reserved ${cost.durationSeconds}s`;
   }

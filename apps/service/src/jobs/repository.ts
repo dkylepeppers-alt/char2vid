@@ -16,6 +16,7 @@ import {
   applyProviderCost,
   initialJobCost,
   parseCostJson,
+  reserveJobCost,
   type CostRecord,
 } from './costs.ts';
 import { readOutputFile } from './staging.ts';
@@ -278,6 +279,12 @@ export function submitJob(
   if (!draft.modelId?.trim() || !draft.operation) {
     throw new HttpError(400, 'invalid_draft');
   }
+  if (!Array.isArray(draft.references)) {
+    throw new HttpError(400, 'invalid_draft');
+  }
+  if (transferIds.length !== draft.references.length) {
+    throw new HttpError(400, 'transfer_reference_mismatch');
+  }
   const hash = canonicalRequestHash(draft);
   const existing = db
     .prepare(`SELECT id FROM jobs WHERE owner_id = ? AND client_request_id = ?`)
@@ -425,6 +432,10 @@ export function markSubmitting(
   now: Date,
   leaseMs: number,
 ): JobRecord | undefined {
+  const job = getJob(db, jobId);
+  if (!job) {
+    return undefined;
+  }
   const nowIso = now.toISOString();
   const leaseUntil = new Date(now.getTime() + leaseMs).toISOString();
   const result = db
@@ -433,12 +444,20 @@ export function markSubmitting(
        SET provider_state = 'submitting',
            lease_owner = ?,
            lease_until = ?,
+           cost_json = ?,
            updated_at = ?
        WHERE id = ?
          AND provider_state = 'queued'
          AND lease_owner = ?`,
     )
-    .run(workerId, leaseUntil, nowIso, jobId, workerId);
+    .run(
+      workerId,
+      leaseUntil,
+      JSON.stringify(reserveJobCost(job.cost)),
+      nowIso,
+      jobId,
+      workerId,
+    );
   if (Number(result.changes) !== 1) {
     return undefined;
   }
@@ -471,6 +490,8 @@ export function markRunning(
          cost_json = ?,
          next_attempt_at = ?,
          poll_count = 0,
+         lease_owner = NULL,
+         lease_until = NULL,
          updated_at = ?
      WHERE id = ?`,
   ).run(
@@ -543,19 +564,112 @@ export function failJob(
   now: Date,
   saveFailed = false,
 ): void {
+  const job = getJob(db, jobId);
   const nowIso = now.toISOString();
+  const cost =
+    job && (job.cost.state === 'reservation' || job.cost.state === 'final')
+      ? applyProviderCost(job.cost, job.cost.amount, true)
+      : job?.cost;
   db.prepare(
     `UPDATE jobs
      SET provider_state = 'failed',
          save_state = ?,
          error_code = ?,
+         cost_json = COALESCE(?, cost_json),
          lease_owner = NULL,
          lease_until = NULL,
          next_attempt_at = NULL,
          updated_at = ?
      WHERE id = ?`,
-  ).run(saveFailed ? 'failed' : 'absent', errorCode, nowIso, jobId);
+  ).run(
+    saveFailed ? 'failed' : 'absent',
+    errorCode,
+    cost ? JSON.stringify(cost) : null,
+    nowIso,
+    jobId,
+  );
   touchTerminalInputs(db, jobId, now);
+}
+
+export function requireJobRecovery(
+  db: DatabaseSync,
+  jobId: string,
+  errorCode: string,
+  now: Date,
+): void {
+  markJobState(db, jobId, 'recovery-required', now, errorCode);
+}
+
+export function markSaveProgress(
+  db: DatabaseSync,
+  ownerId: string,
+  jobId: string,
+  saveState: Extract<SaveState, 'downloading' | 'verifying' | 'failed'>,
+  now: Date,
+): JobRecord {
+  const job = getJobForOwner(db, ownerId, jobId);
+  if (job.providerState !== 'completed' || job.saveState === 'saved') {
+    throw new HttpError(409, 'save_progress_not_allowed');
+  }
+  const nowIso = now.toISOString();
+  db.prepare(`UPDATE jobs SET save_state = ?, updated_at = ? WHERE id = ?`).run(
+    saveState,
+    nowIso,
+    jobId,
+  );
+  const updated = getJob(db, jobId);
+  if (!updated) {
+    throw new HttpError(500, 'job_missing');
+  }
+  return updated;
+}
+
+export function claimDueRunning(
+  db: DatabaseSync,
+  workerId: string,
+  now: Date,
+  leaseMs: number,
+): JobRecord | undefined {
+  const nowIso = now.toISOString();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const row = db
+      .prepare(
+        `SELECT id FROM jobs
+         WHERE provider_state = 'running'
+           AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+           AND (lease_until IS NULL OR lease_until <= ?)
+         ORDER BY next_attempt_at ASC, id ASC
+         LIMIT 1`,
+      )
+      .get(nowIso, nowIso) as { id: string } | undefined;
+    if (!row) {
+      db.exec('COMMIT');
+      return undefined;
+    }
+    const leaseUntil = new Date(now.getTime() + leaseMs).toISOString();
+    const result = db
+      .prepare(
+        `UPDATE jobs
+         SET lease_owner = ?, lease_until = ?, updated_at = ?
+         WHERE id = ?
+           AND provider_state = 'running'
+           AND (lease_until IS NULL OR lease_until <= ?)`,
+      )
+      .run(workerId, leaseUntil, nowIso, row.id, nowIso);
+    db.exec('COMMIT');
+    if (Number(result.changes) !== 1) {
+      return undefined;
+    }
+    return getJob(db, row.id);
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // ignore
+    }
+    throw error;
+  }
 }
 
 export function markJobState(
@@ -582,6 +696,18 @@ export function markJobState(
   ) {
     touchTerminalInputs(db, jobId, now);
   }
+}
+
+export function releaseJobLease(
+  db: DatabaseSync,
+  jobId: string,
+  nowIso: string,
+): void {
+  db.prepare(
+    `UPDATE jobs
+     SET lease_owner = NULL, lease_until = NULL, updated_at = ?
+     WHERE id = ?`,
+  ).run(nowIso, jobId);
 }
 
 export function schedulePoll(
@@ -704,9 +830,16 @@ export function acknowledgeJob(
     throw new HttpError(409, 'output_hash_mismatch');
   }
   for (const output of outputs) {
-    const bytes = readOutputFile(stagingDir, job.id, output.ordinal);
-    if (sha256Hex(bytes) !== output.sha256) {
-      throw new HttpError(409, 'output_hash_mismatch');
+    try {
+      const bytes = readOutputFile(stagingDir, job.id, output.ordinal);
+      if (sha256Hex(bytes) !== output.sha256) {
+        throw new HttpError(409, 'output_hash_mismatch');
+      }
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      throw new HttpError(409, 'unrecoverable_bytes');
     }
   }
   const nowIso = now.toISOString();

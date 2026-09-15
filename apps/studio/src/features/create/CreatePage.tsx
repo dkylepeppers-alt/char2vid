@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Operation, ReferenceBinding } from '@char2vid/domain';
 import type { AssetRecord } from '@char2vid/domain/storage';
@@ -14,6 +14,12 @@ import {
   stageLibraryReferences,
   submitGenerationJob,
 } from '../jobs/job-sync';
+import {
+  clearDraftClientRequestId,
+  createSubmitGate,
+  draftFingerprint,
+  resolveDraftClientRequestId,
+} from './create-submit';
 import { ModelControls } from './ModelControls';
 import { MODEL_PAGE_SIZE, ModelPicker, type ModelFilter } from './ModelPicker';
 import { ReferenceTray } from './ReferenceTray';
@@ -76,6 +82,7 @@ export function CreatePage() {
   const [libraryAssets, setLibraryAssets] = useState<AssetRecord[]>([]);
   const [serviceReady, setServiceReady] = useState(false);
   const [submitState, setSubmitState] = useState<string | null>(null);
+  const submitGate = useRef(createSubmitGate());
 
   useEffect(() => {
     let cancelled = false;
@@ -286,9 +293,23 @@ export function CreatePage() {
       <button
         className="primary-action"
         disabled={!canGenerate || submitState === 'working'}
+        aria-busy={submitState === 'working'}
         onClick={() => {
           if (!selected) return;
+          if (!submitGate.current.tryEnter()) return;
           setSubmitState('working');
+          const draft = {
+            operation: OPERATION,
+            modelId: selected.id,
+            prompt,
+            references,
+            parameters,
+          };
+          const clientRequestId = resolveDraftClientRequestId({
+            storage: window.localStorage,
+            fingerprint: draftFingerprint(draft),
+            mint: () => crypto.randomUUID(),
+          });
           void (async () => {
             const session = await resolveStudioSession();
             if (!session) {
@@ -305,23 +326,24 @@ export function CreatePage() {
             const receipt = await submitGenerationJob(
               session,
               {
-                clientRequestId: crypto.randomUUID(),
-                operation: OPERATION,
-                modelId: selected.id,
-                prompt,
-                references,
-                parameters,
+                clientRequestId,
+                ...draft,
               },
               transferIds,
             );
+            clearDraftClientRequestId(window.localStorage);
             setSubmitState(
               `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
             );
-          })().catch((error: unknown) => {
-            setSubmitState(
-              error instanceof Error ? error.message : 'job_submit_failed',
-            );
-          });
+          })()
+            .catch((error: unknown) => {
+              setSubmitState(
+                error instanceof Error ? error.message : 'job_submit_failed',
+              );
+            })
+            .finally(() => {
+              submitGate.current.leave();
+            });
         }}
       >
         {canGenerate ? 'Generate' : 'Connect the generation service to submit'}

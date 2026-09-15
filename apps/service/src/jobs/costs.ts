@@ -21,13 +21,28 @@ function durationFromDraft(draft: GenerationDraft): number | undefined {
   return asFiniteNumber(draft.parameters.duration);
 }
 
-/** Queue-time cost: reserve recorded duration, otherwise unknown. */
-export function initialJobCost(draft: GenerationDraft): CostRecord {
+/** Queue-time cost: duration becomes an estimate; otherwise unknown. */
+export function estimateJobCost(draft: GenerationDraft): CostRecord {
   const durationSeconds = durationFromDraft(draft);
   if (durationSeconds === undefined) {
     return { state: 'unknown' };
   }
-  return { state: 'reservation', durationSeconds };
+  return { state: 'estimate', durationSeconds };
+}
+
+export function initialJobCost(draft: GenerationDraft): CostRecord {
+  return estimateJobCost(draft);
+}
+
+/** Spend-limit hold once a worker claims the job. */
+export function reserveJobCost(current: CostRecord): CostRecord {
+  if (current.durationSeconds === undefined) {
+    return current;
+  }
+  if (current.state === 'estimate' || current.state === 'unknown') {
+    return { ...current, state: 'reservation' };
+  }
+  return current;
 }
 
 export function applyProviderCost(

@@ -160,11 +160,16 @@ export async function submitGenerationJob(
   session: StudioSession,
   draft: GenerationDraft,
   transferIds: string[],
+  retryOfJobId?: string,
 ): Promise<JobView> {
   const response = await studioApiFetch(session, '/studio-api/jobs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ draft, transferIds }),
+    body: JSON.stringify({
+      draft,
+      transferIds,
+      ...(retryOfJobId ? { retryOfJobId } : {}),
+    }),
   });
   if (!response.ok) {
     const body = (await response.json()) as { error?: string };
@@ -227,6 +232,25 @@ async function importOutput(
   });
 }
 
+async function reportSaveProgress(
+  session: StudioSession,
+  jobId: string,
+  saveState: 'downloading' | 'verifying' | 'failed',
+): Promise<void> {
+  const response = await studioApiFetch(
+    session,
+    `/studio-api/jobs/${jobId}/save-progress`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ saveState }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error('save_progress_failed');
+  }
+}
+
 export async function reconcileJobOutputs(
   session: StudioSession,
   library: LibraryPort,
@@ -235,10 +259,17 @@ export async function reconcileJobOutputs(
   if (job.providerState !== 'completed' || job.saveState === 'saved') {
     return job;
   }
+  await reportSaveProgress(session, job.id, 'downloading');
   const hashes: string[] = [];
-  for (const output of job.outputs ?? []) {
-    const imported = await importOutput(session, library, job, output);
-    hashes.push(imported.sha256);
+  try {
+    for (const output of job.outputs ?? []) {
+      const imported = await importOutput(session, library, job, output);
+      hashes.push(imported.sha256);
+    }
+    await reportSaveProgress(session, job.id, 'verifying');
+  } catch (error) {
+    await reportSaveProgress(session, job.id, 'failed').catch(() => undefined);
+    throw error;
   }
   const ack = await studioApiFetch(
     session,

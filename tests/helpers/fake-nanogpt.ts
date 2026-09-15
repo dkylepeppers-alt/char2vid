@@ -26,6 +26,7 @@ export class FakeGenerationProvider implements GenerationProvider {
   submits = 0;
   statusPolls = 0;
   crashAfterSubmit = false;
+  submitStatus?: number;
   imageBody: unknown = {
     data: [
       { b64_json: Buffer.from(FIXTURE_PNG).toString('base64') },
@@ -58,6 +59,13 @@ export class FakeGenerationProvider implements GenerationProvider {
     this.submits += 1;
     if (this.crashAfterSubmit) {
       throw new Error('simulated_crash_after_dispatch');
+    }
+    if (this.submitStatus !== undefined) {
+      return {
+        status: this.submitStatus,
+        contentType: 'application/json',
+        json: { error: `forced_${this.submitStatus}` },
+      };
     }
     if (input.operation === 'video-generate') {
       return {
