@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status (15 September 2026):** M1 local library (G1–G4) and M2 through P4 durable jobs are on `main`. This branch adds P5 catalog-coverage audit and fake-provider recovery, plus P4 residual Highs (Create idempotency, `recovery-required` retry, estimate/refund producers). Emulator CI proves native import/export/archives and job-output hash reconcile; physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls stay **UNVERIFIED**. Multi-op Create and character pipeline remain ahead.
+**Status (15 September 2026):** M1 local library (G1–G4) and M2 through P5 (catalog coverage + fake-provider recovery, including P4 residual Highs) are on `main`. Issues [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7), [#8](https://github.com/dkylepeppers-alt/char2vid/issues/8), and [#9](https://github.com/dkylepeppers-alt/char2vid/issues/9) stay open for unpaid residuals. Emulator CI proves native import/export/archives and job-output hash reconcile; physical-device install, live HTTPS service deploy, Keystore round-trip, live catalog census, and paid Nano-GPT calls stay **UNVERIFIED**. Character pipeline (C1+) remains ahead.
 
 ## Develop and test
 
@@ -57,6 +57,6 @@ Pull requests run web and Android validation. Successful Android runs provide a 
 | P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore           |
 | P3 Model picker / serializers            | Done on `main` | #43          | Endpoint metadata fetch, catalog snapshot persistence, paid Nano-GPT |
 | P4 Durable jobs                          | Done on `main` | #45          | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT      |
-| P5 Coverage / recovery                   | In progress    | This branch  | Physical Android interruption, live catalog census, paid Nano-GPT    |
+| P5 Coverage / recovery                   | Done on `main` | #46          | Physical Android interruption, live catalog census, paid Nano-GPT    |
 
 The model counts and examples in the research are observations, not a model allowlist. No generation requests were made during planning, and no API keys or private media are included.
