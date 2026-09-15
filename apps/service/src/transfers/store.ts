@@ -154,12 +154,26 @@ export function expireDueTransfers(
   stagingDir: string,
   nowIso: string,
 ): void {
-  const due = db
-    .prepare(
-      `SELECT id, state FROM transfers
-       WHERE state IN ('pending', 'finalized') AND expires_at <= ?`,
-    )
-    .all(nowIso) as { id: string; state: string }[];
+  const protectedIds = new Set(
+    (
+      db
+        .prepare(
+          `SELECT l.transfer_id AS id
+           FROM job_input_leases l
+           INNER JOIN jobs j ON j.id = l.job_id
+           WHERE j.provider_state NOT IN ('completed', 'failed', 'cancelled')`,
+        )
+        .all() as { id: string }[]
+    ).map((row) => row.id),
+  );
+  const due = (
+    db
+      .prepare(
+        `SELECT id, state FROM transfers
+         WHERE state IN ('pending', 'finalized') AND expires_at <= ?`,
+      )
+      .all(nowIso) as { id: string; state: string }[]
+  ).filter((item) => !protectedIds.has(item.id));
   for (const item of due) {
     rmSync(partsDir(stagingDir, item.id), { recursive: true, force: true });
     rmSync(objectPath(stagingDir, item.id), { force: true });

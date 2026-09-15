@@ -25,6 +25,15 @@ import {
 import { registerTransferRoutes } from './transfers/routes.ts';
 import { assertTransferId, openFinalizedObject } from './transfers/store.ts';
 import { verifyMediaAccess } from './transfers/signed-inputs.ts';
+import { registerJobRoutes } from './jobs/routes.ts';
+import { processJobs, type WorkerEnv } from './jobs/worker.ts';
+import { createHttpGenerationProvider } from './jobs/http-provider.ts';
+import type { GenerationProvider } from './jobs/provider.ts';
+import {
+  DEFAULT_JOB_LEASE_MS,
+  DEFAULT_OWNER_CONCURRENCY,
+} from './jobs/repository.ts';
+import { randomBytes } from 'node:crypto';
 
 export interface ServiceEnv {
   dbPath: string;
@@ -38,11 +47,16 @@ export interface ServiceEnv {
   validateProviderKey?: (
     apiKey: string,
   ) => Promise<{ ok: true } | { ok: false; reason: string }>;
+  provider?: GenerationProvider;
+  autoProcessJobs?: boolean;
+  jobLeaseMs?: number;
+  maxOwnerConcurrency?: number;
 }
 
 export interface BuiltService {
   app: FastifyInstance;
   db: DatabaseSync;
+  processJobs: () => Promise<void>;
   close: () => Promise<void>;
 }
 
@@ -221,6 +235,13 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
     now,
   });
 
+  registerJobRoutes(app, {
+    db,
+    stagingDir: env.stagingDir,
+    publicOrigin: env.publicOrigin,
+    now,
+  });
+
   app.get(
     '/studio-media/:id',
     {
@@ -269,15 +290,38 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
     throw new HttpError(404, 'not_found');
   });
 
+  const workerEnv: WorkerEnv = {
+    db,
+    stagingDir: env.stagingDir,
+    masterKey: env.masterKey,
+    publicOrigin: env.publicOrigin,
+    provider: env.provider ?? createHttpGenerationProvider(),
+    now,
+    jobLeaseMs: env.jobLeaseMs ?? DEFAULT_JOB_LEASE_MS,
+    workerId: randomBytes(8).toString('hex'),
+    maxOwnerConcurrency: env.maxOwnerConcurrency ?? DEFAULT_OWNER_CONCURRENCY,
+  };
+  const runJobs = () => processJobs(workerEnv);
+  let timer: ReturnType<typeof setInterval> | undefined;
+  if (env.autoProcessJobs) {
+    timer = setInterval(() => {
+      void runJobs();
+    }, 250);
+  }
+
   const close = async () => {
+    if (timer) {
+      clearInterval(timer);
+    }
     await app.close();
     db.close();
   };
 
-  return { app, db, close };
+  return { app, db, processJobs: runJobs, close };
 }
 
 export { safeDownload } from './network/safe-download.ts';
 export { signMediaAccess } from './transfers/signed-inputs.ts';
 export { insertOwnerForTests } from './auth/enrollment.ts';
 export { decryptProviderKey } from './auth/credentials.ts';
+export { claimQueuedJob } from './jobs/repository.ts';
