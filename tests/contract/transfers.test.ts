@@ -197,6 +197,85 @@ describe('transfers (P2)', () => {
     }
   });
 
+  it('rejects a non-hex transfer id before touching staging files', async () => {
+    const service = await openTestService();
+    try {
+      await setupOwner(service);
+      const { token } = await loginNative(service);
+      const response = await service.app.inject({
+        method: 'PUT',
+        url: `/studio-api/transfers/${encodeURIComponent('../objects/evil')}/parts/0`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/octet-stream',
+        },
+        payload: Buffer.from([1, 2, 3, 4]),
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_transfer_id' });
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('finalizes sequential parts and streams the signed object', async () => {
+    const service = await openTestService();
+    try {
+      await setupOwner(service);
+      const { token } = await loginNative(service);
+      const first = new Uint8Array([1, 2, 3, 4]);
+      const second = new Uint8Array([5, 6, 7, 8]);
+      const payload = new Uint8Array([...first, ...second]);
+      const { transferId } = await createPending(service, token, payload);
+      const headers = {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/octet-stream',
+      };
+      expect(
+        (
+          await service.app.inject({
+            method: 'PUT',
+            url: `/studio-api/transfers/${transferId}/parts/0`,
+            headers,
+            payload: Buffer.from(first),
+          })
+        ).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await service.app.inject({
+            method: 'PUT',
+            url: `/studio-api/transfers/${transferId}/parts/1`,
+            headers,
+            payload: Buffer.from(second),
+          })
+        ).statusCode,
+      ).toBe(200);
+      const finalize = await service.app.inject({
+        method: 'POST',
+        url: `/studio-api/transfers/${transferId}/finalize`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(finalize.statusCode).toBe(200);
+      expect(finalize.json()).toMatchObject({
+        transferId,
+        state: 'finalized',
+        sha256: digest(payload),
+        bytes: payload.byteLength,
+      });
+      const exp = Math.floor(Date.now() / 1000) + 60;
+      const signature = signMediaAccess(service.masterKey, transferId, exp);
+      const downloaded = await service.app.inject({
+        method: 'GET',
+        url: `/studio-media/${transferId}?signature=${signature}&exp=${exp}`,
+      });
+      expect(downloaded.statusCode).toBe(200);
+      expect(Buffer.from(downloaded.rawPayload)).toEqual(Buffer.from(payload));
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
   it('rejects transfers that would exceed the staging quota', async () => {
     const service = await openTestService({ quotaBytes: 10 });
     try {

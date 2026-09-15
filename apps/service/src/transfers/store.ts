@@ -1,12 +1,15 @@
 import {
+  closeSync,
   mkdirSync,
-  readFileSync,
+  openSync,
+  readSync,
+  renameSync,
   rmSync,
   writeFileSync,
-  renameSync,
+  writeSync,
 } from 'node:fs';
-import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { join, resolve, sep } from 'node:path';
+import { createHash, randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
 import {
@@ -16,6 +19,9 @@ import {
 } from '../constants';
 import { HttpError } from '../http-error';
 import { sha256Hex } from './signed-inputs';
+
+export const TRANSFER_ID_PATTERN = /^[0-9a-f]{32}$/;
+const COPY_BUFFER_BYTES = 64 * 1024;
 
 export interface TransferRecord {
   id: string;
@@ -44,11 +50,11 @@ interface TransferRow {
 }
 
 function partsDir(stagingDir: string, transferId: string): string {
-  return join(stagingDir, 'parts', transferId);
+  return containedPath(stagingDir, 'parts', assertTransferId(transferId));
 }
 
 function objectPath(stagingDir: string, transferId: string): string {
-  return join(stagingDir, 'objects', transferId);
+  return containedPath(stagingDir, 'objects', assertTransferId(transferId));
 }
 
 function partPath(
@@ -56,7 +62,52 @@ function partPath(
   transferId: string,
   index: number,
 ): string {
-  return join(partsDir(stagingDir, transferId), String(index));
+  return containedPath(
+    stagingDir,
+    'parts',
+    assertTransferId(transferId),
+    String(index),
+  );
+}
+
+export function assertTransferId(transferId: string): string {
+  if (!TRANSFER_ID_PATTERN.test(transferId)) {
+    throw new HttpError(400, 'invalid_transfer_id');
+  }
+  return transferId;
+}
+
+function containedPath(stagingDir: string, ...segments: string[]): string {
+  const root = resolve(stagingDir);
+  const candidate = resolve(join(root, ...segments));
+  const prefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  if (candidate !== root && !candidate.startsWith(prefix)) {
+    throw new HttpError(400, 'invalid_transfer_id');
+  }
+  return candidate;
+}
+
+function hashCopyParts(partFiles: string[], destination: string): string {
+  const hash = createHash('sha256');
+  const outFd = openSync(destination, 'w');
+  const buf = Buffer.alloc(COPY_BUFFER_BYTES);
+  try {
+    for (const file of partFiles) {
+      const fd = openSync(file, 'r');
+      try {
+        let n = 0;
+        while ((n = readSync(fd, buf, 0, buf.length, null)) > 0) {
+          hash.update(buf.subarray(0, n));
+          writeSync(outFd, buf, 0, n);
+        }
+      } finally {
+        closeSync(fd);
+      }
+    }
+  } finally {
+    closeSync(outFd);
+  }
+  return hash.digest('hex');
 }
 
 function asRecord(db: DatabaseSync, row: TransferRow): TransferRecord {
@@ -172,6 +223,7 @@ export function writePart(
   index: number,
   body: Uint8Array,
 ): void {
+  assertTransferId(transferId);
   if (!Number.isInteger(index) || index < 0) {
     throw new HttpError(400, 'invalid_part_index');
   }
@@ -227,6 +279,7 @@ export function finalizeTransfer(
   transferId: string,
   now: Date,
 ): TransferRecord {
+  assertTransferId(transferId);
   const row = getRow(db, transferId);
   if (!row) {
     throw new HttpError(404, 'transfer_not_found');
@@ -258,19 +311,16 @@ export function finalizeTransfer(
   if (total !== row.bytes) {
     throw new HttpError(409, 'truncated_upload');
   }
-  const chunks: Buffer[] = [];
-  for (const part of parts) {
-    chunks.push(
-      readFileSync(partPath(stagingDir, transferId, part.part_index)),
-    );
-  }
-  const combined = Buffer.concat(chunks);
-  if (sha256Hex(combined) !== row.sha256) {
-    throw new HttpError(409, 'checksum_mismatch');
-  }
   mkdirSync(join(stagingDir, 'objects'), { recursive: true });
   const tempObject = `${objectPath(stagingDir, transferId)}.tmp`;
-  writeFileSync(tempObject, combined);
+  const digest = hashCopyParts(
+    parts.map((part) => partPath(stagingDir, transferId, part.part_index)),
+    tempObject,
+  );
+  if (digest !== row.sha256) {
+    rmSync(tempObject, { force: true });
+    throw new HttpError(409, 'checksum_mismatch');
+  }
   renameSync(tempObject, objectPath(stagingDir, transferId));
   const expires = new Date(
     now.getTime() + FINALIZED_TRANSFER_TTL_MS,
@@ -291,6 +341,7 @@ export function getTransfer(
   ownerId: string,
   transferId: string,
 ): TransferRecord {
+  assertTransferId(transferId);
   const row = getRow(db, transferId);
   if (!row || row.owner_id !== ownerId) {
     throw new HttpError(404, 'transfer_not_found');
@@ -298,17 +349,19 @@ export function getTransfer(
   return asRecord(db, row);
 }
 
-export function readFinalizedObject(
+export function openFinalizedObject(
   db: DatabaseSync,
   stagingDir: string,
   transferId: string,
-): { mime: string; bytes: Buffer } {
+): { mime: string; absolutePath: string; bytes: number } {
+  assertTransferId(transferId);
   const row = getRow(db, transferId);
   if (!row || row.state !== 'finalized') {
     throw new HttpError(404, 'transfer_not_found');
   }
   return {
     mime: row.mime,
-    bytes: readFileSync(objectPath(stagingDir, transferId)),
+    absolutePath: objectPath(stagingDir, transferId),
+    bytes: row.bytes,
   };
 }

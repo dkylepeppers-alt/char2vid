@@ -1,5 +1,7 @@
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { createReadStream } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 
 import { SESSION_COOKIE } from './constants';
@@ -19,7 +21,7 @@ import {
   revokeSession,
 } from './auth/sessions';
 import { registerTransferRoutes } from './transfers/routes';
-import { readFinalizedObject } from './transfers/store';
+import { assertTransferId, openFinalizedObject } from './transfers/store';
 import { verifyMediaAccess } from './transfers/signed-inputs';
 
 export interface ServiceEnv {
@@ -55,6 +57,10 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
   const app = Fastify({ logger: false });
 
   await app.register(cookie);
+  await app.register(rateLimit, {
+    global: false,
+    hook: 'preHandler',
+  });
 
   app.addContentTypeParser(
     'application/octet-stream',
@@ -93,36 +99,44 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
     return { ownerId: result.ownerId, setup: 'completed' };
   });
 
-  app.post('/studio-api/session', (request, reply) => {
-    const body = request.body as {
-      login?: unknown;
-      password?: unknown;
-      client?: unknown;
-    };
-    const owner = authenticateOwner(
-      db,
-      typeof body.login === 'string' ? body.login : '',
-      typeof body.password === 'string' ? body.password : '',
-      now().getTime(),
-    );
-    const session = createSession(db, owner.ownerId, now().toISOString());
-    const credential = encodeCredential(session.sessionId, session.rawToken);
-    const client = body.client === 'native' ? 'native' : 'browser';
-    if (client === 'browser') {
-      void reply.setCookie(SESSION_COOKIE, credential, {
-        httpOnly: true,
-        path: '/',
-        sameSite: 'lax',
-        secure: env.cookieSecure,
-      });
-      return { deviceId: session.deviceId, ownerId: owner.ownerId };
-    }
-    return {
-      deviceId: session.deviceId,
-      ownerId: owner.ownerId,
-      deviceToken: credential,
-    };
-  });
+  app.post(
+    '/studio-api/session',
+    {
+      config: {
+        rateLimit: { max: 30, timeWindow: '1 minute' },
+      },
+    },
+    (request, reply) => {
+      const body = request.body as {
+        login?: unknown;
+        password?: unknown;
+        client?: unknown;
+      };
+      const owner = authenticateOwner(
+        db,
+        typeof body.login === 'string' ? body.login : '',
+        typeof body.password === 'string' ? body.password : '',
+        now().getTime(),
+      );
+      const session = createSession(db, owner.ownerId, now().toISOString());
+      const credential = encodeCredential(session.sessionId, session.rawToken);
+      const client = body.client === 'native' ? 'native' : 'browser';
+      if (client === 'browser') {
+        void reply.setCookie(SESSION_COOKIE, credential, {
+          httpOnly: true,
+          path: '/',
+          sameSite: 'lax',
+          secure: env.cookieSecure,
+        });
+        return { deviceId: session.deviceId, ownerId: owner.ownerId };
+      }
+      return {
+        deviceId: session.deviceId,
+        ownerId: owner.ownerId,
+        deviceToken: credential,
+      };
+    },
+  );
 
   app.delete('/studio-api/session', (request, reply) => {
     const actor = requireSession(db, request);
@@ -178,36 +192,49 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
     now,
   });
 
-  app.get('/studio-media/:id', (request, reply) => {
-    const params = request.params as { id: string };
-    const query = request.query as { signature?: string; exp?: string };
-    if (typeof query.signature !== 'string' || typeof query.exp !== 'string') {
-      throw new HttpError(401, 'signature_required');
-    }
-    const exp = Number(query.exp);
-    if (!Number.isFinite(exp)) {
-      throw new HttpError(401, 'signature_required');
-    }
-    const check = verifyMediaAccess(
-      env.masterKey,
-      params.id,
-      exp,
-      query.signature,
-      Math.floor(now().getTime() / 1000),
-    );
-    if (check === 'stale') {
-      throw new HttpError(401, 'stale_signature');
-    }
-    if (check !== 'ok') {
-      throw new HttpError(401, 'invalid_signature');
-    }
-    const object = readFinalizedObject(db, env.stagingDir, params.id);
-    void reply
-      .header('content-type', object.mime)
-      .header('cache-control', 'private, no-store')
-      .header('x-content-type-options', 'nosniff');
-    return reply.send(object.bytes);
-  });
+  app.get(
+    '/studio-media/:id',
+    {
+      config: {
+        rateLimit: { max: 60, timeWindow: '1 minute' },
+      },
+    },
+    (request, reply) => {
+      const params = request.params as { id: string };
+      assertTransferId(params.id);
+      const query = request.query as { signature?: string; exp?: string };
+      if (
+        typeof query.signature !== 'string' ||
+        typeof query.exp !== 'string'
+      ) {
+        throw new HttpError(401, 'signature_required');
+      }
+      const exp = Number(query.exp);
+      if (!Number.isFinite(exp)) {
+        throw new HttpError(401, 'signature_required');
+      }
+      const check = verifyMediaAccess(
+        env.masterKey,
+        params.id,
+        exp,
+        query.signature,
+        Math.floor(now().getTime() / 1000),
+      );
+      if (check === 'stale') {
+        throw new HttpError(401, 'stale_signature');
+      }
+      if (check !== 'ok') {
+        throw new HttpError(401, 'invalid_signature');
+      }
+      const object = openFinalizedObject(db, env.stagingDir, params.id);
+      void reply
+        .header('content-type', object.mime)
+        .header('content-length', String(object.bytes))
+        .header('cache-control', 'private, no-store')
+        .header('x-content-type-options', 'nosniff');
+      return reply.send(createReadStream(object.absolutePath));
+    },
+  );
 
   app.get('/studio-media', () => {
     throw new HttpError(404, 'not_found');
