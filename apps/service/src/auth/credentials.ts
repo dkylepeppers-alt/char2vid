@@ -1,8 +1,8 @@
 import {
   createCipheriv,
   createDecipheriv,
-  createHmac,
   randomBytes,
+  scryptSync,
 } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
@@ -24,9 +24,8 @@ export function maskProviderKey(
     throw new HttpError(400, 'provider_key_too_short');
   }
   const last4 = trimmed.slice(-4);
-  const fingerprint = createHmac('sha256', masterKey)
-    .update(trimmed, 'utf8')
-    .digest('hex')
+  const fingerprint = scryptSync(trimmed, masterKey, 8)
+    .toString('hex')
     .slice(0, 12);
   return { last4, fingerprint };
 }
