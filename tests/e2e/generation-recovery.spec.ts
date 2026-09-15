@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+
 import { expect, test, type Page } from '@playwright/test';
 
 import {
@@ -24,6 +26,16 @@ test.afterAll(async () => {
     await stopE2eFakeService(service);
   }
 });
+
+async function artifactShot(page: Page, name: string): Promise<void> {
+  if (!existsSync('/opt/cursor/artifacts')) {
+    return;
+  }
+  await page.screenshot({
+    path: `/opt/cursor/artifacts/${name}.png`,
+    fullPage: true,
+  });
+}
 
 async function mockCatalogs(page: Page, imageStatus = 200): Promise<void> {
   await page.route('https://nano-gpt.com/api/v1/**', (route) => {
@@ -69,8 +81,15 @@ test('double Generate and cancel stay on one fake job with no provider call', as
   await page.getByRole('button', { name: /Plain Image/ }).click();
   const generate = page.getByRole('button', { name: 'Generate' });
   await expect(generate).toBeEnabled();
-  await Promise.all([generate.click(), generate.click()]);
+  await generate.evaluate((node) => {
+    if (!(node instanceof HTMLButtonElement)) {
+      throw new Error('expected generate button');
+    }
+    node.click();
+    node.click();
+  });
   await expect(page.getByText(/Queued /)).toBeVisible();
+  await artifactShot(page, 'create-double-generate-one-job');
 
   const listed = await page.request.get('/studio-api/jobs');
   expect(listed.ok()).toBeTruthy();
@@ -80,6 +99,7 @@ test('double Generate and cancel stay on one fake job with no provider call', as
   await page.getByRole('button', { name: 'Open jobs' }).click();
   await page.getByRole('button', { name: 'Cancel queued job' }).click();
   await expect(page.getByText(/provider cancelled/)).toBeVisible();
+  await artifactShot(page, 'jobs-cancelled-no-provider-call');
   await page.getByRole('button', { name: 'Close' }).click();
 
   const stats = await page.request.get('/__fake/stats');
@@ -107,6 +127,7 @@ test('a later Generate plus worker tick completes one fake image job', async ({
 
   await page.getByRole('button', { name: 'Open jobs' }).click();
   await expect(page.getByText(/provider completed/)).toBeVisible();
+  await artifactShot(page, 'jobs-completed-one-fake-submit');
   const tickAgain = await page.request.post('/__fake/tick');
   expect(await tickAgain.json()).toMatchObject({
     submits: before.submits + 1,

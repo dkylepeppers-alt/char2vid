@@ -48,7 +48,10 @@ export async function connectFakeService(page: Page): Promise<void> {
   await page.getByLabel('Owner login').fill(E2E_OWNER);
   await page.getByLabel('Owner password').fill(E2E_PASSWORD);
   await page.getByRole('button', { name: 'Complete setup' }).click();
-  await page.getByText('Owner login created').waitFor();
+  await Promise.race([
+    page.getByText('Owner login created').waitFor(),
+    page.getByText('setup_already_completed').waitFor(),
+  ]);
   await page.getByLabel('Owner password').fill(E2E_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByText('Browser session cookie set.').waitFor();
