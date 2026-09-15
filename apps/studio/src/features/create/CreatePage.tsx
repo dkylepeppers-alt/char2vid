@@ -31,7 +31,10 @@ function readJson<T>(key: string, fallback: T): T {
 async function catalogFetcher(url: string) {
   const response = await fetch(url);
   try {
-    return { status: response.status, body: (await response.json()) as unknown };
+    return {
+      status: response.status,
+      body: (await response.json()) as unknown,
+    };
   } catch {
     return { status: response.status, body: null };
   }
