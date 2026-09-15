@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status (15 September 2026):** M1 local library (G1–G4) and M2 through P3 model pickers are on `main`. This branch adds durable jobs (P4): Create stays image-first, attaches library references, and submits jobs to the personal service (fake provider in tests/CI). Emulator CI proves native import/export/archives; physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls stay **UNVERIFIED**. Multi-op Create and character pipeline remain ahead.
+**Status (15 September 2026):** M1 local library (G1–G4) and M2 through P4 durable jobs are on `main`. This branch adds P5 catalog-coverage audit and fake-provider recovery, plus P4 residual Highs (Create idempotency, `recovery-required` retry, estimate/refund producers). Emulator CI proves native import/export/archives and job-output hash reconcile; physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls stay **UNVERIFIED**. Multi-op Create and character pipeline remain ahead.
 
 ## Develop and test
 
@@ -56,6 +56,7 @@ Pull requests run web and Android validation. Successful Android runs provide a 
 | P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                                  |
 | P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore           |
 | P3 Model picker / serializers            | Done on `main` | #43          | Endpoint metadata fetch, catalog snapshot persistence, paid Nano-GPT |
-| P4 Durable jobs                          | In progress    | This branch  | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT      |
+| P4 Durable jobs                          | Done on `main` | #45          | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT      |
+| P5 Coverage / recovery                   | In progress    | This branch  | Physical Android interruption, live catalog census, paid Nano-GPT    |
 
 The model counts and examples in the research are observations, not a model allowlist. No generation requests were made during planning, and no API keys or private media are included.

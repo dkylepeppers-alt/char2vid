@@ -170,7 +170,7 @@ it('does not invent output for an empty completion', () => {
 
   - Evidence: nested/flat video envelopes and image/audio output parsers in `tests/contract/provider-results.test.ts`. Service capture + `LibraryPort` import + acknowledge in `tests/contract/jobs.test.ts`. `QueueSheet` / `job-sync.ts` download verified hashes into the local library. Playwright/UI paid smoke is **UNVERIFIED**.
 - [x] Implement estimate/reservation/final/refund/unknown cost states; account for input-duration billing when applicable. A user-approved retry of an ambiguous request receives a new client request ID with a link to the original. Repeated local downloads do not create a new paid generation.
-  - Evidence: duration → `reservation`; provider ticket cost → `final`; retry-of `submission-unknown` requires a new `client_request_id`; acknowledge-twice leaves `submits === 1`.
+  - Evidence: duration → `estimate` at enqueue; worker claim → `reservation`; provider amount → `final`; `failJob` after reservation/final calls `applyProviderCost(..., true)` → `refund`. Retry-of `submission-unknown` or `recovery-required` requires a new `client_request_id`. Acknowledge-twice leaves `submits === 1`.
 - [x] Run `npx vitest run tests/contract/jobs.test.ts tests/contract/provider-results.test.ts`. Restart the actual service while the fake provider has running jobs, suspend the app, then verify existing IDs and identical saved hashes. Commit: `feat: persist generation jobs and verified local results`.
   - Evidence: focused vitest on those files; restart-while-running fake video job keeps `providerRunId` and output SHA-256. Physical Android suspend, HTTPS deploy, Keystore, and paid Nano-GPT remain **UNVERIFIED**.
 
@@ -180,9 +180,11 @@ it('does not invent output for an empty completion', () => {
 
 **Interfaces:** `auditCatalogCoverage(models, contracts)` returns `{ total, usable, incompatible, restricted, unresolved, rows }`, with each exact catalog ID appearing once per relevant catalog and a reason/evidence reference. This is reporting, not a runtime allowlist.
 
-- [ ] Generate the audit from current catalogs. Every unresolved row names a missing operation/input/response contract. Do not equate broad `image_generation`/`video_generation` flags with usable generation; utilities and transformations may need input requirements absent from flags.
-- [ ] Exercise small known input/reference families using the fake service first. When real credentials and a spending budget have been provided for implementation, capture a minimal paid smoke test per materially different selected route family; keep remaining rows honestly marked metadata-only.
-- [ ] Test these recovery boundaries explicitly:
+- [x] Generate the audit from current catalogs. Every unresolved row names a missing operation/input/response contract. Do not equate broad `image_generation`/`video_generation` flags with usable generation; utilities and transformations may need input requirements absent from flags.
+  - Evidence: `auditCatalogCoverage` in `packages/nanogpt/src/catalog/coverage.ts`, `scripts/audit-provider-coverage.ts`, `docs/validation/model-coverage.md`. Fixture catalogs: `birefnet/v2` restricted (edit/transform without a verified input limit); `elevenlabs/music` unresolved (no music route); chat-only image rows incompatible. **UNVERIFIED:** complete live ID census (P1 stores hashes, not bodies; re-run `npm run audit:coverage -- --live` without spending credits).
+- [x] Exercise small known input/reference families using the fake service first. When real credentials and a spending budget have been provided for implementation, capture a minimal paid smoke test per materially different selected route family; keep remaining rows honestly marked metadata-only.
+  - Evidence: fake image + video jobs in `tests/contract/jobs.test.ts` and Playwright `tests/e2e/generation-recovery.spec.ts`. Paid Nano-GPT smoke remains **UNVERIFIED**.
+- [x] Test these recovery boundaries explicitly:
 
 ```text
 queued before provider -> cancel -> no provider call
@@ -193,14 +195,20 @@ provider URL expired -> use service copy; if unavailable, report unrecoverable b
 app force-stop -> service continues; local save reconciles after app restart
 ```
 
-- [ ] Run `npx playwright test tests/e2e/generation-recovery.spec.ts`; repeat the interruption sequence on physical Android. Test catalog partial outage, revoked key, denied model, 402, transient 429, and daily 429. Record device, service version, timestamps, and exact pass/fail observations.
-- [ ] Commit: `test: verify model coverage and generation recovery`.
+  - Evidence: `docs/validation/job-recovery.md` and the contract/Playwright/emulator tests named there. Physical Android force-stop remains **UNVERIFIED**.
+- [x] Run `npx playwright test tests/e2e/generation-recovery.spec.ts`; repeat the interruption sequence on physical Android. Test catalog partial outage, revoked key, denied model, 402, transient 429, and daily 429. Record device, service version, timestamps, and exact pass/fail observations.
+  - Evidence: Playwright generation-recovery (fake service); contract tests for 402, 429, missing key → `recovery-required`. Daily 429 is not distinguished from transient 429. Physical Android interruption **UNVERIFIED**.
+- [x] Commit: `test: verify model coverage and generation recovery`.
 
 ## Milestone acceptance
 
 - [ ] All current media catalog records appear in the audit and picker; unknown contracts have explicit reasons.
+  - Partial: fixture IDs appear in `docs/validation/model-coverage.md` with explicit reasons. **UNVERIFIED:** complete live catalog census (hashes only in P1).
 - [ ] At least one validated image and video workflow produces a verified local asset under the implementation test budget.
-- [ ] Interrupted transfers and known jobs recover without duplicate paid requests.
-- [ ] Ambiguous submissions remain visible and require an intentional new generation to incur a repeat charge.
+  - Fake image + video assets are verified in contract tests. Paid Nano-GPT remains **UNVERIFIED**.
+- [x] Interrupted transfers and known jobs recover without duplicate paid requests.
+  - Evidence: fake-provider contract + Playwright recovery tests. Physical Android **UNVERIFIED**.
+- [x] Ambiguous submissions remain visible and require an intentional new generation to incur a repeat charge.
+  - Evidence: `submission-unknown` and `recovery-required` reject auto-requeue; approved retry requires a new `client_request_id`.
 
 Continue with [Character and video pipeline](2026-09-13-character-video.md).
