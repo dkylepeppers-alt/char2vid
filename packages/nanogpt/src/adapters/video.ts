@@ -1,4 +1,4 @@
-import { getRouteContract, routeUrl } from '../contracts/route-contract';
+import { getRouteContract, routeUrl } from '../contracts/route-contract.ts';
 import type { PreparedInput } from '@char2vid/domain';
 
 export function serializeVideoBody(

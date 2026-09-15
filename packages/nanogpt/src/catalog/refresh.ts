@@ -4,8 +4,8 @@ import {
   type CatalogRefreshState,
   type GenerationCatalog,
   type NormalizedCatalog,
-} from './catalog-schema';
-import { normalizeCatalog } from './normalize';
+} from './catalog-schema.ts';
+import { normalizeCatalog } from './normalize.ts';
 
 export interface CatalogFetchResponse {
   status: number;

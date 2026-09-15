@@ -1,4 +1,4 @@
-import { getRouteContract, routeUrl } from '../contracts/route-contract';
+import { getRouteContract, routeUrl } from '../contracts/route-contract.ts';
 
 const IMAGE_ALLOWED = new Set(
   getRouteContract('image.normalized.generate').allowedFields,
