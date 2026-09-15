@@ -4,10 +4,9 @@ import { resolvePlatform } from '../../app/platform';
 import {
   nativeTokenForOrigin,
   normalizeServiceOrigin,
+  SERVICE_ORIGIN_KEY,
   serviceOriginMessage,
 } from './service-origin';
-
-const SERVICE_URL_KEY = 'char2vid.service-origin';
 
 type Status =
   | { kind: 'idle' }
@@ -50,7 +49,7 @@ async function serviceFetch(
 export function ServiceSettings() {
   const native = resolvePlatform() === 'android';
   const [origin, setOrigin] = useState(
-    () => window.localStorage.getItem(SERVICE_URL_KEY) ?? '',
+    () => window.localStorage.getItem(SERVICE_ORIGIN_KEY) ?? '',
   );
   const [setupToken, setSetupToken] = useState('');
   const [login, setLogin] = useState('');
@@ -62,7 +61,7 @@ export function ServiceSettings() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
   useEffect(() => {
-    window.localStorage.setItem(SERVICE_URL_KEY, origin);
+    window.localStorage.setItem(SERVICE_ORIGIN_KEY, origin);
   }, [origin]);
 
   useEffect(() => {

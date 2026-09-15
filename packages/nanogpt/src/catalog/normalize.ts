@@ -11,7 +11,7 @@ import {
   type ModelLimits,
   type NanoGptModelDescriptor,
   type ParameterControl,
-} from './catalog-schema';
+} from './catalog-schema.ts';
 
 /** An issue before it is stamped with the owning catalog and model id. */
 interface LocalIssue {

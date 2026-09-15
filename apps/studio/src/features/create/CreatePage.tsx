@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Operation, ReferenceBinding } from '@char2vid/domain';
+import type { AssetRecord } from '@char2vid/domain/storage';
 import {
   buildRequest,
   refreshCatalogs,
   type NanoGptModelDescriptor,
 } from '@char2vid/nanogpt';
 
+import { getStudioLibrary } from '../library/library-session';
+import {
+  resolveStudioSession,
+  stageLibraryReferences,
+  submitGenerationJob,
+} from '../jobs/job-sync';
 import { ModelControls } from './ModelControls';
 import { MODEL_PAGE_SIZE, ModelPicker, type ModelFilter } from './ModelPicker';
 import { ReferenceTray } from './ReferenceTray';
@@ -16,6 +23,7 @@ const FAVORITE_KEY = 'char2vid.favorite-models';
 const RECENT_KEY = 'char2vid.recent-models';
 const MODEL_KEY = 'char2vid.create-model';
 const PARAMS_KEY = 'char2vid.create-params';
+const REFS_KEY = 'char2vid.create-references';
 
 const OPERATION: Operation = 'image-generate';
 
@@ -62,7 +70,12 @@ export function CreatePage() {
   const [recent, setRecent] = useState<string[]>(() =>
     readJson(RECENT_KEY, []),
   );
-  const references: ReferenceBinding[] = [];
+  const [references, setReferences] = useState<ReferenceBinding[]>(() =>
+    readJson(REFS_KEY, []),
+  );
+  const [libraryAssets, setLibraryAssets] = useState<AssetRecord[]>([]);
+  const [serviceReady, setServiceReady] = useState(false);
+  const [submitState, setSubmitState] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +101,32 @@ export function CreatePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void getStudioLibrary()
+      .then(async (library) => {
+        const page = await library.queryAssets({
+          kind: 'image',
+          sort: 'createdAt-desc',
+          limit: 48,
+        });
+        if (!cancelled) {
+          setLibraryAssets(page.assets);
+        }
+      })
+      .catch(() => undefined);
+    void resolveStudioSession()
+      .then((session) => {
+        if (!cancelled) {
+          setServiceReady(session !== null);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const selected = models.find((model) => model.id === selectedId) ?? null;
 
   const preview = useMemo(() => {
@@ -104,7 +143,12 @@ export function CreatePage() {
       selected,
       [],
     );
-  }, [parameters, prompt, selected]);
+  }, [parameters, prompt, references, selected]);
+
+  const persistReferences = useCallback((next: ReferenceBinding[]) => {
+    setReferences(next);
+    window.localStorage.setItem(REFS_KEY, JSON.stringify(next));
+  }, []);
 
   const selectModel = useCallback(
     (model: NanoGptModelDescriptor) => {
@@ -130,14 +174,17 @@ export function CreatePage() {
     [parameters, recent],
   );
 
+  const canGenerate =
+    serviceReady && selected !== null && prompt.trim().length > 0;
+
   return (
     <section className="draft-card create-page" aria-labelledby="draft-title">
       <div>
         <p className="section-kicker">Draft</p>
         <h2 id="draft-title">Shape your next shot</h2>
         <p>
-          Pick a live catalog model and inspect the serialized request. Paid
-          submission waits for durable jobs.
+          Image-first create: pick a catalog model, attach library references,
+          and submit a durable job. This UI never calls Nano-GPT directly.
         </p>
       </div>
       <label htmlFor="prompt">Prompt</label>
@@ -151,7 +198,27 @@ export function CreatePage() {
           window.localStorage.setItem(DRAFT_KEY, value);
         }}
       />
-      <ReferenceTray references={references} />
+      <ReferenceTray
+        references={references}
+        libraryAssets={libraryAssets}
+        onAttach={(asset) => {
+          persistReferences([
+            ...references,
+            {
+              assetRevisionId: asset.revisionId,
+              role: 'identity',
+              ordinal: references.length,
+            },
+          ]);
+        }}
+        onRemove={(assetRevisionId) => {
+          persistReferences(
+            references
+              .filter((item) => item.assetRevisionId !== assetRevisionId)
+              .map((item, ordinal) => ({ ...item, ordinal })),
+          );
+        }}
+      />
       <ModelPicker
         models={models}
         operation={OPERATION}
@@ -216,9 +283,54 @@ export function CreatePage() {
           </section>
         </>
       ) : null}
-      <button className="primary-action" disabled>
-        Generation waits for jobs
+      <button
+        className="primary-action"
+        disabled={!canGenerate || submitState === 'working'}
+        onClick={() => {
+          if (!selected) return;
+          setSubmitState('working');
+          void (async () => {
+            const session = await resolveStudioSession();
+            if (!session) {
+              setServiceReady(false);
+              setSubmitState('Connect the generation service to submit');
+              return;
+            }
+            const library = await getStudioLibrary();
+            const transferIds = await stageLibraryReferences(
+              session,
+              library,
+              references,
+            );
+            const receipt = await submitGenerationJob(
+              session,
+              {
+                clientRequestId: crypto.randomUUID(),
+                operation: OPERATION,
+                modelId: selected.id,
+                prompt,
+                references,
+                parameters,
+              },
+              transferIds,
+            );
+            setSubmitState(
+              `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
+            );
+          })().catch((error: unknown) => {
+            setSubmitState(
+              error instanceof Error ? error.message : 'job_submit_failed',
+            );
+          });
+        }}
+      >
+        {canGenerate ? 'Generate' : 'Connect the generation service to submit'}
       </button>
+      {submitState && submitState !== 'working' ? (
+        <p className="backup-status" role="status">
+          {submitState}
+        </p>
+      ) : null}
     </section>
   );
 }

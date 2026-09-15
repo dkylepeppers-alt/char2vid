@@ -13,6 +13,7 @@ import { exitAndroidApp, listenForAndroidBack } from './platform';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { CreatePage } from '../features/create/CreatePage';
 import { BackupPage } from '../features/settings/BackupPage';
+import { QueueSheet } from '../features/jobs/QueueSheet';
 import { ServiceSettings } from '../features/settings/ServiceSettings';
 
 const ROUTE_KEY = 'char2vid.selected-route';
@@ -38,7 +39,7 @@ const emptyStates: Record<Destination, { title: string; detail: string }> = {
   create: {
     title: 'Shape your next shot',
     detail:
-      'Pick a catalog model and inspect the request. Paid jobs come later.',
+      'Pick a catalog model, attach library references, and submit a durable image job.',
   },
   projects: {
     title: 'No projects yet',
@@ -243,10 +244,7 @@ export function App() {
               </button>
             </div>
             {sheet === 'jobs' ? (
-              <p>
-                Provider and local-save queues are not connected in this
-                foundation.
-              </p>
+              <QueueSheet />
             ) : (
               <>
                 <ServiceSettings />

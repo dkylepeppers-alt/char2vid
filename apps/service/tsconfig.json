@@ -10,5 +10,9 @@
     "rootDir": "src",
     "tsBuildInfoFile": "../../node_modules/.cache/service.tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/nanogpt" }
+  ]
 }

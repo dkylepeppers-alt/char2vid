@@ -13,6 +13,7 @@ export interface TestService extends BuiltService {
   dir: string;
   origin: string;
   masterKey: Buffer;
+  advanceNow: (ms: number) => void;
 }
 
 export async function openTestService(
@@ -21,6 +22,9 @@ export async function openTestService(
   const dir = await mkdtemp(join(tmpdir(), 'char2vid-service-'));
   const masterKey = overrides.masterKey ?? randomBytes(32);
   const origin = overrides.publicOrigin ?? 'https://studio.example';
+  let nowMs = Date.parse('2026-09-15T12:00:00.000Z');
+  const { now: nowOverride, autoProcessJobs, ...rest } = overrides;
+  const now = nowOverride ?? (() => new Date(nowMs));
   const built = await buildApp({
     dbPath: join(dir, 'service.sqlite'),
     stagingDir: join(dir, 'staging'),
@@ -33,9 +37,19 @@ export async function openTestService(
       apiKey.startsWith('sk-test-')
         ? { ok: true }
         : { ok: false, reason: 'provider_key_rejected' },
-    ...overrides,
+    now,
+    autoProcessJobs: autoProcessJobs ?? false,
+    ...rest,
   });
-  return { ...built, dir, origin, masterKey };
+  return {
+    ...built,
+    dir,
+    origin,
+    masterKey,
+    advanceNow(ms: number) {
+      nowMs += ms;
+    },
+  };
 }
 
 export async function closeTestService(service: TestService): Promise<void> {

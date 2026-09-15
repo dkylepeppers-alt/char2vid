@@ -795,6 +795,45 @@ textarea {
   font-size: 0.85rem;
 }
 
+.reference-tray ol,
+.reference-attach-list,
+.job-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.reference-tray li,
+.job-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #2b2e2a;
+}
+
+.reference-attach-title {
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+
+.queue-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.job-id {
+  margin: 0;
+  font-weight: 650;
+}
+
+.job-meta {
+  margin: 0;
+  color: #b7bbae;
+  font-size: 0.85rem;
+}
+
 .request-preview {
   overflow: auto;
   max-height: 240px;

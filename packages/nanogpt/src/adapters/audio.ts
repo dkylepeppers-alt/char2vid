@@ -1,4 +1,4 @@
-import { getRouteContract, routeUrl } from '../contracts/route-contract';
+import { getRouteContract, routeUrl } from '../contracts/route-contract.ts';
 
 export function serializeSpeechBody(
   modelId: string,

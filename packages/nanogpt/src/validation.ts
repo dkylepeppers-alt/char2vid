@@ -6,12 +6,12 @@ import type {
   ReferenceBinding,
 } from '@char2vid/domain';
 
-import { serializeSpeechRequest } from './adapters/audio';
-import { serializeImageRequest } from './adapters/image';
-import { serializeTextRequest } from './adapters/text';
-import { serializeVideoRequest } from './adapters/video';
-import type { NanoGptModelDescriptor } from './catalog/catalog-schema';
-import { resolveEndpointMetadataUrl } from './contracts/route-contract';
+import { serializeSpeechRequest } from './adapters/audio.ts';
+import { serializeImageRequest } from './adapters/image.ts';
+import { serializeTextRequest } from './adapters/text.ts';
+import { serializeVideoRequest } from './adapters/video.ts';
+import type { NanoGptModelDescriptor } from './catalog/catalog-schema.ts';
+import { resolveEndpointMetadataUrl } from './contracts/route-contract.ts';
 
 export interface CompatibilityRow {
   model: NanoGptModelDescriptor;

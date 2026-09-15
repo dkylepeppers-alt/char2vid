@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,
     "noEmit": false,
     "outDir": "../../node_modules/.cache/nanogpt-types",

@@ -37,6 +37,7 @@ const built = await buildApp({
   quotaBytes: Number(process.env.CHAR2VID_STAGING_QUOTA_BYTES ?? 2 * 1024 ** 3),
   cookieSecure: process.env.CHAR2VID_COOKIE_SECURE !== '0',
   validateProviderKey: (apiKey) => validateNanoGptKey(apiKey),
+  autoProcessJobs: true,
 });
 
 const port = Number(process.env.PORT ?? 8787);

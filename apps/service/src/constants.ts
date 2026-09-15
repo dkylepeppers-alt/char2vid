@@ -7,3 +7,6 @@ export const LOGIN_MAX_FAILURES = 5;
 
 export const PENDING_TRANSFER_TTL_MS = 24 * 60 * 60 * 1000;
 export const FINALIZED_TRANSFER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const JOB_LEASE_MS = 30_000;
+export const JOB_OWNER_CONCURRENCY = 2;
