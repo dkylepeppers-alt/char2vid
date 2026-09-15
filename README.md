@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status: repository foundation and Android/web navigation scaffold.** Media storage, model discovery, generation, and editing remain in the implementation roadmap. Prepared September 13, 2026.
+**Status (15 September 2026):** M1 local library (G1–G4) and M2 through the personal generation service (P1–P2) are on `main`. Create can list live catalog models and preview serialized requests (P3). Paid jobs, character pipeline, and studio delivery remain ahead. Physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls are **UNVERIFIED**.
 
 ## Develop and test
 
@@ -13,7 +13,7 @@ npm ci
 npm run dev
 ```
 
-The scaffold requires no API key. Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for verification. See [repository setup](docs/development/repository-setup.md) for dependencies, GitHub configuration, APK downloads, and signing; see [Android foundation evidence](docs/validation/android-foundation.md) for toolchain and device-check status.
+The web app can import and organize a local library without an API key. Generation still waits for durable jobs. Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for verification. See [repository setup](docs/development/repository-setup.md) for dependencies, GitHub configuration, APK downloads, and signing; see [Android foundation evidence](docs/validation/android-foundation.md) for toolchain and device-check status.
 
 Pull requests run web and Android validation. Successful Android runs provide a debug APK artifact. Signed builds use the manually dispatched release workflow and user-supplied signing secrets.
 
@@ -44,5 +44,18 @@ Pull requests run web and Android validation. Successful Android runs provide a 
 | 2     | Catalog discovery, reference transfer, durable generation    | [Provider and jobs](docs/superpowers/plans/2026-09-13-provider-jobs.md)              |
 | 3     | Character creation, scene casting, image-to-video continuity | [Character and video pipeline](docs/superpowers/plans/2026-09-13-character-video.md) |
 | 4     | Connected canvas, audio, captions, editing, export           | [Studio and delivery](docs/superpowers/plans/2026-09-13-studio-delivery.md)          |
+
+## Current delivery
+
+| Task                                     | State          | Evidence     | Still UNVERIFIED                                           |
+| ---------------------------------------- | -------------- | ------------ | ---------------------------------------------------------- |
+| G1 Shared app / Android shell            | Closed (#1)    | #19, #27     | Physical APK install, back/rotation/TalkBack               |
+| G2 Crash-safe media storage              | Done on `main` | #28, #34     | Physical-device crash journal                              |
+| G3 Organization, playback, native export | Done on `main` | #29–#31, #38 | Physical MediaStore export                                 |
+| G4 Portable archives                     | Done on `main` | #32, #38     | Physical archive round-trip                                |
+| P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                        |
+| P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore |
+| P3 Model picker / serializers            | In progress    | This branch  | Paid submission (P4)                                       |
+| P4 Durable jobs                          | Not started    | —            | —                                                          |
 
 The model counts and examples in the research are observations, not a model allowlist. No generation requests were made during planning, and no API keys or private media are included.

@@ -78,6 +78,10 @@ export default defineConfig({
         find: '@char2vid/native-bridge',
         replacement: path.join(packagesDir, 'native-bridge/src/index.ts'),
       },
+      {
+        find: '@char2vid/nanogpt',
+        replacement: path.join(packagesDir, 'nanogpt/src/index.ts'),
+      },
     ],
   },
   build: {

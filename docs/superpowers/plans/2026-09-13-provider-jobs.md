@@ -103,7 +103,7 @@ retain active job inputs; expire terminal/unclaimed data by the spec policy
 
 **Interfaces:** Each adapter implements `ProviderAdapter` from design §8. `buildRequest(draft, model, preparedInputs): { request?: ReturnType<ProviderAdapter['serialize']>; issues: CapabilityIssue[] }` returns no request if a blocking issue exists. `getCompatibleModels(operation, references, catalog)` returns all records with eligibility and reasons; it never deletes unknown records.
 
-- [ ] Write cases for a model appearing without app changes, a text-only model in an image workflow, count/byte limit overflow, contradictory audio flags, and string-valued durations. Test that image serialization emits only `input_references` on the normalized route:
+- [x] Write cases for a model appearing without app changes, a text-only model in an image workflow, count/byte limit overflow, contradictory audio flags, and string-valued durations. Test that image serialization emits only `input_references` on the normalized route:
 
 ```ts
 import { expect, it } from 'vitest';
@@ -123,10 +123,15 @@ it('uses one normalized image input family', () => {
 
 `serializeImageBody({ modelId, prompt, urls, parameters }): Record<string,unknown>` is this task's pure helper, not a second transport. Parameters have already passed route validation and cannot overwrite model/prompt/input fields.
 
-- [ ] Run `npx vitest run tests/contract/request-serialization.test.ts`, then implement normalized image JSON, compatibility edits, video ticket submission, and binary/JSON audio transports. Use exact Nano-GPT base/path mappings from the contract registry; do not let a generic OpenAI client append `/v1` to video endpoints.
-- [ ] Implement searchable/paginated model selection, all/compatible/favorite/recent views, stale timestamp, supported controls, conflicting-control explanation, and a final request/reference preview. On a model switch preserve the draft and report invalidated settings before Generate.
-- [ ] Verify image endpoint metadata URLs are origin-validated; output count differs from input count; no unsupported provider options or image streaming flags are sent. Unknown controls remain inspectable; editable generic advanced fields are allowed only through an adapter with a verified field contract.
-- [ ] Run the focused tests and `npx playwright test tests/e2e/model-picker.spec.ts`; commit: `feat: add capability-driven generation controls and serializers`.
+  - Evidence: `tests/contract/request-serialization.test.ts` (13 passed).
+- [x] Run `npx vitest run tests/contract/request-serialization.test.ts`, then implement normalized image JSON, compatibility edits, video ticket submission, and binary/JSON audio transports. Use exact Nano-GPT base/path mappings from the contract registry; do not let a generic OpenAI client append `/v1` to video endpoints.
+  - Evidence: image `https://nano-gpt.com/api/v1/images`; video `https://nano-gpt.com/api/generate-video` (no extra `/v1`); speech `/api/v1/audio/speech`; text adapter returns `unresolved_text_contract` only.
+- [x] Implement searchable/paginated model selection, all/compatible/favorite/recent views, stale timestamp, supported controls, conflicting-control explanation, and a final request/reference preview. On a model switch preserve the draft and report invalidated settings before Generate.
+  - Evidence: `apps/studio/src/features/create/*`. Generate stays disabled (`Generation waits for jobs`). Page size 20.
+- [x] Verify image endpoint metadata URLs are origin-validated; output count differs from input count; no unsupported provider options or image streaming flags are sent. Unknown controls remain inspectable; editable generic advanced fields are allowed only through an adapter with a verified field contract.
+  - Evidence: `endpoint_origin_rejected` in `validateDraft`; `max_images` remains an output count from P1; serializers strip `stream` / legacy image fields; unsupported controls render as inspect-only.
+- [x] Run the focused tests and `npx playwright test tests/e2e/model-picker.spec.ts`; commit: `feat: add capability-driven generation controls and serializers`.
+  - Evidence: focused vitest 13 passed; full `npm test` 140 passed; Playwright 8 passed including model-picker. No provider credits spent.
 
 ## Task P4: Execute durable jobs and download outputs
 

@@ -2,3 +2,8 @@ export * from './catalog/catalog-schema';
 export * from './catalog/normalize';
 export * from './catalog/refresh';
 export * from './contracts/route-contract';
+export * from './adapters/image';
+export * from './adapters/video';
+export * from './adapters/audio';
+export * from './adapters/text';
+export * from './validation';
