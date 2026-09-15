@@ -43,6 +43,14 @@ export function collectionRows(response, path) {
   throw new Error(`Expected a list from ${path}`);
 }
 
+export function environmentPutSettings(settings) {
+  const payload = { ...settings };
+  if (payload.prevent_self_review === false) {
+    delete payload.prevent_self_review;
+  }
+  return payload;
+}
+
 export function assertExactDeploymentPolicies(policies, expected) {
   const unexpected = policies.find(
     (policy) => policy.name !== expected.name || policy.type !== expected.type,
@@ -240,7 +248,7 @@ function run() {
       const environment = api(
         'PUT',
         `environments/${environmentName}`,
-        releaseEnvironment.settings,
+        environmentPutSettings(releaseEnvironment.settings),
       );
       if (
         environment.name !== releaseEnvironment.name ||
