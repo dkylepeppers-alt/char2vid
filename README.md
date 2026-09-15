@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status (15 September 2026):** M1 local library (G1–G4) and M2 through the personal generation service (P1–P2) are on `main`. Create can list live catalog models and preview serialized requests (P3). Paid jobs, character pipeline, and studio delivery remain ahead. Physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls are **UNVERIFIED**.
+**Status (15 September 2026):** M1 local library (G1–G4) and M2 through the personal generation service (P1–P2) are on `main`. Create can list live catalog models and preview serialized requests (P3 landed; [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7) stays open for unpaid residuals — ReferenceTray, multi-op Create, paid submit). Emulator CI proves native import/export/archives; physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls stay **UNVERIFIED**. Paid jobs (P4), character pipeline, and studio delivery remain ahead.
 
 ## Develop and test
 
