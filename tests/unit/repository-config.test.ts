@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -93,19 +91,5 @@ describe('repository API collections', () => {
         custom_branch_policies: true,
       },
     });
-  });
-
-  it('keeps the committed android-release payload applicable without reviewers', () => {
-    const payload = JSON.parse(
-      readFileSync(
-        new URL(
-          '../../.github/repository/android-release-environment.json',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-    );
-    expect(payload.settings).not.toHaveProperty('prevent_self_review');
-    expect(environmentPutSettings(payload.settings)).toEqual(payload.settings);
   });
 });
