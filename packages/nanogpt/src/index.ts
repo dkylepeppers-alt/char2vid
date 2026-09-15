@@ -1,6 +1,7 @@
 export * from './catalog/catalog-schema.ts';
 export * from './catalog/normalize.ts';
 export * from './catalog/refresh.ts';
+export * from './catalog/coverage.ts';
 export * from './contracts/route-contract.ts';
 export * from './adapters/image.ts';
 export * from './adapters/video.ts';

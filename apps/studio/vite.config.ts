@@ -91,4 +91,11 @@ export default defineConfig({
   optimizeDeps: {
     include: ['dexie', 'fflate'],
   },
+  server: {
+    proxy: {
+      '/studio-api': 'http://127.0.0.1:8787',
+      '/studio-media': 'http://127.0.0.1:8787',
+      '/__fake': 'http://127.0.0.1:8787',
+    },
+  },
 });

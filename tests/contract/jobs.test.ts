@@ -5,7 +5,14 @@ import { rm } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 import { buildApp } from '../../apps/service/src/app';
-import { claimQueuedJob } from '../../apps/service/src/jobs/repository';
+import {
+  claimDueRunning,
+  claimQueuedJob,
+} from '../../apps/service/src/jobs/repository';
+import {
+  draftFingerprint,
+  resolveDraftClientRequestId,
+} from '../../apps/studio/src/features/create/create-submit';
 import type {
   GenerationDraft,
   JobReceipt,
@@ -120,6 +127,66 @@ async function runUntilTerminal(
 }
 
 describe('jobs (P4)', () => {
+  it('double submit of one Create intent reuses client_request_id and one job', async () => {
+    const { service, token } = await authService(new FakeGenerationProvider());
+    try {
+      const storage: Record<string, string> = {};
+      const adapter = {
+        getItem: (key: string) => storage[key] ?? null,
+        setItem: (key: string, value: string) => {
+          storage[key] = value;
+        },
+        removeItem: (key: string) => {
+          delete storage[key];
+        },
+      };
+      const body = imageDraft({ clientRequestId: 'unused' });
+      const fingerprint = draftFingerprint({
+        operation: body.operation,
+        modelId: body.modelId,
+        prompt: body.prompt,
+        references: body.references,
+        parameters: body.parameters,
+      });
+      const firstId = resolveDraftClientRequestId({
+        storage: adapter,
+        fingerprint,
+        mint: () => 'stable-create-intent',
+      });
+      const secondId = resolveDraftClientRequestId({
+        storage: adapter,
+        fingerprint,
+        mint: () => 'should-not-mint',
+      });
+      expect(firstId).toBe('stable-create-intent');
+      expect(secondId).toBe('stable-create-intent');
+
+      const [first, second] = await Promise.all([
+        postJob(service, token, {
+          draft: imageDraft({ clientRequestId: firstId }),
+        }),
+        postJob(service, token, {
+          draft: imageDraft({ clientRequestId: secondId }),
+        }),
+      ]);
+      const statuses = [first.statusCode, second.statusCode].sort();
+      expect(statuses).toEqual([200, 201]);
+      const a = first.json() as JobReceipt;
+      const b = second.json() as JobReceipt;
+      expect(a.id).toBe(b.id);
+      expect(a.clientRequestId).toBe('stable-create-intent');
+      const listed = await service.app.inject({
+        method: 'GET',
+        url: '/studio-api/jobs',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const page = listed.json() as { jobs: JobReceipt[] };
+      expect(page.jobs).toHaveLength(1);
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
   it('returns the existing receipt for a duplicate client_request_id', async () => {
     const { service, token } = await authService(new FakeGenerationProvider());
     try {
@@ -295,7 +362,7 @@ describe('jobs (P4)', () => {
       const receipt = created.json() as JobReceipt & {
         cost?: { state: string; durationSeconds?: number };
       };
-      expect(receipt.cost?.state).toBe('reservation');
+      expect(receipt.cost?.state).toBe('estimate');
       expect(receipt.cost?.durationSeconds).toBe(5);
 
       service.advanceNow?.(8 * 24 * 60 * 60 * 1000);
@@ -518,6 +585,234 @@ describe('jobs (P4)', () => {
     } finally {
       await restarted.close();
       await rm(first.dir, { recursive: true, force: true });
+    }
+  });
+
+  it('marks recovery_required as recovery-required so an approved retry can proceed', async () => {
+    const { service, token } = await authService(new FakeGenerationProvider());
+    try {
+      const created = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'recovery-video',
+          operation: 'video-generate',
+          modelId: 'fixture/video',
+          parameters: { duration: 5 },
+        }),
+      });
+      const originalId = (created.json() as JobReceipt).id;
+      await service.processJobs();
+      const running = await getJob(service, token, originalId);
+      expect(running.body.providerState).toBe('running');
+      expect(running.body.providerRunId).toBe('video-run-1');
+
+      service.db.prepare('DELETE FROM provider_keys').run();
+      await service.processJobs();
+      const recovered = await getJob(service, token, originalId);
+      expect(recovered.body.providerState).toBe('recovery-required');
+      expect(recovered.body.errorCode).toBe('recovery_required');
+      expect(recovered.body.providerState).not.toBe('failed');
+
+      const retry = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'recovery-video-retry',
+          operation: 'video-generate',
+          modelId: 'fixture/video',
+          parameters: { duration: 5 },
+        }),
+        retryOfJobId: originalId,
+      });
+      expect(retry.statusCode).toBe(201);
+      expect(
+        (retry.json() as JobReceipt & { originalJobId?: string }).originalJobId,
+      ).toBe(originalId);
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('stores estimate at enqueue and refunds a reservation when capture fails', async () => {
+    const provider = new FakeGenerationProvider();
+    provider.imageBody = { data: [] };
+    const { service, token } = await authService(provider);
+    try {
+      const created = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'cost-refund-1',
+          parameters: { n: 1, duration: 5 },
+        }),
+      });
+      expect(created.statusCode).toBe(201);
+      const queued = created.json() as JobReceipt & {
+        cost?: { state: string; durationSeconds?: number };
+      };
+      expect(queued.cost?.state).toBe('estimate');
+      expect(queued.cost?.durationSeconds).toBe(5);
+
+      const done = await runUntilTerminal(service, token, queued.id);
+      expect(done.providerState).toBe('failed');
+      expect(done.errorCode).toBe('missing_image_output');
+      expect(done.cost?.state).toBe('refund');
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('lets only one worker lease a due running video job', async () => {
+    const { service, token } = await authService(new FakeGenerationProvider());
+    try {
+      const created = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'lease-video',
+          operation: 'video-generate',
+          modelId: 'fixture/video',
+          parameters: { duration: 5 },
+        }),
+      });
+      const id = (created.json() as JobReceipt).id;
+      await service.processJobs();
+      const running = await getJob(service, token, id);
+      expect(running.body.providerState).toBe('running');
+
+      const now = new Date('2026-09-15T12:00:01.000Z');
+      const first = claimDueRunning(service.db, 'poller-a', now, 30_000);
+      const second = claimDueRunning(service.db, 'poller-b', now, 30_000);
+      expect(first?.id).toBe(id);
+      expect(second).toBeUndefined();
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('rejects transferIds that do not match reference count at enqueue', async () => {
+    const { service, token } = await authService(new FakeGenerationProvider());
+    try {
+      const created = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'refs-mismatch',
+          references: [
+            { assetRevisionId: 'rev-1', role: 'identity', ordinal: 0 },
+          ],
+        }),
+        transferIds: [],
+      });
+      expect(created.statusCode).toBe(400);
+      expect(created.json()).toEqual({ error: 'transfer_reference_mismatch' });
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('records downloading then verifying before acknowledge marks saved', async () => {
+    const { service, token } = await authService(new FakeGenerationProvider());
+    try {
+      const created = await postJob(service, token, { draft: imageDraft() });
+      const id = (created.json() as JobReceipt).id;
+      const done = await runUntilTerminal(service, token, id);
+      expect(done.providerState).toBe('completed');
+      expect(done.saveState).toBe('absent');
+
+      const downloading = await service.app.inject({
+        method: 'POST',
+        url: `/studio-api/jobs/${id}/save-progress`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { saveState: 'downloading' },
+      });
+      expect(downloading.statusCode).toBe(200);
+      expect((downloading.json() as JobReceipt).saveState).toBe('downloading');
+
+      const verifying = await service.app.inject({
+        method: 'POST',
+        url: `/studio-api/jobs/${id}/save-progress`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { saveState: 'verifying' },
+      });
+      expect(verifying.statusCode).toBe(200);
+      expect((verifying.json() as JobReceipt).saveState).toBe('verifying');
+
+      const hashes = (done.outputs ?? []).map((item) => item.sha256);
+      const ack = await service.app.inject({
+        method: 'POST',
+        url: `/studio-api/jobs/${id}/acknowledge`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { hashes },
+      });
+      expect(ack.statusCode).toBe(200);
+      expect((ack.json() as JobReceipt).saveState).toBe('saved');
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('treats 402 and 429 as terminal fake-provider failures without a second submit', async () => {
+    const denied = new FakeGenerationProvider();
+    denied.submitStatus = 402;
+    const limited = new FakeGenerationProvider();
+    limited.submitStatus = 429;
+    const a = await authService(denied);
+    try {
+      const created = await postJob(a.service, a.token, {
+        draft: imageDraft({ clientRequestId: 'paywall' }),
+      });
+      const done = await runUntilTerminal(
+        a.service,
+        a.token,
+        (created.json() as JobReceipt).id,
+      );
+      expect(done.providerState).toBe('failed');
+      expect(done.errorCode).toBe('provider_402');
+      expect(denied.submits).toBe(1);
+    } finally {
+      await closeTestService(a.service);
+    }
+    const b = await authService(limited);
+    try {
+      const created = await postJob(b.service, b.token, {
+        draft: imageDraft({ clientRequestId: 'rate-limit' }),
+      });
+      const done = await runUntilTerminal(
+        b.service,
+        b.token,
+        (created.json() as JobReceipt).id,
+      );
+      expect(done.providerState).toBe('failed');
+      expect(done.errorCode).toBe('provider_rate_limited');
+      expect(limited.submits).toBe(1);
+    } finally {
+      await closeTestService(b.service);
+    }
+  });
+
+  it('serves the service copy after the provider URL is gone and reports unrecoverable bytes', async () => {
+    const { service, token, provider } = await authService(
+      new FakeGenerationProvider(),
+    );
+    try {
+      const created = await postJob(service, token, { draft: imageDraft() });
+      const id = (created.json() as JobReceipt).id;
+      const done = await runUntilTerminal(service, token, id);
+      provider.outputs.clear();
+      const download = await service.app.inject({
+        method: 'GET',
+        url: `/studio-api/jobs/${id}/outputs/0`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(download.statusCode).toBe(200);
+      expect(provider.submits).toBe(1);
+
+      const outputDir = join(service.dir, 'staging', 'outputs', id);
+      await rm(outputDir, { recursive: true, force: true });
+      const hashes = (done.outputs ?? []).map((item) => item.sha256);
+      const ack = await service.app.inject({
+        method: 'POST',
+        url: `/studio-api/jobs/${id}/acknowledge`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { hashes },
+      });
+      expect(ack.statusCode).toBe(409);
+      expect(ack.json()).toEqual({ error: 'unrecoverable_bytes' });
+      expect(provider.submits).toBe(1);
+    } finally {
+      await closeTestService(service);
     }
   });
 });

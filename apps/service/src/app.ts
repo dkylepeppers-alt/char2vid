@@ -301,7 +301,16 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
     workerId: randomBytes(8).toString('hex'),
     maxOwnerConcurrency: env.maxOwnerConcurrency ?? DEFAULT_OWNER_CONCURRENCY,
   };
-  const runJobs = () => processJobs(workerEnv);
+  let jobsInFlight: Promise<void> | undefined;
+  const runJobs = async () => {
+    if (jobsInFlight) {
+      return jobsInFlight;
+    }
+    jobsInFlight = processJobs(workerEnv).finally(() => {
+      jobsInFlight = undefined;
+    });
+    return jobsInFlight;
+  };
   let timer: ReturnType<typeof setInterval> | undefined;
   if (env.autoProcessJobs) {
     timer = setInterval(() => {
@@ -312,6 +321,9 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
   const close = async () => {
     if (timer) {
       clearInterval(timer);
+    }
+    if (jobsInFlight) {
+      await jobsInFlight;
     }
     await app.close();
     db.close();

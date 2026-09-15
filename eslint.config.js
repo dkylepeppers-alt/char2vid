@@ -24,10 +24,14 @@ export default tseslint.config(
     },
   },
   {
-    files: ['*.{js,mjs}', 'scripts/**/*.mjs', 'apps/service/**/*.ts'],
+    files: ['*.{js,mjs}', 'scripts/**/*.{mjs,ts}', 'apps/service/**/*.ts'],
     languageOptions: {
       globals: globals.node,
     },
+  },
+  {
+    files: ['scripts/**/*.ts'],
+    extends: [tseslint.configs.disableTypeChecked],
   },
   {
     files: [

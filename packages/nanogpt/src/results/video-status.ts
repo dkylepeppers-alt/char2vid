@@ -43,6 +43,7 @@ function mapStatus(raw: string): ProviderState | undefined {
     status === 'in-progress' ||
     status === 'submitted' ||
     status === 'not-start' ||
+    status === 'in-queue' ||
     status === 'unknown'
   ) {
     return 'running';

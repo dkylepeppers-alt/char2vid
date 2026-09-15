@@ -22,13 +22,15 @@ import { getTransfer } from '../transfers/store.ts';
 import { applyProviderCost } from './costs.ts';
 import type { GenerationProvider, ProviderSubmitResult } from './provider.ts';
 import {
+  claimDueRunning,
   claimQueuedJob,
   failJob,
   getJob,
-  listDueRunning,
   markRunning,
   markSubmitting,
   recoverExpiredLeases,
+  releaseJobLease,
+  requireJobRecovery,
   saveOutputs,
   schedulePoll,
   type JobRecord,
@@ -70,6 +72,13 @@ function catalogFor(operation: Operation): NanoGptModelDescriptor['catalog'] {
   return 'image';
 }
 
+/**
+ * Catalog-backed limits are not loaded in the worker. Fake-provider CI stays
+ * safe because this stub advertises the draft operation with empty limits.
+ * Watch when a real Nano-GPT key is used: paid dispatch will not enforce
+ * `maxInputReferences` / byte caps here. P5 coverage audit is the catalog
+ * gate; live-key workers should pass the normalized catalog descriptor.
+ */
 function stubModel(draft: GenerationDraft): NanoGptModelDescriptor {
   return {
     id: draft.modelId,
@@ -400,7 +409,7 @@ async function pollJob(env: WorkerEnv, job: JobRecord): Promise<void> {
   }
   const apiKey = loadApiKey(env.db, env.masterKey, job.ownerId);
   if (!apiKey || !job.providerRunId) {
-    failJob(env.db, job.id, 'recovery_required', env.now());
+    requireJobRecovery(env.db, job.id, 'recovery_required', env.now());
     return;
   }
   const body = await env.provider.status({
@@ -413,8 +422,16 @@ async function pollJob(env: WorkerEnv, job: JobRecord): Promise<void> {
 
 export async function processJobs(env: WorkerEnv): Promise<void> {
   recoverExpiredLeases(env.db, env.now());
-  const due = listDueRunning(env.db, env.now().toISOString());
-  for (const job of due) {
+  for (;;) {
+    const job = claimDueRunning(
+      env.db,
+      env.workerId,
+      env.now(),
+      env.jobLeaseMs,
+    );
+    if (!job) {
+      break;
+    }
     try {
       await pollJob(env, job);
     } catch (error) {
@@ -424,6 +441,11 @@ export async function processJobs(env: WorkerEnv): Promise<void> {
         code === 'unsupported_video_envelope'
       ) {
         failJob(env.db, job.id, code, env.now());
+      }
+    } finally {
+      const current = getJob(env.db, job.id);
+      if (current?.providerState === 'running') {
+        releaseJobLease(env.db, job.id, env.now().toISOString());
       }
     }
   }

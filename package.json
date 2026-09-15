@@ -17,10 +17,11 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "tsc --build",
     "lint": "eslint .",
-    "format": "prettier --write \"{apps,packages,tests}/**/*.{ts,tsx,css,html,json}\" \".github/**/*.{yml,json,md}\" \"scripts/**/*.mjs\" \"{AGENTS,README}.md\" \"docs/{development,validation}/**/*.md\" \"*.{json,js,mjs,ts}\"",
-    "format:check": "prettier --check \"{apps,packages,tests}/**/*.{ts,tsx,css,html,json}\" \".github/**/*.{yml,json,md}\" \"scripts/**/*.mjs\" \"{AGENTS,README}.md\" \"docs/{development,validation}/**/*.md\" \"*.{json,js,mjs,ts}\"",
+    "format": "prettier --write \"{apps,packages,tests}/**/*.{ts,tsx,css,html,json}\" \".github/**/*.{yml,json,md}\" \"scripts/**/*.{mjs,ts}\" \"{AGENTS,README}.md\" \"docs/{development,validation}/**/*.md\" \"*.{json,js,mjs,ts}\"",
+    "format:check": "prettier --check \"{apps,packages,tests}/**/*.{ts,tsx,css,html,json}\" \".github/**/*.{yml,json,md}\" \"scripts/**/*.{mjs,ts}\" \"{AGENTS,README}.md\" \"docs/{development,validation}/**/*.md\" \"*.{json,js,mjs,ts}\"",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "audit:coverage": "node --experimental-strip-types scripts/audit-provider-coverage.ts",
     "android:sync": "npm run build --workspace @char2vid/studio && npm exec --workspace @char2vid/studio cap sync android",
     "android:debug": "npm run android:sync && npm run android:debug --workspace @char2vid/studio"
   },
