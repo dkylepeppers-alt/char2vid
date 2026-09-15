@@ -27,15 +27,17 @@ Web E2E tests do not certify physical Android back, rotation, keyboard, file-pic
 
 ## Administrative settings
 
-At foundation creation, the GitHub connector could create files, branches, PRs, and issues, but did not expose administrative setting or milestone-creation mutations. The local CLI had no authenticated GitHub credentials. Consequently the following settings are **prepared, not applied** by this change:
+The payloads in `.github/repository/` were applied to `dkylepeppers-alt/char2vid` with an admin-authenticated `gh` CLI:
 
-- Squash-only merging and automatic merged-branch deletion.
-- Main branch protection with zero required human approvals, resolved conversations, linear history, blocked force pushes/deletion, and required `ci-gate` from GitHub Actions.
-- Four native GitHub milestone objects and association of the existing 18 issues.
-- Dependency alert/security-fix settings, secret scanning, and push protection.
-- The `android-release` environment and signing secrets.
+- Squash-only merging, PR-title/PR-body squash commits, and automatic merged-branch deletion.
+- Active repository ruleset **Main branch protection** (`23398018`) on the default branch: no deletion, no force-push, linear history, pull requests with resolved conversations and zero required approvals, and required GitHub Actions `ci-gate`.
+- Milestones `M1: Real local library`, `M2: Reliable generation`, `M3: Character-to-video studio`, and `M4: Complete production`, with the 18 task issues assigned as recorded in `.github/repository/task-tracking.json`.
+- Dependency alerts, Dependabot security updates, secret scanning, and push protection.
+- The `android-release` environment restricted to `main`. Signing secrets are still added manually; the configure command does not create them.
 
-The settings payloads live in `.github/repository/`. Run the setup command from a checkout with an authenticated `gh` CLI and appropriate repository permissions. The default invocation prints the proposed configuration and makes no API calls:
+GitHub rejects `prevent_self_review` unless the environment also has required reviewers. The committed environment payload therefore omits that field (`false` is the default when no reviewers exist). Rerun the commands below after a repository migration or if a GET no longer matches the payloads.
+
+The default invocation prints the proposed configuration and makes no API calls:
 
 ```sh
 node scripts/configure-repository.mjs
@@ -53,9 +55,9 @@ node scripts/configure-repository.mjs --rules
 
 The rules command verifies a successful GitHub Actions `ci-gate` on the exact current default-branch commit, sets the expected check's integration ID from that observed run, and creates or updates only the named foundation ruleset. Other rulesets remain intact. The milestone command reuses exact title matches and refuses to move an issue out of an unrelated milestone. Commands stop on API errors and can be rerun after addressing permissions; earlier successful operations remain applied.
 
-The environment command creates or updates `android-release`, enables custom deployment policies, installs an exact `main` branch policy, and reads both resources back for verification. It fails closed if any existing branch or tag policy would permit another ref and does not delete unexpected user-managed policies. Inspect and resolve those policies manually before rerunning it. The command does not create secrets; add the four secret values manually after it succeeds.
+The environment command creates or updates `android-release`, enables custom deployment policies, installs an exact `main` branch policy, and reads both resources back for verification. It omits `prevent_self_review` when that flag is `false`, because GitHub returns HTTP 422 unless required reviewers exist. It fails closed if any existing branch or tag policy would permit another ref and does not delete unexpected user-managed policies. Inspect and resolve those policies manually before rerunning it. The command does not create secrets; add the four secret values manually after it succeeds.
 
-The 18 issue URLs and proposed milestone assignments are recorded in `.github/repository/task-tracking.json`. G1 remains open until its real-device acceptance checks are complete.
+The 18 issue URLs and milestone assignments are recorded in `.github/repository/task-tracking.json`. G1 is closed; remaining physical-device checks are listed in `docs/validation/android-foundation.md`.
 
 Sources: [GitHub rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets), [Dependabot configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
 
