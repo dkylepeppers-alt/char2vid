@@ -33,14 +33,16 @@ body {
 button,
 a,
 input,
-textarea {
+textarea,
+select {
   color: inherit;
   font: inherit;
 }
 
 button,
 a,
-input {
+input,
+select {
   min-width: 48px;
   min-height: 48px;
   -webkit-tap-highlight-color: transparent;
@@ -731,4 +733,81 @@ textarea {
 
 .backup-status-error {
   color: #ff8f8f;
+}
+
+.model-picker,
+.model-controls,
+.reference-tray {
+  display: grid;
+  gap: 12px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  padding: 0 16px;
+  border: 1px solid #3a3f38;
+  border-radius: 999px;
+  background: #1a1d19;
+}
+
+.filter-chip.active {
+  border-color: #caff63;
+  color: #caff63;
+}
+
+.model-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.model-row {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+  text-align: left;
+  border: 1px solid #3a3f38;
+  border-radius: 18px;
+  background: #161916;
+}
+
+.model-row.selected {
+  border-color: #caff63;
+}
+
+.model-id {
+  font-weight: 650;
+}
+
+.model-meta,
+.model-reason,
+.stale-stamp {
+  margin: 0;
+  color: #b7bbae;
+  font-size: 0.85rem;
+}
+
+.request-preview {
+  overflow: auto;
+  max-height: 240px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #0c0e0c;
+  font-size: 0.78rem;
+}
+
+.secondary-action {
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid #3a3f38;
+  border-radius: 999px;
+  background: #1a1d19;
 }

@@ -11,11 +11,11 @@ import {
 import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
 import { LibraryPage } from '../features/library/LibraryPage';
+import { CreatePage } from '../features/create/CreatePage';
 import { BackupPage } from '../features/settings/BackupPage';
 import { ServiceSettings } from '../features/settings/ServiceSettings';
 
 const ROUTE_KEY = 'char2vid.selected-route';
-const DRAFT_KEY = 'char2vid.create-draft';
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -37,7 +37,8 @@ const emptyStates: Record<Destination, { title: string; detail: string }> = {
   },
   create: {
     title: 'Shape your next shot',
-    detail: 'Drafting is available. Model selection and generation come later.',
+    detail:
+      'Pick a catalog model and inspect the request. Paid jobs come later.',
   },
   projects: {
     title: 'No projects yet',
@@ -50,9 +51,6 @@ export function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [draft, setDraft] = useState(
-    () => window.localStorage.getItem(DRAFT_KEY) ?? '',
-  );
   const sheetElement = useRef<HTMLElement>(null);
   const sheetTrigger = useRef<HTMLElement | null>(null);
 
@@ -183,27 +181,7 @@ export function App() {
           {destination === 'library' ? (
             <LibraryPage />
           ) : destination === 'create' ? (
-            <section className="draft-card" aria-labelledby="draft-title">
-              <div>
-                <p className="section-kicker">Draft</p>
-                <h2 id="draft-title">{current.title}</h2>
-                <p>{current.detail}</p>
-              </div>
-              <label htmlFor="prompt">Prompt</label>
-              <textarea
-                id="prompt"
-                value={draft}
-                placeholder="Describe the image or scene you want to make…"
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setDraft(value);
-                  window.localStorage.setItem(DRAFT_KEY, value);
-                }}
-              />
-              <button className="primary-action" disabled>
-                Generation unavailable
-              </button>
-            </section>
+            <CreatePage />
           ) : (
             <section className="empty-card">
               <div className="empty-art" aria-hidden="true">

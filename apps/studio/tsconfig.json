@@ -24,7 +24,8 @@
       ],
       "@char2vid/native-bridge/credentials": [
         "../../packages/native-bridge/src/credentials.ts"
-      ]
+      ],
+      "@char2vid/nanogpt": ["../../packages/nanogpt/src/index.ts"]
     },
     "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo"
   },
@@ -38,6 +39,9 @@
     },
     {
       "path": "../../packages/storage-web"
+    },
+    {
+      "path": "../../packages/nanogpt"
     }
   ]
 }
