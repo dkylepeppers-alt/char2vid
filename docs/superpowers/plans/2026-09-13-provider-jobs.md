@@ -74,9 +74,13 @@ it('keeps distinct IDs sharing a display name', () => {
 
 `safeDownload(url, destination, limits)` validates every DNS resolution/redirect, rejects private/link-local destinations, enforces MIME/size/time bounds, and never forwards inference headers across origins.
 
-- [ ] Add tests proving unauthenticated writes fail, setup cannot be reused, a device cannot access another owner's transfer, repeated identical chunks are accepted, changed chunks conflict, and a truncated upload cannot finalize.
-- [ ] Implement owner sessions, device revocation, CSRF/origin checks for browser mutations, login throttling, and encrypted provider-key storage. Cryptography uses authenticated encryption, a unique nonce per write, and an environment-supplied master key. Store native app-service credentials through Keystore; do not put a Nano-GPT key in frontend configuration.
-- [ ] Implement transfer state with transactional finalization and job-bound input leases:
+**Evidence (this PR):** Fastify + `node:sqlite` service, AES-256-GCM provider-key vault, HttpOnly cookie vs native bearer, 8 MiB resumable parts, HMAC-signed `GET /studio-media/:id`. Contract tests use fake keys only and never call Nano-GPT. Live `POST /api/check-balance` key validation, HTTPS deployment, and physical Keystore proof remain **UNVERIFIED**. Job-bound input leases wait for P4.
+
+- [x] Add tests proving unauthenticated writes fail, setup cannot be reused, a device cannot access another owner's transfer, repeated identical chunks are accepted, changed chunks conflict, and a truncated upload cannot finalize.
+  - Evidence: `tests/contract/service-security.test.ts` and `tests/contract/transfers.test.ts` (`npx vitest run tests/contract/service-security.test.ts tests/contract/transfers.test.ts tests/unit/validate-key.test.ts` — 15 passed).
+- [x] Implement owner sessions, device revocation, CSRF/origin checks for browser mutations, login throttling, and encrypted provider-key storage. Cryptography uses authenticated encryption, a unique nonce per write, and an environment-supplied master key. Store native app-service credentials through Keystore; do not put a Nano-GPT key in frontend configuration.
+  - Evidence: `apps/service/src/auth/*`, Settings UI posts the key to the service only, `packages/native-bridge/src/credentials.ts` + `CredentialsPlugin` (AndroidKeyStore). **UNVERIFIED:** physical-device Keystore round-trip; live check-balance against a real key.
+- [x] Implement transfer state with transactional finalization:
 
 ```text
 authorized create -> quota reservation -> parts written to temporary directory
@@ -86,8 +90,12 @@ sign only a finalized object owned by the job owner
 retain active job inputs; expire terminal/unclaimed data by the spec policy
 ```
 
-- [ ] Run `npx vitest run tests/contract/service-security.test.ts tests/contract/transfers.test.ts`. Include redirect-to-private-network, stale signature, wrong checksum, service restart during upload, and quota exhaustion. Use fake credentials only. Verify real HTTPS availability and staging persistence when deploying the service during implementation.
-- [ ] Commit: `feat: add private generation service and resumable media staging`.
+  - Evidence: `apps/service/src/transfers/*` — quota reservation, contiguous finalize, checksum, restart mid-upload, stale signature, SSRF-safe download. Pending TTL 24h / finalized 7d. Write/finalize reject expired transfers.
+- [ ] Bind finalized objects to job-bound input leases (deferred to P4).
+- [x] Run `npx vitest run tests/contract/service-security.test.ts tests/contract/transfers.test.ts`. Include redirect-to-private-network, stale signature, wrong checksum, service restart during upload, and quota exhaustion. Use fake credentials only.
+  - Evidence: focused vitest on those files; Playwright cannot prove a live HTTPS deploy from CI.
+- [ ] Verify real HTTPS availability and staging persistence when deploying the service. **UNVERIFIED.**
+- [x] Commit: `feat: add private generation service and resumable media staging`.
 
 ## Task P3: Build the model picker and request serializers
 

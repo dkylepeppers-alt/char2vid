@@ -1,5 +1,6 @@
 node_modules/
 apps/studio/dist/
+apps/service/data/
 test-results/
 playwright-report/
 *.tsbuildinfo

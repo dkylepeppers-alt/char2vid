@@ -5,6 +5,7 @@
     { "path": "./packages/native-bridge" },
     { "path": "./packages/nanogpt" },
     { "path": "./packages/storage-web" },
+    { "path": "./apps/service" },
     { "path": "./apps/studio" }
   ]
 }

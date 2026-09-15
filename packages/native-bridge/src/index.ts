@@ -38,3 +38,10 @@ export {
   getNativeLibrary,
   isNativeLibraryAvailable,
 } from './library';
+
+export {
+  saveNativeServiceSession,
+  loadNativeServiceSession,
+  clearNativeServiceSession,
+  type ServiceSessionCredential,
+} from './credentials';
