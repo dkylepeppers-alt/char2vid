@@ -1,3 +1,5 @@
+export const SERVICE_ORIGIN_KEY = 'char2vid.service-origin';
+
 export class ServiceOriginError extends Error {
   constructor(readonly code: string) {
     super(code);

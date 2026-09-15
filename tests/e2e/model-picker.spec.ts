@@ -68,7 +68,11 @@ test('create picker lists a new catalog model and preserves the draft', async ({
   await expect(
     page.getByText('Settings dropped on model switch: n'),
   ).toBeVisible();
-  await expect(page.getByText('Generation waits for jobs')).toBeVisible();
+  await expect(
+    page.getByRole('button', {
+      name: 'Connect the generation service to submit',
+    }),
+  ).toBeVisible();
 
   await page.getByRole('link', { name: 'Projects', exact: true }).click();
   await page.getByRole('link', { name: 'Create', exact: true }).click();
