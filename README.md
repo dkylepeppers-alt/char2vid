@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status (15 September 2026):** M1 local library (G1–G4) and M2 through the personal generation service (P1–P2) are on `main`. Create can list live catalog models and preview serialized requests (P3 landed; [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7) stays open for unpaid residuals — ReferenceTray, multi-op Create, paid submit). Emulator CI proves native import/export/archives; physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls stay **UNVERIFIED**. Paid jobs (P4), character pipeline, and studio delivery remain ahead.
+**Status (15 September 2026):** M1 local library (G1–G4) and M2 through P3 model pickers are on `main`. This branch adds durable jobs (P4): Create stays image-first, attaches library references, and submits jobs to the personal service (fake provider in tests/CI). Emulator CI proves native import/export/archives; physical-device install, live HTTPS service deploy, Keystore round-trip, and paid Nano-GPT calls stay **UNVERIFIED**. Multi-op Create and character pipeline remain ahead.
 
 ## Develop and test
 
@@ -13,7 +13,7 @@ npm ci
 npm run dev
 ```
 
-The web app can import and organize a local library without an API key. Generation still waits for durable jobs. Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for verification. See [repository setup](docs/development/repository-setup.md) for dependencies, GitHub configuration, APK downloads, and signing; see [Android foundation evidence](docs/validation/android-foundation.md) for toolchain and device-check status.
+The web app can import and organize a local library without an API key. Image jobs submit through the personal service (fake provider in tests/CI). Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for verification. See [repository setup](docs/development/repository-setup.md) for dependencies, GitHub configuration, APK downloads, and signing; see [Android foundation evidence](docs/validation/android-foundation.md) for toolchain and device-check status.
 
 Pull requests run web and Android validation. Successful Android runs provide a debug APK artifact. Signed builds use the manually dispatched release workflow and user-supplied signing secrets.
 
@@ -47,15 +47,15 @@ Pull requests run web and Android validation. Successful Android runs provide a 
 
 ## Current delivery
 
-| Task                                     | State          | Evidence     | Still UNVERIFIED                                           |
-| ---------------------------------------- | -------------- | ------------ | ---------------------------------------------------------- |
-| G1 Shared app / Android shell            | Closed (#1)    | #19, #27     | Physical APK install, back/rotation/TalkBack               |
-| G2 Crash-safe media storage              | Done on `main` | #28, #34     | Physical-device crash journal                              |
-| G3 Organization, playback, native export | Done on `main` | #29–#31, #38 | Physical MediaStore export                                 |
-| G4 Portable archives                     | Done on `main` | #32, #38     | Physical archive round-trip                                |
-| P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                        |
-| P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore |
-| P3 Model picker / serializers            | In progress    | This branch  | Paid submission (P4)                                       |
-| P4 Durable jobs                          | Not started    | —            | —                                                          |
+| Task                                     | State          | Evidence     | Still UNVERIFIED                                                |
+| ---------------------------------------- | -------------- | ------------ | --------------------------------------------------------------- |
+| G1 Shared app / Android shell            | Closed (#1)    | #19, #27     | Physical APK install, back/rotation/TalkBack                    |
+| G2 Crash-safe media storage              | Done on `main` | #28, #34     | Physical-device crash journal                                   |
+| G3 Organization, playback, native export | Done on `main` | #29–#31, #38 | Physical MediaStore export                                      |
+| G4 Portable archives                     | Done on `main` | #32, #38     | Physical archive round-trip                                     |
+| P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                             |
+| P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore      |
+| P3 Model picker / serializers            | Done on `main` | #43          | Endpoint metadata fetch, catalog snapshot persistence, paid Nano-GPT |
+| P4 Durable jobs                          | In progress    | This branch  | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT      |
 
 The model counts and examples in the research are observations, not a model allowlist. No generation requests were made during planning, and no API keys or private media are included.

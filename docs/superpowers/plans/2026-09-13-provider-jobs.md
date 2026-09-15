@@ -91,7 +91,8 @@ retain active job inputs; expire terminal/unclaimed data by the spec policy
 ```
 
   - Evidence: `apps/service/src/transfers/*` — quota reservation, contiguous finalize, checksum, restart mid-upload, stale signature, SSRF-safe download. Pending TTL 24h / finalized 7d. Write/finalize reject expired transfers.
-- [ ] Bind finalized objects to job-bound input leases (deferred to P4).
+- [x] Bind finalized objects to job-bound input leases (deferred to P4).
+  - Evidence (P4): `submitJob` writes `job_input_leases`; `expireDueTransfers` skips transfers bound to non-terminal jobs (`tests/contract/jobs.test.ts` keeps a finalized reference after an 8-day clock jump).
 - [x] Run `npx vitest run tests/contract/service-security.test.ts tests/contract/transfers.test.ts`. Include redirect-to-private-network, stale signature, wrong checksum, service restart during upload, and quota exhaustion. Use fake credentials only.
   - Evidence: focused vitest on those files; Playwright cannot prove a live HTTPS deploy from CI.
 - [ ] Verify real HTTPS availability and staging persistence when deploying the service. **UNVERIFIED.**
@@ -139,8 +140,9 @@ it('uses one normalized image input family', () => {
 
 **Interfaces:** `submitJob(ownerId, draft): Promise<JobReceipt>` returns an existing matching request receipt on duplicate submission. `GET /studio-api/jobs/:id` reads a receipt; `GET /studio-api/jobs?cursor=...` reconciles changed jobs; `POST /studio-api/jobs/:id/cancel` cancels only when allowed; `POST /studio-api/jobs/:id/acknowledge` confirms verified local output hashes. `normalizeVideoStatus(body)` returns `{ state: ProviderState; outputUrl?: string; cost?: unknown; error?: string }` or a structured unsupported-envelope error.
 
-- [ ] Add failing tests for duplicate client request IDs, conflicting payload reuse, two workers claiming one job, process death after possible provider dispatch, nested/flat status variants, empty successful images, URL/base64 fallback, audio binary responses, and all output items preserved.
-- [ ] Implement job reservation and worker leasing. A durable schema needs uniqueness and lease ownership:
+- [x] Add failing tests for duplicate client request IDs, conflicting payload reuse, two workers claiming one job, process death after possible provider dispatch, nested/flat status variants, empty successful images, URL/base64 fallback, audio binary responses, and all output items preserved.
+  - Evidence: `tests/contract/jobs.test.ts` and `tests/contract/provider-results.test.ts`. Fake provider only; no Nano-GPT credits.
+- [x] Implement job reservation and worker leasing. A durable schema needs uniqueness and lease ownership:
 
 ```sql
 CREATE UNIQUE INDEX jobs_owner_client_id ON jobs(owner_id, client_request_id);
@@ -149,7 +151,8 @@ CREATE INDEX jobs_due ON jobs(provider_state, next_attempt_at);
 
 Claim work in a transaction; save `submitting` before dispatch. Never requeue an expired submitting lease automatically. Persist provider tickets including model, cost/payment fields, and status adapter version before polling.
 
-- [ ] Implement separate provider/staging/local-save transitions, bounded polling, immediate service output capture, file validation, and client reconciliation into `LibraryPort`. Sample expected status parsing:
+  - Evidence: `apps/service/src/db/migrations/002-jobs.sql`, `jobs/{repository,worker,recovery}.ts`. Expired `submitting` leases become `submission-unknown` and are not claimed again.
+- [x] Implement separate provider/staging/local-save transitions, bounded polling, immediate service output capture, file validation, and client reconciliation into `LibraryPort`. Sample expected status parsing:
 
 ```ts
 import { expect, it } from 'vitest';
@@ -165,8 +168,11 @@ it('does not invent output for an empty completion', () => {
 });
 ```
 
-- [ ] Implement estimate/reservation/final/refund/unknown cost states; account for input-duration billing when applicable. A user-approved retry of an ambiguous request receives a new client request ID with a link to the original. Repeated local downloads do not create a new paid generation.
-- [ ] Run `npx vitest run tests/contract/jobs.test.ts tests/contract/provider-results.test.ts`. Restart the actual service while the fake provider has running jobs, suspend the app, then verify existing IDs and identical saved hashes. Commit: `feat: persist generation jobs and verified local results`.
+  - Evidence: nested/flat video envelopes and image/audio output parsers in `tests/contract/provider-results.test.ts`. Service capture + `LibraryPort` import + acknowledge in `tests/contract/jobs.test.ts`. `QueueSheet` / `job-sync.ts` download verified hashes into the local library. Playwright/UI paid smoke is **UNVERIFIED**.
+- [x] Implement estimate/reservation/final/refund/unknown cost states; account for input-duration billing when applicable. A user-approved retry of an ambiguous request receives a new client request ID with a link to the original. Repeated local downloads do not create a new paid generation.
+  - Evidence: duration → `reservation`; provider ticket cost → `final`; retry-of `submission-unknown` requires a new `client_request_id`; acknowledge-twice leaves `submits === 1`.
+- [x] Run `npx vitest run tests/contract/jobs.test.ts tests/contract/provider-results.test.ts`. Restart the actual service while the fake provider has running jobs, suspend the app, then verify existing IDs and identical saved hashes. Commit: `feat: persist generation jobs and verified local results`.
+  - Evidence: focused vitest on those files; restart-while-running fake video job keeps `providerRunId` and output SHA-256. Physical Android suspend, HTTPS deploy, Keystore, and paid Nano-GPT remain **UNVERIFIED**.
 
 ## Task P5: Audit catalog coverage and exercise recovery on Android
 
