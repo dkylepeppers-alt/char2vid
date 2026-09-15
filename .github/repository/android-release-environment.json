@@ -2,7 +2,6 @@
   "name": "android-release",
   "settings": {
     "wait_timer": 0,
-    "prevent_self_review": false,
     "deployment_branch_policy": {
       "protected_branches": false,
       "custom_branch_policies": true

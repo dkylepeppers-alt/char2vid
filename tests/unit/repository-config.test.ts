@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertExactDeploymentPolicies,
   collectionRows,
+  environmentPutSettings,
   isOwnedRuleset,
   rulesetsPath,
 } from '../../scripts/configure-repository.mjs';
@@ -71,5 +72,24 @@ describe('repository API collections', () => {
         type: 'branch',
       }),
     ).not.toThrow();
+  });
+
+  it('omits prevent_self_review when no reviewers are configured', () => {
+    expect(
+      environmentPutSettings({
+        wait_timer: 0,
+        prevent_self_review: false,
+        deployment_branch_policy: {
+          protected_branches: false,
+          custom_branch_policies: true,
+        },
+      }),
+    ).toEqual({
+      wait_timer: 0,
+      deployment_branch_policy: {
+        protected_branches: false,
+        custom_branch_policies: true,
+      },
+    });
   });
 });
