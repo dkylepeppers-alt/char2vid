@@ -128,7 +128,7 @@ CREATE TABLE import_journal (
 - [x] Stream into a temporary object, verify file signature/size/hash, promote, then transactionally register its revision and clear the journal. Implement restart reconciliation for every stage (**web/Node** + **native Room**). Web fallback stores blobs only when OPFS is unavailable, shows the storage mode, and rejects allocations that exceed its configured fallback limit ([#28](https://github.com/dkylepeppers-alt/char2vid/pull/28)). Native: `MediaStoreRepository` copies picker/SAF/`file://` into app-owned files; `LibraryPlugin` exposes typed commands only (no unrestricted SQL).
   - [x] Typed Room commands + Kotlin/Room native library storage (this PR; CI compile/unit).
   - [ ] **UNVERIFIED:** OPFS-on-device proof.
-- [ ] Run native instrumentation. Test picker-URI copying and an import of a large video without full-file base64 transfer through JavaScript on device. Preserve format/orientation metadata; generate thumbnails from corrected orientation without modifying originals.
+- [ ] Physical-device native instrumentation remains open (Photo Picker/SAF UI, large-video path without JS base64, orientation/thumbnails on hardware). Emulator import/reopen is **not** that box.
   - Web contract coverage for storage-full / malformed input: proved in [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). **Proven (emulator, CI run 34893229015):** `LibraryImportInstrumentedTest` (import → close/reopen → hash match). **UNVERIFIED:** physical-device Photo Picker/SAF import, large-video native path, orientation/thumbnail pipeline.
 - [x] Commit (web slice): `feat: add crash-safe browser media storage` via [#28](https://github.com/dkylepeppers-alt/char2vid/pull/28). Native Room/files slice: this PR (`Refs #2` only — do not close).
 
@@ -144,7 +144,7 @@ CREATE TABLE import_journal (
 - [x] Write a contract case for one asset belonging to two collections, being removed from one, then being trashed/restored without changing its file hash. Add a pagination case with identical timestamps to prevent duplicate/missing grid items.
   - Evidence: [#29](https://github.com/dkylepeppers-alt/char2vid/pull/29) `tests/contract/library-actions.test.ts`. Shared-hash `permanent-delete` via `applyLibraryAction` (trash → permanent-delete) proved in [#31](https://github.com/dkylepeppers-alt/char2vid/pull/31).
 - [x] Implement relational membership tables and indexes; use soft deletion for Trash and reference-counted physical deletion only on explicit permanent removal ([#29](https://github.com/dkylepeppers-alt/char2vid/pull/29)). Build gallery UI with batch selection, search/filter wired to `queryAssets`, fit-to-screen detail, image/video/audio playback hooks, and provenance display (this PR: `LibraryPage` / `AssetDetail` / `SelectionBar`; CSS grid + cursor load-more — full windowing virtualization not required for this slice).
-- [ ] Implement native picker and export actions on device. Native save transaction is implemented in `ExportPlugin` / `MediaExporter` (MediaStore `IS_PENDING` on API 29+; API 26–28 legacy public directory only when `WRITE_EXTERNAL_STORAGE` is granted, otherwise SAF). FileProvider is scoped to `library/share/` only. Share status is hand-off, not receipt.
+- [ ] Physical-device native picker/export actions remain open (real MediaStore/SAF UI, deny, reopen-in-another-app, TalkBack). Plugin + emulator proofs already landed — this box is hardware honesty, not “not implemented.” Native save transaction is in `ExportPlugin` / `MediaExporter` (MediaStore `IS_PENDING` on API 29+; API 26–28 legacy public directory only when `WRITE_EXTERNAL_STORAGE` is granted, otherwise SAF). FileProvider is scoped to `library/share/` only. Share status is hand-off, not receipt.
 
 ```text
 resolve immutable revision -> open source stream
@@ -192,8 +192,8 @@ it('accepts a relative media member', () => {
   - Evidence: `packages/domain/src/archive-schema.ts`, `archive-remap.ts`, `packages/storage-web/src/archive.ts`.
 - [x] Implement staging import with rollback, schema-version dispatch, and migration-oriented inspect-before-mutate. Exclude credentials and signed URLs. Interrupted exports leave no apparently complete archive; interrupted/rejected imports leave the existing library intact (**web/Node**).
   - Evidence: contract tests + `docs/validation/backup-restore.md`.
-- [ ] Run `npx vitest run tests/contract/archive.test.ts` (web proved). Perform Android → fresh Android and browser → Android round trips on hardware. After later milestones add character/project records to the same tests. Measure a 1 GiB archive without whole-archive memory allocation.
-  - **Proven (emulator, CI run 34893229015):** `ArchiveInstrumentedTest` (export → inspect → wipe → import, tamper rejection, `../evil` invalidPaths, import bound to one inspected snapshot). Physical-device archive round-trips and 1 GiB streaming measurement stay UNVERIFIED.
+- [ ] Hardware archive round-trips remain open (Android→Android, browser→Android) plus 1 GiB streaming measurement. Web vitest and emulator archive proofs already landed — leave this box open for physical evidence only.
+  - Web: `npx vitest run tests/contract/archive.test.ts` proved. **Proven (emulator, CI run 34893229015):** `ArchiveInstrumentedTest` (export → inspect → wipe → import, tamper rejection, `../evil` invalidPaths, import bound to one inspected snapshot). Physical-device archive round-trips and 1 GiB streaming measurement stay **UNVERIFIED**.
 - [x] Commit (web slice): `feat(archive): G4 portable library archives (web)` via [#32](https://github.com/dkylepeppers-alt/char2vid/pull/32). Native streaming archive plugin proven on emulator (CI run 34893229015); physical-device round-trips remain open.
 
 ## Milestone acceptance
