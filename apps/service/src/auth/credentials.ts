@@ -6,7 +6,7 @@ import {
 } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
-import { HttpError } from '../http-error';
+import { HttpError } from '../http-error.ts';
 
 const ALGO = 'aes-256-gcm';
 

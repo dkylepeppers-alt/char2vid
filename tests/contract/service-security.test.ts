@@ -226,4 +226,74 @@ describe('service security (P2)', () => {
       await closeTestService(service);
     }
   });
+
+  it('rate-limits setup-token guesses before an owner exists', async () => {
+    const service = await openTestService();
+    try {
+      const statuses: number[] = [];
+      let last = await service.app.inject({
+        method: 'POST',
+        url: '/studio-api/setup',
+        payload: {
+          setupToken: 'wrong-token',
+          login: 'owner',
+          password: 'correct-horse-battery',
+        },
+      });
+      statuses.push(last.statusCode);
+      for (let i = 1; i < 11; i += 1) {
+        last = await service.app.inject({
+          method: 'POST',
+          url: '/studio-api/setup',
+          payload: {
+            setupToken: 'wrong-token',
+            login: 'owner',
+            password: 'correct-horse-battery',
+          },
+        });
+        statuses.push(last.statusCode);
+      }
+      expect(statuses.slice(0, 10).every((status) => status === 401)).toBe(
+        true,
+      );
+      expect(last.statusCode).toBe(429);
+      expect(last.json()).toEqual({ error: 'rate_limited' });
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('allows Capacitor WebView CORS preflight and rejects other sites', async () => {
+    const service = await openTestService();
+    try {
+      const preflight = await service.app.inject({
+        method: 'OPTIONS',
+        url: '/studio-api/session',
+        headers: {
+          origin: 'https://localhost',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type,authorization',
+        },
+      });
+      expect(preflight.statusCode).toBeGreaterThanOrEqual(200);
+      expect(preflight.statusCode).toBeLessThan(300);
+      expect(preflight.headers['access-control-allow-origin']).toBe(
+        'https://localhost',
+      );
+      expect(preflight.headers['access-control-allow-credentials']).toBe(
+        'true',
+      );
+      const blocked = await service.app.inject({
+        method: 'OPTIONS',
+        url: '/studio-api/session',
+        headers: {
+          origin: 'https://evil.example',
+          'access-control-request-method': 'POST',
+        },
+      });
+      expect(blocked.headers['access-control-allow-origin']).toBeUndefined();
+    } finally {
+      await closeTestService(service);
+    }
+  });
 });

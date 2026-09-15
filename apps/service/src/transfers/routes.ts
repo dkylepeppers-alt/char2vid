@@ -1,15 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
 
-import { HttpError } from '../http-error';
-import { assertMutationCsrf, requireSession } from '../auth/sessions';
+import { HttpError } from '../http-error.ts';
+import { CHUNK_BYTES } from '../constants.ts';
+import { assertMutationCsrf, requireSession } from '../auth/sessions.ts';
 import {
   createTransfer,
   expireDueTransfers,
   finalizeTransfer,
   getTransfer,
   writePart,
-} from './store';
+} from './store.ts';
 
 export function registerTransferRoutes(
   app: FastifyInstance,
@@ -46,25 +47,30 @@ export function registerTransferRoutes(
     );
   });
 
-  app.put('/studio-api/transfers/:id/parts/:index', (request) => {
-    const actor = requireSession(deps.db, request);
-    assertMutationCsrf(actor, request, deps.publicOrigin);
-    const params = request.params as { id: string; index: string };
-    const index = Number(params.index);
-    const payload = request.body;
-    if (!(payload instanceof Buffer)) {
-      throw new HttpError(400, 'binary_part_required');
-    }
-    writePart(
-      deps.db,
-      deps.stagingDir,
-      actor.ownerId,
-      params.id,
-      index,
-      payload,
-    );
-    return { ok: true };
-  });
+  app.put(
+    '/studio-api/transfers/:id/parts/:index',
+    { bodyLimit: CHUNK_BYTES },
+    (request) => {
+      const actor = requireSession(deps.db, request);
+      assertMutationCsrf(actor, request, deps.publicOrigin);
+      const params = request.params as { id: string; index: string };
+      const index = Number(params.index);
+      const payload = request.body;
+      if (!(payload instanceof Buffer)) {
+        throw new HttpError(400, 'binary_part_required');
+      }
+      writePart(
+        deps.db,
+        deps.stagingDir,
+        actor.ownerId,
+        params.id,
+        index,
+        payload,
+        deps.now(),
+      );
+      return { ok: true };
+    },
+  );
 
   app.post('/studio-api/transfers/:id/finalize', (request) => {
     const actor = requireSession(deps.db, request);

@@ -1,28 +1,30 @@
 import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createReadStream } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 
-import { SESSION_COOKIE } from './constants';
-import { openServiceDb } from './db/open';
-import { HttpError } from './http-error';
+import { SESSION_COOKIE } from './constants.ts';
+import { isAllowedStudioOrigin } from './cors.ts';
+import { openServiceDb } from './db/open.ts';
+import { HttpError } from './http-error.ts';
 import {
   completeSetup,
   authenticateOwner,
   isSetupComplete,
-} from './auth/enrollment';
-import { readMaskedProviderKey, storeProviderKey } from './auth/credentials';
+} from './auth/enrollment.ts';
+import { readMaskedProviderKey, storeProviderKey } from './auth/credentials.ts';
 import {
   assertMutationCsrf,
   createSession,
   encodeCredential,
   requireSession,
   revokeSession,
-} from './auth/sessions';
-import { registerTransferRoutes } from './transfers/routes';
-import { assertTransferId, openFinalizedObject } from './transfers/store';
-import { verifyMediaAccess } from './transfers/signed-inputs';
+} from './auth/sessions.ts';
+import { registerTransferRoutes } from './transfers/routes.ts';
+import { assertTransferId, openFinalizedObject } from './transfers/store.ts';
+import { verifyMediaAccess } from './transfers/signed-inputs.ts';
 
 export interface ServiceEnv {
   dbPath: string;
@@ -48,6 +50,14 @@ function jsonError(error: unknown): { statusCode: number; error: string } {
   if (error instanceof HttpError) {
     return { statusCode: error.statusCode, error: error.code };
   }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    Number(error.statusCode) === 429
+  ) {
+    return { statusCode: 429, error: 'rate_limited' };
+  }
   return { statusCode: 500, error: 'internal_error' };
 }
 
@@ -57,6 +67,17 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
   const app = Fastify({ logger: false });
 
   await app.register(cookie);
+  await app.register(cors, {
+    hook: 'onRequest',
+    credentials: true,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      callback(null, isAllowedStudioOrigin(origin, env.publicOrigin));
+    },
+  });
   await app.register(rateLimit, {
     global: false,
     hook: 'preHandler',
@@ -81,23 +102,31 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
     return { ok: true };
   });
 
-  app.post('/studio-api/setup', (request, reply) => {
-    const body = request.body as {
-      setupToken?: unknown;
-      login?: unknown;
-      password?: unknown;
-    };
-    const result = completeSetup(
-      db,
-      env.setupToken,
-      typeof body.setupToken === 'string' ? body.setupToken : '',
-      typeof body.login === 'string' ? body.login : '',
-      typeof body.password === 'string' ? body.password : '',
-      now().toISOString(),
-    );
-    void reply.status(201);
-    return { ownerId: result.ownerId, setup: 'completed' };
-  });
+  app.post(
+    '/studio-api/setup',
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: '1 minute' },
+      },
+    },
+    (request, reply) => {
+      const body = request.body as {
+        setupToken?: unknown;
+        login?: unknown;
+        password?: unknown;
+      };
+      const result = completeSetup(
+        db,
+        env.setupToken,
+        typeof body.setupToken === 'string' ? body.setupToken : '',
+        typeof body.login === 'string' ? body.login : '',
+        typeof body.password === 'string' ? body.password : '',
+        now().toISOString(),
+      );
+      void reply.status(201);
+      return { ownerId: result.ownerId, setup: 'completed' };
+    },
+  );
 
   app.post(
     '/studio-api/session',
@@ -248,7 +277,7 @@ export async function buildApp(env: ServiceEnv): Promise<BuiltService> {
   return { app, db, close };
 }
 
-export { safeDownload } from './network/safe-download';
-export { signMediaAccess } from './transfers/signed-inputs';
-export { insertOwnerForTests } from './auth/enrollment';
-export { decryptProviderKey } from './auth/credentials';
+export { safeDownload } from './network/safe-download.ts';
+export { signMediaAccess } from './transfers/signed-inputs.ts';
+export { insertOwnerForTests } from './auth/enrollment.ts';
+export { decryptProviderKey } from './auth/credentials.ts';

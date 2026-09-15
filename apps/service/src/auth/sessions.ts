@@ -3,8 +3,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { FastifyRequest } from 'fastify';
 import '@fastify/cookie';
 
-import { SESSION_COOKIE } from '../constants';
-import { HttpError } from '../http-error';
+import { SESSION_COOKIE } from '../constants.ts';
+import { HttpError } from '../http-error.ts';
 
 export interface SessionActor {
   sessionId: string;

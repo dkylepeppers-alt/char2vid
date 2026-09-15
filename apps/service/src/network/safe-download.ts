@@ -1,9 +1,13 @@
 import { isIP } from 'node:net';
-import { writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, rename, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { once } from 'node:events';
+import https from 'node:https';
+import { Readable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 
-import { HttpError } from '../http-error';
+import { HttpError } from '../http-error.ts';
 
 export interface SafeDownloadLimits {
   maxBytes: number;
@@ -11,8 +15,15 @@ export interface SafeDownloadLimits {
   allowedMime?: string;
 }
 
+export type SafeFetchInit = RequestInit & { pinnedAddresses?: string[] };
+
+export type SafeFetch = (
+  url: string,
+  init?: SafeFetchInit,
+) => Promise<Response>;
+
 export interface SafeDownloadDeps {
-  fetchImpl: typeof fetch;
+  fetchImpl?: SafeFetch;
   lookup: (hostname: string) => Promise<string[]>;
 }
 
@@ -49,19 +60,22 @@ export function isBlockedAddress(address: string): boolean {
     if (value === undefined) {
       return true;
     }
-    return BLOCKED_V4.some((range) => (value & range.mask) === range.net);
+    return BLOCKED_V4.some((range) => (value & range.mask) >>> 0 === range.net);
   }
   if (version === 6) {
     const normalized = address.toLowerCase();
+    const mapped = normalized.startsWith('::ffff:')
+      ? normalized.slice('::ffff:'.length)
+      : undefined;
+    if (mapped && isIP(mapped) === 4) {
+      return isBlockedAddress(mapped);
+    }
     return (
       normalized === '::1' ||
       normalized === '::' ||
       normalized.startsWith('fc') ||
       normalized.startsWith('fd') ||
-      normalized.startsWith('fe80:') ||
-      normalized.startsWith('::ffff:127.') ||
-      normalized.startsWith('::ffff:10.') ||
-      normalized.startsWith('::ffff:192.168.')
+      normalized.startsWith('fe80:')
     );
   }
   return true;
@@ -78,23 +92,128 @@ function assertPublicHostname(hostname: string): void {
   }
 }
 
-async function assertPublicHost(
+async function publicAddresses(
   hostname: string,
   lookup: SafeDownloadDeps['lookup'],
-): Promise<void> {
+): Promise<string[]> {
   assertPublicHostname(hostname);
   if (isIP(hostname)) {
     if (isBlockedAddress(hostname)) {
       throw new HttpError(400, 'private_destination');
     }
-    return;
+    return [hostname];
   }
   const addresses = await lookup(hostname);
-  if (
-    addresses.length === 0 ||
-    addresses.some((address) => isBlockedAddress(address))
-  ) {
+  const allowed = addresses.filter((address) => !isBlockedAddress(address));
+  if (addresses.length === 0 || allowed.length !== addresses.length) {
     throw new HttpError(400, 'private_destination');
+  }
+  return allowed;
+}
+
+export async function pinnedFetch(
+  url: string,
+  init: SafeFetchInit = {},
+): Promise<Response> {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:') {
+    throw new HttpError(400, 'insecure_url');
+  }
+  const address = init.pinnedAddresses?.[0];
+  if (!address || isIP(address) === 0 || isBlockedAddress(address)) {
+    throw new HttpError(400, 'private_destination');
+  }
+  const family = isIP(address) === 6 ? 6 : 4;
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        protocol: 'https:',
+        hostname: address,
+        servername: parsed.hostname,
+        port: parsed.port === '' ? 443 : Number(parsed.port),
+        path: `${parsed.pathname}${parsed.search}`,
+        method: init.method ?? 'GET',
+        headers: { host: parsed.host },
+        lookup: (_host, _options, callback) => {
+          callback(null, address, family);
+        },
+      },
+      (incoming) => {
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(incoming.headers)) {
+          if (value === undefined) {
+            continue;
+          }
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              headers.append(key, item);
+            }
+          } else {
+            headers.set(key, value);
+          }
+        }
+        const status = incoming.statusCode ?? 0;
+        if (status >= 300 && status < 400) {
+          incoming.resume();
+          resolve(new Response(null, { status, headers }));
+          return;
+        }
+        resolve(
+          new Response(Readable.toWeb(incoming) as ReadableStream<Uint8Array>, {
+            status,
+            headers,
+          }),
+        );
+      },
+    );
+    const signal = init.signal;
+    if (signal) {
+      const abort = () => {
+        req.destroy();
+        reject(
+          signal.reason instanceof Error ? signal.reason : new Error('aborted'),
+        );
+      };
+      if (signal.aborted) {
+        abort();
+        return;
+      }
+      signal.addEventListener('abort', abort, { once: true });
+    }
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function writeLimitedStream(
+  body: ReadableStream<Uint8Array>,
+  destination: string,
+  maxBytes: number,
+): Promise<number> {
+  await mkdir(dirname(destination), { recursive: true });
+  const temp = `${destination}.part`;
+  const out = createWriteStream(temp);
+  out.on('error', () => undefined);
+  let total = 0;
+  try {
+    for await (const chunk of body) {
+      const piece = chunk instanceof Uint8Array ? chunk : Buffer.from(chunk);
+      total += piece.byteLength;
+      if (total > maxBytes) {
+        throw new HttpError(413, 'download_too_large');
+      }
+      if (!out.write(piece)) {
+        await once(out, 'drain');
+      }
+    }
+    out.end();
+    await finished(out);
+    await rename(temp, destination);
+    return total;
+  } catch (error) {
+    out.destroy();
+    await rm(temp, { force: true }).catch(() => undefined);
+    throw error;
   }
 }
 
@@ -104,6 +223,7 @@ export async function safeDownload(
   limits: SafeDownloadLimits,
   deps: SafeDownloadDeps,
 ): Promise<{ bytes: number; mime: string }> {
+  const fetchImpl = deps.fetchImpl ?? pinnedFetch;
   let current = url;
   for (let hop = 0; hop < 5; hop += 1) {
     let parsed: URL;
@@ -115,11 +235,12 @@ export async function safeDownload(
     if (parsed.protocol !== 'https:') {
       throw new HttpError(400, 'insecure_url');
     }
-    await assertPublicHost(parsed.hostname, deps.lookup);
-    const response = await deps.fetchImpl(parsed.href, {
+    const pinnedAddresses = await publicAddresses(parsed.hostname, deps.lookup);
+    const response = await fetchImpl(parsed.href, {
       method: 'GET',
       redirect: 'manual',
       signal: AbortSignal.timeout(limits.timeoutMs),
+      pinnedAddresses,
     });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
@@ -139,19 +260,12 @@ export async function safeDownload(
     if (limits.allowedMime && mime !== limits.allowedMime) {
       throw new HttpError(415, 'unexpected_mime');
     }
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    for await (const chunk of response.body) {
-      const piece = chunk instanceof Uint8Array ? chunk : Buffer.from(chunk);
-      total += piece.byteLength;
-      if (total > limits.maxBytes) {
-        throw new HttpError(413, 'download_too_large');
-      }
-      chunks.push(piece);
-    }
-    await mkdir(dirname(destination), { recursive: true });
-    await writeFile(destination, Buffer.concat(chunks));
-    return { bytes: total, mime: mime ?? 'application/octet-stream' };
+    const bytes = await writeLimitedStream(
+      response.body,
+      destination,
+      limits.maxBytes,
+    );
+    return { bytes, mime: mime ?? 'application/octet-stream' };
   }
   throw new HttpError(400, 'too_many_redirects');
 }

@@ -5,11 +5,15 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
+import { buildApp, signMediaAccess } from '../../apps/service/src/app';
 import {
-  buildApp,
+  isBlockedAddress,
   safeDownload,
-  signMediaAccess,
-} from '../../apps/service/src/app';
+} from '../../apps/service/src/network/safe-download';
+import {
+  CHUNK_BYTES,
+  PENDING_TRANSFER_TTL_MS,
+} from '../../apps/service/src/constants';
 import { sha256Hex } from '../../apps/service/src/transfers/signed-inputs';
 import {
   closeTestService,
@@ -351,7 +355,11 @@ describe('transfers (P2)', () => {
   });
 
   it('refuses a redirect onto a private network and never forwards inference headers', async () => {
-    const seen: Array<{ url: string; authorization?: string }> = [];
+    const seen: Array<{
+      url: string;
+      authorization?: string;
+      pinnedAddresses?: string[];
+    }> = [];
     const dir = await mkdtemp(join(tmpdir(), 'char2vid-dl-'));
     const destination = join(dir, 'out.bin');
     await expect(
@@ -369,6 +377,7 @@ describe('transfers (P2)', () => {
             seen.push({
               url: String(url),
               authorization: headers.get('authorization') ?? undefined,
+              pinnedAddresses: init?.pinnedAddresses,
             });
             return new Response(null, {
               status: 302,
@@ -379,10 +388,104 @@ describe('transfers (P2)', () => {
       ),
     ).rejects.toMatchObject({ code: 'private_destination' });
     expect(seen).toEqual([
-      { url: 'https://cdn.example/file.png', authorization: undefined },
+      {
+        url: 'https://cdn.example/file.png',
+        authorization: undefined,
+        pinnedAddresses: ['203.0.113.10'],
+      },
     ]);
     await expect(readFile(destination)).rejects.toThrow();
     await writeFile(join(dir, 'ok.bin'), '');
     expect(sha256Hex(new Uint8Array([1]))).toHaveLength(64);
+  });
+
+  it('blocks RFC1918 and link-local IPv4 destinations whose high bit is set', () => {
+    expect(isBlockedAddress('10.1.2.3')).toBe(true);
+    expect(isBlockedAddress('172.16.0.1')).toBe(true);
+    expect(isBlockedAddress('192.168.1.1')).toBe(true);
+    expect(isBlockedAddress('169.254.1.1')).toBe(true);
+    expect(isBlockedAddress('203.0.113.10')).toBe(false);
+  });
+
+  it('streams a download to disk instead of concatenating the whole object', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'char2vid-dl-'));
+    const destination = join(dir, 'out.bin');
+    const payload = Buffer.alloc(64 * 1024 + 17, 7);
+    const result = await safeDownload(
+      'https://cdn.example/file.bin',
+      destination,
+      { maxBytes: payload.byteLength, timeoutMs: 1000 },
+      {
+        lookup: async () => ['203.0.113.10'],
+        fetchImpl: async () =>
+          new Response(payload, {
+            status: 200,
+            headers: { 'content-type': 'application/octet-stream' },
+          }),
+      },
+    );
+    expect(result.bytes).toBe(payload.byteLength);
+    expect(await readFile(destination)).toEqual(payload);
+  });
+
+  it('rejects uploads and finalize after the pending TTL elapses', async () => {
+    let nowMs = Date.parse('2026-09-15T00:00:00.000Z');
+    const service = await openTestService({
+      now: () => new Date(nowMs),
+    });
+    try {
+      await setupOwner(service);
+      const { token } = await loginNative(service);
+      const payload = new Uint8Array([1, 2, 3, 4]);
+      const { transferId } = await createPending(service, token, payload);
+      nowMs += PENDING_TRANSFER_TTL_MS + 1;
+      const latePart = await service.app.inject({
+        method: 'PUT',
+        url: `/studio-api/transfers/${transferId}/parts/0`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/octet-stream',
+        },
+        payload: Buffer.from(payload),
+      });
+      expect(latePart.statusCode).toBe(410);
+      expect(latePart.json()).toEqual({ error: 'transfer_expired' });
+      const lateFinalize = await service.app.inject({
+        method: 'POST',
+        url: `/studio-api/transfers/${transferId}/finalize`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(lateFinalize.statusCode).toBe(410);
+      expect(lateFinalize.json()).toEqual({ error: 'transfer_expired' });
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
+  it('accepts a part larger than Fastify’s default 1 MiB body limit', async () => {
+    const service = await openTestService({ quotaBytes: 2_000_000 });
+    try {
+      await setupOwner(service);
+      const { token } = await loginNative(service);
+      const payload = Buffer.alloc(1_500_000, 3);
+      const { transferId, chunkBytes } = await createPending(
+        service,
+        token,
+        payload,
+      );
+      expect(chunkBytes).toBe(CHUNK_BYTES);
+      const uploaded = await service.app.inject({
+        method: 'PUT',
+        url: `/studio-api/transfers/${transferId}/parts/0`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/octet-stream',
+        },
+        payload,
+      });
+      expect(uploaded.statusCode).toBe(200);
+    } finally {
+      await closeTestService(service);
+    }
   });
 });

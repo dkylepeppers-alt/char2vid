@@ -1,8 +1,8 @@
 import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
-import { buildApp } from './app';
-import { validateNanoGptKey } from './auth/validate-key';
+import { buildApp } from './app.ts';
+import { validateNanoGptKey } from './auth/validate-key.ts';
 
 function required(name: string): string {
   const value = process.env[name];
@@ -25,6 +25,7 @@ const stagingDir = resolve(
   process.env.CHAR2VID_STAGING_DIR ?? './data/staging',
 );
 const dbPath = resolve(process.env.CHAR2VID_DB_PATH ?? './data/service.sqlite');
+mkdirSync(dirname(dbPath), { recursive: true });
 mkdirSync(stagingDir, { recursive: true });
 
 const built = await buildApp({

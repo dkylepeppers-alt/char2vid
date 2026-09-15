@@ -1,8 +1,8 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
-import { LOGIN_MAX_FAILURES, LOGIN_WINDOW_MS } from '../constants';
-import { HttpError } from '../http-error';
+import { LOGIN_MAX_FAILURES, LOGIN_WINDOW_MS } from '../constants.ts';
+import { HttpError } from '../http-error.ts';
 
 const SCRYPT_KEYLEN = 32;
 

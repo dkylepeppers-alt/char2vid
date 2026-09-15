@@ -16,9 +16,9 @@ import {
   CHUNK_BYTES,
   FINALIZED_TRANSFER_TTL_MS,
   PENDING_TRANSFER_TTL_MS,
-} from '../constants';
-import { HttpError } from '../http-error';
-import { sha256Hex } from './signed-inputs';
+} from '../constants.ts';
+import { HttpError } from '../http-error.ts';
+import { sha256Hex } from './signed-inputs.ts';
 
 export const TRANSFER_ID_PATTERN = /^[0-9a-f]{32}$/;
 const COPY_BUFFER_BYTES = 64 * 1024;
@@ -98,7 +98,14 @@ function hashCopyParts(partFiles: string[], destination: string): string {
         let n = 0;
         while ((n = readSync(fd, buf, 0, buf.length, null)) > 0) {
           hash.update(buf.subarray(0, n));
-          writeSync(outFd, buf, 0, n);
+          let offset = 0;
+          while (offset < n) {
+            const written = writeSync(outFd, buf, offset, n - offset);
+            if (written <= 0) {
+              throw new HttpError(500, 'finalize_write_failed');
+            }
+            offset += written;
+          }
         }
       } finally {
         closeSync(fd);
@@ -222,6 +229,7 @@ export function writePart(
   transferId: string,
   index: number,
   body: Uint8Array,
+  now: Date,
 ): void {
   assertTransferId(transferId);
   if (!Number.isInteger(index) || index < 0) {
@@ -233,12 +241,16 @@ export function writePart(
   if (body.byteLength > CHUNK_BYTES) {
     throw new HttpError(413, 'part_too_large');
   }
+  expireDueTransfers(db, stagingDir, now.toISOString());
   const row = getRow(db, transferId);
   if (!row) {
     throw new HttpError(404, 'transfer_not_found');
   }
   if (row.owner_id !== ownerId) {
     throw new HttpError(404, 'transfer_not_found');
+  }
+  if (row.state === 'expired' || Date.parse(row.expires_at) <= now.getTime()) {
+    throw new HttpError(410, 'transfer_expired');
   }
   if (row.state !== 'pending') {
     throw new HttpError(409, 'transfer_not_pending');
@@ -280,6 +292,7 @@ export function finalizeTransfer(
   now: Date,
 ): TransferRecord {
   assertTransferId(transferId);
+  expireDueTransfers(db, stagingDir, now.toISOString());
   const row = getRow(db, transferId);
   if (!row) {
     throw new HttpError(404, 'transfer_not_found');
@@ -289,6 +302,9 @@ export function finalizeTransfer(
   }
   if (row.state === 'finalized') {
     return asRecord(db, row);
+  }
+  if (row.state === 'expired' || Date.parse(row.expires_at) <= now.getTime()) {
+    throw new HttpError(410, 'transfer_expired');
   }
   if (row.state !== 'pending') {
     throw new HttpError(409, 'transfer_not_pending');
