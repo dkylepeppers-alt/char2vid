@@ -106,10 +106,10 @@ export function CreatePage() {
     void getStudioLibrary()
       .then(async (library) => {
         const page = await library.queryAssets({
-        kind: 'image',
-        sort: 'createdAt-desc',
-        limit: 48,
-      });
+          kind: 'image',
+          sort: 'createdAt-desc',
+          limit: 48,
+        });
         if (!cancelled) {
           setLibraryAssets(page.assets);
         }

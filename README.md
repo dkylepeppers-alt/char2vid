@@ -47,14 +47,14 @@ Pull requests run web and Android validation. Successful Android runs provide a 
 
 ## Current delivery
 
-| Task                                     | State          | Evidence     | Still UNVERIFIED                                                |
-| ---------------------------------------- | -------------- | ------------ | --------------------------------------------------------------- |
-| G1 Shared app / Android shell            | Closed (#1)    | #19, #27     | Physical APK install, back/rotation/TalkBack                    |
-| G2 Crash-safe media storage              | Done on `main` | #28, #34     | Physical-device crash journal                                   |
-| G3 Organization, playback, native export | Done on `main` | #29–#31, #38 | Physical MediaStore export                                      |
-| G4 Portable archives                     | Done on `main` | #32, #38     | Physical archive round-trip                                     |
-| P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                             |
-| P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore      |
+| Task                                     | State          | Evidence     | Still UNVERIFIED                                                     |
+| ---------------------------------------- | -------------- | ------------ | -------------------------------------------------------------------- |
+| G1 Shared app / Android shell            | Closed (#1)    | #19, #27     | Physical APK install, back/rotation/TalkBack                         |
+| G2 Crash-safe media storage              | Done on `main` | #28, #34     | Physical-device crash journal                                        |
+| G3 Organization, playback, native export | Done on `main` | #29–#31, #38 | Physical MediaStore export                                           |
+| G4 Portable archives                     | Done on `main` | #32, #38     | Physical archive round-trip                                          |
+| P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                                  |
+| P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore           |
 | P3 Model picker / serializers            | Done on `main` | #43          | Endpoint metadata fetch, catalog snapshot persistence, paid Nano-GPT |
 | P4 Durable jobs                          | In progress    | This branch  | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT      |
 

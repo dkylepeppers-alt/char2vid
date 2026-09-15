@@ -230,13 +230,7 @@ async function captureAudio(
     mime = downloaded.mime || mime;
   }
   const stored = [
-    persistBytes(
-      env,
-      job.id,
-      0,
-      bytes,
-      mimeForOperation(job.operation, mime),
-    ),
+    persistBytes(env, job.id, 0, bytes, mimeForOperation(job.operation, mime)),
   ];
   saveOutputs(
     env.db,
