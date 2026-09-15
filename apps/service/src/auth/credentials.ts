@@ -1,8 +1,8 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHmac,
   randomBytes,
-  createHash,
 } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
@@ -15,13 +15,16 @@ export interface MaskedProviderKey {
   fingerprint: string;
 }
 
-export function maskProviderKey(apiKey: string): MaskedProviderKey {
+export function maskProviderKey(
+  masterKey: Buffer,
+  apiKey: string,
+): MaskedProviderKey {
   const trimmed = apiKey.trim();
   if (trimmed.length < 8) {
     throw new HttpError(400, 'provider_key_too_short');
   }
   const last4 = trimmed.slice(-4);
-  const fingerprint = createHash('sha256')
+  const fingerprint = createHmac('sha256', masterKey)
     .update(trimmed, 'utf8')
     .digest('hex')
     .slice(0, 12);
@@ -67,8 +70,8 @@ export function storeProviderKey(
   apiKey: string,
   nowIso: string,
 ): MaskedProviderKey {
-  const masked = maskProviderKey(apiKey);
   const { ciphertext, nonce } = encryptProviderKey(masterKey, ownerId, apiKey);
+  const masked = maskProviderKey(masterKey, apiKey);
   db.prepare(
     `INSERT INTO provider_keys (owner_id, ciphertext, nonce, last4, fingerprint, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)
