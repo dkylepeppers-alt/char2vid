@@ -28,20 +28,20 @@ const imageCatalog = {
 test('create picker lists a new catalog model and preserves the draft', async ({
   page,
 }) => {
-  await page.route('https://nano-gpt.com/api/v1/images/models', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(imageCatalog),
-    }),
-  );
-  await page.route('https://nano-gpt.com/api/v1/**', (route) =>
-    route.fulfill({
+  await page.route('https://nano-gpt.com/api/v1/**', (route) => {
+    if (route.request().url().includes('/api/v1/images/models')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(imageCatalog),
+      });
+    }
+    return route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: [] }),
-    }),
-  );
+    });
+  });
 
   await page.goto('/');
   await page.getByRole('link', { name: 'Create', exact: true }).click();
@@ -63,7 +63,7 @@ test('create picker lists a new catalog model and preserves the draft', async ({
   await expect(
     page.getByRole('heading', { name: 'Request preview' }),
   ).toBeVisible();
-  await page.getByLabel('n').fill('2');
+  await page.getByRole('spinbutton', { name: 'n' }).fill('2');
   await page.getByRole('button', { name: /Plain Image/ }).click();
   await expect(
     page.getByText('Settings dropped on model switch: n'),
