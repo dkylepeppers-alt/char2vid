@@ -47,6 +47,7 @@ export function CharacterSheetGenerate({
   const [mode, setMode] = useState<'one-slot' | 'sheet'>('one-slot');
   const [view, setView] = useState('front');
   const [submitState, setSubmitState] = useState<string | null>(null);
+  const [serviceReady, setServiceReady] = useState(false);
   const submitGate = useRef(createSubmitGate());
 
   useEffect(() => {
@@ -71,6 +72,24 @@ export function CharacterSheetGenerate({
         );
       }
     });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveStudioSession()
+      .then((session) => {
+        if (!cancelled) {
+          setServiceReady(session !== null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setServiceReady(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -131,8 +150,8 @@ export function CharacterSheetGenerate({
             setMode(event.target.value as 'one-slot' | 'sheet')
           }
         >
-          <option value="one-slot">Replace one slot</option>
-          <option value="sheet">Entire sheet</option>
+          <option value="one-slot">Generate one view</option>
+          <option value="sheet">Generate multi-view sheet</option>
         </select>
       </label>
       {mode === 'one-slot' ? (
@@ -202,8 +221,12 @@ export function CharacterSheetGenerate({
         type="button"
         className="primary-action"
         disabled={
-          !selected || references.length === 0 || submitState === 'working'
+          !serviceReady ||
+          !selected ||
+          references.length === 0 ||
+          submitState === 'working'
         }
+        aria-busy={submitState === 'working'}
         onClick={() => {
           if (!selected || !submitGate.current.tryEnter()) return;
           setSubmitState('working');
@@ -222,6 +245,7 @@ export function CharacterSheetGenerate({
           void (async () => {
             const session = await resolveStudioSession();
             if (!session) {
+              setServiceReady(false);
               setSubmitState('Connect the generation service to submit');
               return;
             }
@@ -251,7 +275,9 @@ export function CharacterSheetGenerate({
             });
         }}
       >
-        Generate view
+        {serviceReady && selected && references.length > 0
+          ? 'Generate view'
+          : 'Connect the generation service to submit'}
       </button>
       {submitState && submitState !== 'working' ? (
         <p className="backup-status" role="status">

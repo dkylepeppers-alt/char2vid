@@ -17,6 +17,8 @@ export function CharacterList() {
   const [query, setQuery] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get('character');
+  const editorMode = searchParams.get('mode');
+  const initialDetailed = editorMode !== 'quick';
 
   const load = useCallback(async (handle: StudioLibrary) => {
     const rows = await handle.listCharacters();
@@ -52,6 +54,22 @@ export function CharacterList() {
       }
     });
   }, [library, load]);
+
+  useEffect(() => {
+    if (selectedId === null || library === null) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      event.preventDefault();
+      setSearchParams({}, { replace: true });
+      void load(library);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedId, library, load, setSearchParams]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -132,12 +150,7 @@ export function CharacterList() {
               <button
                 type="button"
                 className="library-card-open"
-                onClick={() =>
-                  setSearchParams(
-                    { character: character.id },
-                    { replace: true },
-                  )
-                }
+                onClick={() => setSearchParams({ character: character.id })}
               >
                 <span className="library-card-kind">Character</span>
                 <span className="library-card-name">{character.name}</span>
@@ -156,6 +169,7 @@ export function CharacterList() {
         <CharacterEditor
           library={library}
           characterId={selectedId}
+          initialDetailed={initialDetailed}
           onClose={() => {
             setSearchParams({}, { replace: true });
             void load(library);

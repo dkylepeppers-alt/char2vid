@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   acceptReference,
@@ -27,11 +27,13 @@ import { ReferenceSlots } from './ReferenceSlots';
 export function CharacterEditor({
   library,
   characterId,
+  initialDetailed = true,
   onClose,
   onChanged,
 }: {
   library: StudioLibrary;
   characterId: string;
+  initialDetailed?: boolean;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -43,9 +45,12 @@ export function CharacterEditor({
   >({});
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
-  const [detailed, setDetailed] = useState(true);
+  const [detailed, setDetailed] = useState(initialDetailed);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [revisionBusy, setRevisionBusy] = useState(false);
+  const revisionSaveChain = useRef(Promise.resolve());
+  const revisionSavePending = useRef(0);
   const native = resolvePlatform() === 'android';
 
   const reload = useCallback(async () => {
@@ -76,10 +81,46 @@ export function CharacterEditor({
     });
   }, [reload]);
 
-  async function persistRevision(next: CharacterRevision) {
-    await library.saveCharacterRevision(next);
-    await reload();
-    onChanged();
+  useEffect(() => {
+    setDetailed(initialDetailed);
+  }, [characterId, initialDetailed]);
+
+  function enqueueRevisionMutation(
+    mutate: (current: CharacterRevision) => CharacterRevision,
+  ): void {
+    revisionSavePending.current += 1;
+    setRevisionBusy(true);
+    const run = revisionSaveChain.current
+      .catch(() => undefined)
+      .then(async () => {
+        const nextCharacter = await library.getCharacter(characterId);
+        if (!nextCharacter) {
+          throw new Error('Character not found');
+        }
+        const current = await library.getCharacterRevision(
+          nextCharacter.currentRevisionId,
+        );
+        if (!current) {
+          throw new Error('Character revision not found');
+        }
+        const next = mutate(current);
+        await library.saveCharacterRevision(next);
+        await reload();
+        onChanged();
+      })
+      .catch((err: unknown) => {
+        setStatus(err instanceof Error ? err.message : 'Save failed');
+      })
+      .finally(() => {
+        revisionSavePending.current = Math.max(
+          0,
+          revisionSavePending.current - 1,
+        );
+        if (revisionSavePending.current === 0) {
+          setRevisionBusy(false);
+        }
+      });
+    revisionSaveChain.current = run.then(() => undefined);
   }
 
   async function onExport() {
@@ -216,11 +257,11 @@ export function CharacterEditor({
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             onBlur={() => {
-              if (notes === revision.identityNotes) {
+              if (notes === revision.identityNotes || revisionBusy) {
                 return;
               }
-              void persistRevision(
-                reviseCharacter(revision, {
+              enqueueRevisionMutation((current) =>
+                reviseCharacter(current, {
                   id: crypto.randomUUID(),
                   identityNotes: notes,
                 }),
@@ -277,20 +318,32 @@ export function CharacterEditor({
           revision={revision}
           availability={availability}
           detailed={detailed}
+          busy={revisionBusy}
           onAccept={(assetRevisionId) => {
-            void persistRevision(
-              acceptReference(revision, crypto.randomUUID(), assetRevisionId),
+            enqueueRevisionMutation((current) =>
+              acceptReference(current, crypto.randomUUID(), assetRevisionId),
             );
           }}
           onReject={(assetRevisionId) => {
-            void persistRevision(
-              rejectReference(revision, crypto.randomUUID(), assetRevisionId),
+            enqueueRevisionMutation((current) =>
+              rejectReference(current, crypto.randomUUID(), assetRevisionId),
             );
           }}
           onAdd={(slot) => {
-            void persistRevision(
-              addCandidateReference(revision, crypto.randomUUID(), slot),
-            );
+            void (async () => {
+              const state = await library.referenceAvailability(
+                slot.assetRevisionId,
+              );
+              if (state !== 'available') {
+                setStatus(
+                  'Slot requires an available image revision in the library',
+                );
+                return;
+              }
+              enqueueRevisionMutation((current) =>
+                addCandidateReference(current, crypto.randomUUID(), slot),
+              );
+            })();
           }}
         />
 
