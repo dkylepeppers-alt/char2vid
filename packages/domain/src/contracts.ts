@@ -35,6 +35,12 @@ export interface ReferenceBinding {
   ordinal: number;
 }
 
+export interface CharacterSlotIntent {
+  characterId: string;
+  role: 'identity' | 'body' | 'look' | 'pose' | 'style';
+  view?: 'front' | 'left' | 'right' | 'back' | 'three-quarter';
+}
+
 export interface GenerationDraft {
   clientRequestId: string;
   operation: Operation;
@@ -44,6 +50,7 @@ export interface GenerationDraft {
   parameters: Record<string, unknown>;
   projectId?: string;
   shotRevisionId?: string;
+  characterSlot?: CharacterSlotIntent;
 }
 
 export interface CapabilityIssue {
@@ -83,6 +90,7 @@ export interface JobReceipt {
   saveState: SaveState;
   outputRevisionIds: string[];
   errorCode?: string;
+  characterSlot?: CharacterSlotIntent;
 }
 
 export interface PreparedInput {
