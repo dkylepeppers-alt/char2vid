@@ -16,4 +16,5 @@ ext {
     roomVersion = '2.7.2'
     coroutinesVersion = '1.9.0'
     orgJsonTestVersion = '20250517'
+    workVersion = '2.10.4'
 }

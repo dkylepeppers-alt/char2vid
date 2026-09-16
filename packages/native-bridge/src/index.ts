@@ -43,5 +43,17 @@ export {
   saveNativeServiceSession,
   loadNativeServiceSession,
   clearNativeServiceSession,
+  saveNativeProviderKey,
+  hasNativeProviderKey,
+  nativeProviderKeyLast4,
+  clearNativeProviderKey,
   type ServiceSessionCredential,
 } from './credentials';
+
+export {
+  enqueueNativeJob,
+  listNativeJobs,
+  cancelNativeJob,
+  type NativeJobView,
+  type NativeFrozenRequest,
+} from './jobs';

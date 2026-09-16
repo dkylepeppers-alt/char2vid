@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ExportPlugin.class);
         registerPlugin(ArchivePlugin.class);
         registerPlugin(CredentialsPlugin.class);
+        registerPlugin(com.char2vid.studio.jobs.JobsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
