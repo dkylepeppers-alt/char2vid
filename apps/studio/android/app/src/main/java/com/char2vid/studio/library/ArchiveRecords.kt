@@ -61,11 +61,45 @@ data class ArchiveAssetTag(
     val tag: String,
 )
 
+data class ArchiveCharacterReference(
+    val assetRevisionId: String,
+    val role: String,
+    val view: String?,
+    val approval: String,
+)
+
+data class ArchiveCharacterRevision(
+    val id: String,
+    val characterId: String,
+    val parentRevisionId: String?,
+    val identityNotes: String,
+    val references: List<ArchiveCharacterReference>,
+)
+
+data class ArchiveCharacter(
+    val id: String,
+    val name: String,
+    val currentRevisionId: String,
+    val coverAssetRevisionId: String?,
+    val createdAt: String,
+    val revisions: List<ArchiveCharacterRevision>,
+)
+
+data class ArchiveLook(
+    val id: String,
+    val characterId: String,
+    val label: String,
+    val notes: String,
+    val referenceRevisionIds: List<String>,
+)
+
 data class ArchiveRecords(
     val assets: List<ArchiveAsset>,
     val revisions: List<ArchiveRevision>,
     val collectionMembers: List<ArchiveCollectionMember>,
     val assetTags: List<ArchiveAssetTag>,
+    val characters: List<ArchiveCharacter> = emptyList(),
+    val looks: List<ArchiveLook> = emptyList(),
 )
 
 /** Same fields as the web `ArchiveReport`. */

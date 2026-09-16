@@ -11,6 +11,14 @@ import type {
   LibraryPort,
 } from '@char2vid/domain/storage';
 import { parseAssetRecord } from '@char2vid/domain/asset-schema';
+import {
+  parseCharacterRecord,
+  parseCharacterRevision,
+  parseLookRevision,
+  type CharacterRecord,
+  type CharacterRevision,
+  type LookRevision,
+} from '@char2vid/domain/characters/schema';
 
 interface Char2vidLibraryPlugin {
   importFromNativeUri(options: {
@@ -38,6 +46,34 @@ interface Char2vidLibraryPlugin {
     nextCursor?: string | null;
   }>;
   applyLibraryAction(options: LibraryActionRequest): Promise<void>;
+  createCharacter(options: {
+    name: string;
+    referenceRevisionId: string;
+  }): Promise<{ characterId: string; revisionId: string }>;
+  listCharacters(): Promise<{ characters: CharacterRecord[] }>;
+  getCharacter(options: {
+    id: string;
+  }): Promise<{ character: CharacterRecord | null }>;
+  listCharacterRevisions(options: {
+    characterId: string;
+  }): Promise<{ revisions: CharacterRevision[] }>;
+  getCharacterRevision(options: {
+    id: string;
+  }): Promise<{ revision: CharacterRevision | null }>;
+  saveCharacterRevision(options: CharacterRevision): Promise<void>;
+  saveLook(options: LookRevision): Promise<void>;
+  listLooks(options: {
+    characterId: string;
+  }): Promise<{ looks: LookRevision[] }>;
+  getLook(options: { id: string }): Promise<{ look: LookRevision | null }>;
+  setCover(options: {
+    characterId: string;
+    assetRevisionId: string;
+  }): Promise<void>;
+  renameCharacter(options: { id: string; name: string }): Promise<void>;
+  referenceAvailability(options: {
+    assetRevisionId: string;
+  }): Promise<{ availability: 'available' | 'missing' }>;
 }
 
 const Char2vidLibrary =
@@ -174,6 +210,92 @@ export class NativeLibraryPort implements LibraryPort {
       throw new Error('NativeLibraryPort requires Android');
     }
     await Char2vidLibrary.applyLibraryAction(request);
+  }
+
+  async createCharacter(input: {
+    name: string;
+    referenceRevisionId: string;
+  }): Promise<{ characterId: string; revisionId: string }> {
+    this.requireAndroid();
+    return Char2vidLibrary.createCharacter(input);
+  }
+
+  async listCharacters(): Promise<CharacterRecord[]> {
+    this.requireAndroid();
+    const { characters } = await Char2vidLibrary.listCharacters();
+    return characters.map((row) => parseCharacterRecord(row));
+  }
+
+  async getCharacter(id: string): Promise<CharacterRecord | undefined> {
+    this.requireAndroid();
+    const { character } = await Char2vidLibrary.getCharacter({ id });
+    return character == null ? undefined : parseCharacterRecord(character);
+  }
+
+  async listCharacterRevisions(
+    characterId: string,
+  ): Promise<CharacterRevision[]> {
+    this.requireAndroid();
+    const { revisions } = await Char2vidLibrary.listCharacterRevisions({
+      characterId,
+    });
+    return revisions.map((row) => parseCharacterRevision(row));
+  }
+
+  async getCharacterRevision(
+    id: string,
+  ): Promise<CharacterRevision | undefined> {
+    this.requireAndroid();
+    const { revision } = await Char2vidLibrary.getCharacterRevision({ id });
+    return revision == null ? undefined : parseCharacterRevision(revision);
+  }
+
+  async saveCharacterRevision(revision: CharacterRevision): Promise<void> {
+    this.requireAndroid();
+    await Char2vidLibrary.saveCharacterRevision(revision);
+  }
+
+  async saveLook(look: LookRevision): Promise<void> {
+    this.requireAndroid();
+    await Char2vidLibrary.saveLook(look);
+  }
+
+  async listLooks(characterId: string): Promise<LookRevision[]> {
+    this.requireAndroid();
+    const { looks } = await Char2vidLibrary.listLooks({ characterId });
+    return looks.map((row) => parseLookRevision(row));
+  }
+
+  async getLook(id: string): Promise<LookRevision | undefined> {
+    this.requireAndroid();
+    const { look } = await Char2vidLibrary.getLook({ id });
+    return look == null ? undefined : parseLookRevision(look);
+  }
+
+  async setCover(characterId: string, assetRevisionId: string): Promise<void> {
+    this.requireAndroid();
+    await Char2vidLibrary.setCover({ characterId, assetRevisionId });
+  }
+
+  async renameCharacter(id: string, name: string): Promise<void> {
+    this.requireAndroid();
+    await Char2vidLibrary.renameCharacter({ id, name });
+  }
+
+  async referenceAvailability(
+    assetRevisionId: string,
+  ): Promise<'available' | 'missing'> {
+    this.requireAndroid();
+    const { availability } = await Char2vidLibrary.referenceAvailability({
+      assetRevisionId,
+    });
+    return availability;
+  }
+
+  private requireAndroid(): void {
+    if (!isAndroidNative()) {
+      throw new Error('NativeLibraryPort requires Android');
+    }
   }
 }
 

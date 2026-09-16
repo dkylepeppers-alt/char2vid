@@ -56,6 +56,36 @@ object ArchiveRemap {
             ids.add(member.collectionId)
             ids.add(member.assetId)
         }
+        for (character in records.characters) {
+            ids.addAll(characterIds(character))
+        }
+        for (look in records.looks) {
+            ids.add(look.id)
+            ids.add(look.characterId)
+            ids.addAll(look.referenceRevisionIds)
+        }
+        return ids
+    }
+
+    private fun characterIds(character: ArchiveCharacter): List<String> {
+        val ids = ArrayList<String>()
+        ids.add(character.id)
+        ids.add(character.currentRevisionId)
+        val cover = character.coverAssetRevisionId
+        if (!cover.isNullOrEmpty()) {
+            ids.add(cover)
+        }
+        for (revision in character.revisions) {
+            ids.add(revision.id)
+            ids.add(revision.characterId)
+            val parent = revision.parentRevisionId
+            if (!parent.isNullOrEmpty()) {
+                ids.add(parent)
+            }
+            for (reference in revision.references) {
+                ids.add(reference.assetRevisionId)
+            }
+        }
         return ids
     }
 
@@ -85,6 +115,34 @@ object ArchiveRemap {
             assetTags =
                 records.assetTags.map { t ->
                     ArchiveAssetTag(assetId = remapId(t.assetId, idMap), tag = t.tag)
+                },
+            characters =
+                records.characters.map { character ->
+                    character.copy(
+                        id = remapId(character.id, idMap),
+                        currentRevisionId = remapId(character.currentRevisionId, idMap),
+                        coverAssetRevisionId = character.coverAssetRevisionId?.let { remapId(it, idMap) },
+                        revisions =
+                            character.revisions.map { revision ->
+                                revision.copy(
+                                    id = remapId(revision.id, idMap),
+                                    characterId = remapId(revision.characterId, idMap),
+                                    parentRevisionId = revision.parentRevisionId?.let { remapId(it, idMap) },
+                                    references =
+                                        revision.references.map { reference ->
+                                            reference.copy(assetRevisionId = remapId(reference.assetRevisionId, idMap))
+                                        },
+                                )
+                            },
+                    )
+                },
+            looks =
+                records.looks.map { look ->
+                    look.copy(
+                        id = remapId(look.id, idMap),
+                        characterId = remapId(look.characterId, idMap),
+                        referenceRevisionIds = look.referenceRevisionIds.map { remapId(it, idMap) },
+                    )
                 },
         )
 }

@@ -24,6 +24,14 @@ import {
   type IdMap,
 } from '@char2vid/domain/archive-remap';
 import { normalizeAssetRecord } from '@char2vid/domain/asset-schema';
+import {
+  parseCharacterRecord,
+  parseCharacterRevision,
+  parseLookRevision,
+  type CharacterRecord,
+  type CharacterRevision,
+  type LookRevision,
+} from '@char2vid/domain/characters/schema';
 import type { AssetRecord } from '@char2vid/domain/storage';
 
 import { finalRelativePath, type FileStore } from './files';
@@ -110,15 +118,99 @@ async function readRevisionBytes(
   return host.files.readBytes(physical.relativePath);
 }
 
-function assertLibraryScope(request: ExportArchiveRequest): void {
-  if (request.scope !== 'library') {
-    throw new Error(
-      `archive scope "${request.scope}" is not implemented in this web slice`,
+function assertExportRequest(request: ExportArchiveRequest): void {
+  if (request.scope === 'library') {
+    if (request.id) {
+      throw new Error('library-scope export does not accept an id');
+    }
+    return;
+  }
+  if (request.scope === 'character') {
+    if (!request.id) {
+      throw new Error('character-scope export requires an id');
+    }
+    return;
+  }
+  throw new Error(
+    `archive scope "${request.scope}" is not implemented in this web slice`,
+  );
+}
+
+async function packCharacters(
+  meta: MetaStore,
+  characterId?: string,
+): Promise<{
+  characters: Record<string, unknown>[];
+  looks: Record<string, unknown>[];
+  referencedAssetRevisionIds: Set<string>;
+}> {
+  const characters = characterId
+    ? [await meta.getCharacter(characterId)].filter(
+        (row): row is CharacterRecord => row !== undefined,
+      )
+    : await meta.listCharacters();
+  if (characterId && characters.length === 0) {
+    throw new Error(`unknown character: ${characterId}`);
+  }
+  const packed: Record<string, unknown>[] = [];
+  const referencedAssetRevisionIds = new Set<string>();
+  const looks: LookRevision[] = characterId
+    ? await meta.listLooks(characterId)
+    : await meta.listLooks();
+  for (const character of characters) {
+    const revisions = await meta.listCharacterRevisions(character.id);
+    packed.push(
+      stripSecretFields({
+        id: character.id,
+        name: character.name,
+        currentRevisionId: character.currentRevisionId,
+        coverAssetRevisionId: character.coverAssetRevisionId,
+        createdAt: character.createdAt,
+        revisions,
+      }),
     );
+    if (character.coverAssetRevisionId) {
+      referencedAssetRevisionIds.add(character.coverAssetRevisionId);
+    }
+    for (const revision of revisions) {
+      for (const reference of revision.references) {
+        referencedAssetRevisionIds.add(reference.assetRevisionId);
+      }
+    }
   }
-  if (request.id) {
-    throw new Error('library-scope export does not accept an id');
+  for (const look of looks) {
+    for (const revisionId of look.referenceRevisionIds) {
+      referencedAssetRevisionIds.add(revisionId);
+    }
   }
+  return {
+    characters: packed,
+    looks: looks.map((look) => stripSecretFields({ ...look })),
+    referencedAssetRevisionIds,
+  };
+}
+
+function unpackArchiveCharacters(records: ArchiveRecordsV1): {
+  characters: CharacterRecord[];
+  characterRevisions: CharacterRevision[];
+  looks: LookRevision[];
+} {
+  const characters: CharacterRecord[] = [];
+  const characterRevisions: CharacterRevision[] = [];
+  for (const raw of records.characters) {
+    const { revisions, ...rest } = raw as Record<string, unknown> & {
+      revisions?: unknown[];
+    };
+    characters.push(parseCharacterRecord(rest));
+    for (const revision of revisions ?? []) {
+      characterRevisions.push(parseCharacterRevision(revision));
+    }
+  }
+  return {
+    characters,
+    characterRevisions,
+    looks: records.looks.map((look) => parseLookRevision(look)),
+  };
 }
 
 /**
@@ -129,14 +221,35 @@ export async function exportArchive(
   host: ArchiveHost,
   request: ExportArchiveRequest,
 ): Promise<ExportArchiveResult> {
-  assertLibraryScope(request);
+  assertExportRequest(request);
 
   const transferId = crypto.randomUUID();
+  const packed = await packCharacters(
+    host.meta,
+    request.scope === 'character' ? request.id : undefined,
+  );
+
   // Portable library backups export live (non-trashed) available assets only.
-  const assets = (await host.meta.listAssets())
+  // Character packages include referenced originals even when they would be
+  // omitted from a full-library live set, as long as bytes are still local.
+  let assets = (await host.meta.listAssets())
     .map((a) => normalizeAssetRecord(a))
     .filter((a) => a.state === 'available' && a.trashedAt === null)
     .map((a) => allowlistAssetRecord(a));
+
+  if (request.scope === 'character') {
+    const revisions = await host.meta.listRevisions();
+    const wantedAssetIds = new Set<string>();
+    for (const revision of revisions) {
+      if (packed.referencedAssetRevisionIds.has(revision.id)) {
+        wantedAssetIds.add(revision.assetId);
+      }
+    }
+    assets = (await host.meta.listAssets())
+      .map((a) => normalizeAssetRecord(a))
+      .filter((a) => wantedAssetIds.has(a.id) && a.state !== 'pending')
+      .map((a) => allowlistAssetRecord(a));
+  }
 
   const assetIds = new Set(assets.map((a) => a.id));
   const revisions = (await host.meta.listRevisions()).filter((r) =>
@@ -180,13 +293,17 @@ export async function exportArchive(
     });
   }
 
+  const exportedMembers =
+    request.scope === 'character' ? [] : collectionMembers;
+  const exportedTags = request.scope === 'character' ? [] : assetTags;
+
   const records: ArchiveRecordsV1 = {
     assets,
     revisions,
-    collectionMembers,
-    assetTags,
-    characters: [],
-    looks: [],
+    collectionMembers: exportedMembers,
+    assetTags: exportedTags,
+    characters: packed.characters,
+    looks: packed.looks,
     shots: [],
     graphEdges: [],
     timeline: [],
@@ -195,14 +312,14 @@ export async function exportArchive(
   const manifest: ArchiveManifestV1 = {
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
-    scope: 'library',
-    scopeId: null,
+    scope: request.scope,
+    scopeId: request.scope === 'character' ? (request.id ?? null) : null,
     files: manifestFiles,
     recordCounts: {
       assets: assets.length,
       revisions: revisions.length,
-      collectionMembers: collectionMembers.length,
-      assetTags: assetTags.length,
+      collectionMembers: exportedMembers.length,
+      assetTags: exportedTags.length,
     },
   };
 
@@ -218,7 +335,10 @@ export async function exportArchive(
   return {
     transferId,
     bytes,
-    fileName: `char2vid-library-${transferId.slice(0, 8)}.zip`,
+    fileName:
+      request.scope === 'character'
+        ? `char2vid-character-${transferId.slice(0, 8)}.zip`
+        : `char2vid-library-${transferId.slice(0, 8)}.zip`,
   };
 }
 
@@ -501,6 +621,30 @@ async function existingLogicalIds(meta: MetaStore): Promise<Set<string>> {
     ids.add(member.collectionId);
     ids.add(member.assetId);
   }
+  for (const character of await meta.listCharacters()) {
+    ids.add(character.id);
+    ids.add(character.currentRevisionId);
+    if (character.coverAssetRevisionId) {
+      ids.add(character.coverAssetRevisionId);
+    }
+  }
+  for (const revision of await meta.listCharacterRevisions()) {
+    ids.add(revision.id);
+    ids.add(revision.characterId);
+    if (revision.parentRevisionId) {
+      ids.add(revision.parentRevisionId);
+    }
+    for (const reference of revision.references) {
+      ids.add(reference.assetRevisionId);
+    }
+  }
+  for (const look of await meta.listLooks()) {
+    ids.add(look.id);
+    ids.add(look.characterId);
+    for (const revisionId of look.referenceRevisionIds) {
+      ids.add(revisionId);
+    }
+  }
   return ids;
 }
 
@@ -529,7 +673,7 @@ export async function importArchive(
   const manifest = parseArchiveManifestV1(
     decodeJson(entries['manifest.json']!),
   );
-  if (manifest.scope !== 'library') {
+  if (manifest.scope !== 'library' && manifest.scope !== 'character') {
     throw new Error(
       `archive scope "${manifest.scope}" is not implemented in this web slice`,
     );
@@ -592,6 +736,8 @@ export async function importArchive(
       tag: t.tag,
     }));
 
+    const unpacked = unpackArchiveCharacters(remapped);
+
     // Track ids before commit for rollback.
     for (const asset of assets) {
       createdAssetIds.push(asset.id);
@@ -602,6 +748,9 @@ export async function importArchive(
       revisions,
       collectionMembers,
       assetTags,
+      characters: unpacked.characters,
+      characterRevisions: unpacked.characterRevisions,
+      looks: unpacked.looks,
     });
 
     return {

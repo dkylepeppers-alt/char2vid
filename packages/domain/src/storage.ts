@@ -1,3 +1,4 @@
+import type { CharacterPort } from './characters/port';
 import type { LibraryActionsPort } from './library-actions';
 import type { LibraryQueryPort } from './library-query';
 
@@ -28,7 +29,8 @@ export interface ImportSource {
   mime: string;
 }
 
-export interface LibraryPort extends LibraryQueryPort, LibraryActionsPort {
+export interface LibraryPort
+  extends LibraryQueryPort, LibraryActionsPort, CharacterPort {
   importMedia(source: ImportSource): Promise<AssetRecord>;
   getAsset(id: string): Promise<AssetRecord | undefined>;
   readRevision(revisionId: string): Promise<ReadableStream<Uint8Array>>;

@@ -32,7 +32,7 @@ object ArchiveJson {
             "trashedAt",
         )
 
-    private val STUB_RECORD_KEYS = listOf("characters", "looks", "shots", "graphEdges", "timeline")
+    private val STUB_RECORD_KEYS = listOf("shots", "graphEdges", "timeline")
     private val MEDIA_KINDS = setOf("image", "video", "audio", "embedding")
     private val ASSET_STATES = setOf("pending", "available", "missing")
     private val SCOPES = setOf("library", "project", "character")
@@ -110,6 +110,16 @@ object ArchiveJson {
             tags.put(to)
         }
         o.put("assetTags", tags)
+        val characters = JSONArray()
+        for (character in records.characters) {
+            characters.put(CharacterJson.encodeCharacter(character))
+        }
+        o.put("characters", characters)
+        val looks = JSONArray()
+        for (look in records.looks) {
+            looks.put(CharacterJson.encodeLook(look))
+        }
+        o.put("looks", looks)
         for (stub in STUB_RECORD_KEYS) {
             o.put(stub, JSONArray())
         }
@@ -258,6 +268,28 @@ object ArchiveJson {
                 ),
             )
         }
+        val charactersArr =
+            if (!o.has("characters") || o.isNull("characters")) {
+                JSONArray()
+            } else {
+                o.optJSONArray("characters") ?: throw IllegalArgumentException("records.characters must be an array")
+            }
+        val characters = ArrayList<ArchiveCharacter>(charactersArr.length())
+        for (i in 0 until charactersArr.length()) {
+            val co = charactersArr.optJSONObject(i) ?: throw IllegalArgumentException("records.characters[$i] must be an object")
+            characters.add(CharacterJson.parseCharacter(co, "records.characters[$i]"))
+        }
+        val looksArr =
+            if (!o.has("looks") || o.isNull("looks")) {
+                JSONArray()
+            } else {
+                o.optJSONArray("looks") ?: throw IllegalArgumentException("records.looks must be an array")
+            }
+        val looks = ArrayList<ArchiveLook>(looksArr.length())
+        for (i in 0 until looksArr.length()) {
+            val lo = looksArr.optJSONObject(i) ?: throw IllegalArgumentException("records.looks[$i] must be an object")
+            looks.add(CharacterJson.parseLook(lo, "records.looks[$i]"))
+        }
         for (stub in STUB_RECORD_KEYS) {
             if (o.has(stub) && !o.isNull(stub)) {
                 val arr = o.optJSONArray(stub) ?: throw IllegalArgumentException("records.$stub must be an array")
@@ -268,7 +300,7 @@ object ArchiveJson {
                 }
             }
         }
-        return ArchiveRecords(assets, revisions, members, tags)
+        return ArchiveRecords(assets, revisions, members, tags, characters, looks)
     }
 
     private fun parseAsset(o: JSONObject, p: String): ArchiveAsset {
