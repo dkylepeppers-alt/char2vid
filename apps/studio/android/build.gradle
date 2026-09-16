@@ -20,6 +20,15 @@ buildscript {
 
 apply from: "variables.gradle"
 
+// Gradle 9 deprecates implicit extra-property lookup on parent projects
+// (error in Gradle 10). Capacitor 8 scripts still use hasProperty() /
+// $versionName against the root ext block; copy those pins locally.
+subprojects {
+    rootProject.ext.properties.each { key, value ->
+        ext.set(key, value)
+    }
+}
+
 allprojects {
     repositories {
         google()

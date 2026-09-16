@@ -37,7 +37,7 @@ The repository checks cover formatting, linting, strict TypeScript, unit tests, 
 
 Implementation landed in PR [#19](https://github.com/dkylepeppers-alt/char2vid/pull/19). For review-fix commit `75b8bae3dd8ce9637c2f8f41faae71d51be4f494`, GitHub Actions run [`34798595246`](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34798595246) passed formatting, linting, strict types, 24 unit tests, Playwright navigation and modal-focus scenarios, Android lint and unit tests, debug APK assembly, artifact packaging, and the aggregate `ci-gate`. It produced artifact `char2vid-debug-34798595246-1`, containing the debug APK and its checksum. CodeQL run [`34798594996`](https://github.com/dkylepeppers-alt/char2vid/actions/runs/34798594996) also passed.
 
-AGP 9 + Gradle 9.7.1 evidence belongs on the toolchain PR that replaces this section once `android / build-debug-apk` (and emulator `androidTest` when the runner can boot AVDs) is green.
+AGP 9.4.0 + Gradle 9.7.1 local evidence (Temurin/OpenJDK 21, Node v24.19.0): `./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug` from `apps/studio/android` after `npx cap sync android` — **BUILD SUCCESSFUL**. `testDebugUnitTest` 32 passed / 0 failed. Debug APK `com.char2vid.studio` minSdk 26 / targetSdk 36 / compileSdk 36. GitHub `android / build-debug-apk` and emulator `androidTest` run IDs belong on the toolchain PR once those jobs finish. This VM has `/dev/kvm` but did not install AVD system images; connected tests are left to CI.
 
 ### UNVERIFIED (not done — do not check off without evidence)
 
