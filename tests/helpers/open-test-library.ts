@@ -30,6 +30,8 @@ export interface TestLibraryHandle {
   purgeLogicalAsset(id: string): Promise<void>;
   /** Test-only: rewrite createdAt for pagination stability fixtures. */
   forceCreatedAt(assetId: string, createdAt: string): Promise<void>;
+  /** Test-only: drop the original bytes and mark the asset missing. */
+  markAssetMissing(assetId: string): Promise<void>;
   listJournal(): Promise<unknown[]>;
   /** Absolute path used for this library (for close/reopen). */
   location: string;
@@ -71,6 +73,9 @@ export async function openTestLibrary(
     },
     forceCreatedAt(assetId: string, createdAt: string) {
       return handle.forceCreatedAt(assetId, createdAt);
+    },
+    markAssetMissing(assetId: string) {
+      return handle.engine.markAssetMissing(assetId);
     },
     listJournal() {
       return handle.listJournal();

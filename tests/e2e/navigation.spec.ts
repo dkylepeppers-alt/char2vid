@@ -11,7 +11,7 @@ test('phone navigation survives reload', async ({ page }) => {
   // previous destination instead of Characters.
   await expect(page).toHaveURL(/\/characters$/);
   await expect(
-    page.getByRole('heading', { name: 'Characters', exact: true }),
+    page.getByRole('heading', { level: 1, name: 'Characters', exact: true }),
   ).toBeVisible();
   await expect
     .poll(() =>
@@ -24,7 +24,7 @@ test('phone navigation survives reload', async ({ page }) => {
   await page.goto('/');
 
   await expect(
-    page.getByRole('heading', { name: 'Characters', exact: true }),
+    page.getByRole('heading', { level: 1, name: 'Characters', exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open jobs' })).toBeVisible();
 });

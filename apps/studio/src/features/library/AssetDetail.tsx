@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 import { exportRevision } from '@char2vid/native-bridge/media-export';
 
 import { resolvePlatform } from '../../app/platform';
-import { revisionObjectUrl, streamToUint8Array } from './library-session';
+import {
+  invalidateStudioLibrary,
+  revisionObjectUrl,
+  streamToUint8Array,
+} from './library-session';
 
 export interface AssetDetailProps {
   library: LibraryPort;
@@ -13,9 +18,12 @@ export interface AssetDetailProps {
 }
 
 export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
+  const navigate = useNavigate();
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
+  const [characterName, setCharacterName] = useState('');
+  const [characterBusy, setCharacterBusy] = useState(false);
 
   useEffect(() => {
     let revoked = false;
@@ -43,6 +51,32 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
       }
     };
   }, [library, asset.revisionId, asset.mime]);
+
+  async function handleMakeCharacter(mode: 'quick' | 'detailed') {
+    const name = characterName.trim();
+    if (!name) {
+      setExportNote('Name the character before creating it.');
+      return;
+    }
+    setCharacterBusy(true);
+    try {
+      const created = await library.createCharacter({
+        name,
+        referenceRevisionId: asset.revisionId,
+      });
+      invalidateStudioLibrary();
+      onClose();
+      void navigate(
+        `/characters?character=${created.characterId}&mode=${mode}`,
+      );
+    } catch (err) {
+      setExportNote(
+        err instanceof Error ? err.message : 'Could not make character',
+      );
+    } finally {
+      setCharacterBusy(false);
+    }
+  }
 
   async function handleExport(destination: 'gallery' | 'files' | 'share') {
     setExportNote(null);
@@ -156,6 +190,42 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
             <dd>{asset.state}</dd>
           </div>
         </dl>
+
+        {asset.kind === 'image' && asset.state === 'available' ? (
+          <div className="make-character">
+            <h3>Make character</h3>
+            <p>
+              Quick mode creates a usable character from this approved image.
+              Detailed mode opens role and view slots next.
+            </p>
+            <label>
+              Character name
+              <input
+                aria-label="New character name"
+                value={characterName}
+                onChange={(event) => setCharacterName(event.target.value)}
+              />
+            </label>
+            <div className="asset-detail-actions">
+              <button
+                type="button"
+                className="primary-action"
+                disabled={characterBusy}
+                onClick={() => void handleMakeCharacter('quick')}
+              >
+                Quick character
+              </button>
+              <button
+                type="button"
+                className="status-chip"
+                disabled={characterBusy}
+                onClick={() => void handleMakeCharacter('detailed')}
+              >
+                Detailed character
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="asset-detail-actions">
           <button

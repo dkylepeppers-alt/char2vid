@@ -35,7 +35,8 @@ import java.util.concurrent.Executors
  * (or a `content:`/`file:` URI the picker already granted). Inspect never
  * mutates the library. Import remaps colliding IDs and rolls back on failure.
  *
- * `scope: 'project' | 'character'` rejects with `unsupported_scope`.
+ * `scope: 'project'` rejects with `unsupported_scope`. Character packages
+ * use `scope: 'character'` with a character id.
  */
 @CapacitorPlugin(name = "Char2vidArchive")
 class ArchivePlugin : Plugin() {
@@ -88,17 +89,26 @@ class ArchivePlugin : Plugin() {
             call.reject("exportArchive requires scope", LibraryException.INVALID_ARGUMENT)
             return
         }
-        if (scope != "library") {
+        if (scope == "character") {
+            val id = call.getString("id")
+            if (id.isNullOrBlank()) {
+                call.reject("character-scope export requires an id", LibraryException.INVALID_ARGUMENT)
+                return
+            }
+            call.data.put("characterId", id)
+        } else if (scope != "library") {
             call.reject(
                 "archive scope \"$scope\" is not supported",
                 LibraryException.UNSUPPORTED_SCOPE,
             )
             return
         }
-        val id = call.getString("id")
-        if (!id.isNullOrBlank()) {
-            call.reject("library-scope export does not accept an id", LibraryException.INVALID_ARGUMENT)
-            return
+        if (scope == "library") {
+            val id = call.getString("id")
+            if (!id.isNullOrBlank()) {
+                call.reject("library-scope export does not accept an id", LibraryException.INVALID_ARGUMENT)
+                return
+            }
         }
         val destination = call.getString("destination") ?: "files"
         when (destination) {
@@ -148,7 +158,8 @@ class ArchivePlugin : Plugin() {
         call.data.put("transferId", transferId)
         executor.execute {
             try {
-                val (file, summary) = archiver().exportLibraryToScratch(transferId)
+                val (file, summary) =
+                    archiver().exportLibraryToScratch(transferId, call.getString("characterId"))
                 call.data.put("scratchPath", file.absolutePath)
                 call.data.put("fileName", summary.fileName)
                 runOnUiThread(call) {
@@ -208,7 +219,8 @@ class ArchivePlugin : Plugin() {
                     if (scratchFile != null && scratchFile.isFile) {
                         scratchFile
                     } else {
-                        val (created, _) = archiver().exportLibraryToScratch(transferId)
+                        val (created, _) =
+                            archiver().exportLibraryToScratch(transferId, call.getString("characterId"))
                         created
                     }
                 publishedScratch = file
@@ -295,7 +307,8 @@ class ArchivePlugin : Plugin() {
                 val transferId = UUID.randomUUID().toString()
                 val exporter = MediaExporter(context.applicationContext, repo())
                 exporter.pruneStaleShares()
-                val (file, summary) = archiver().exportLibraryToScratch(transferId)
+                val (file, summary) =
+                    archiver().exportLibraryToScratch(transferId, call.getString("characterId"))
                 scratch = file
                 val dir = File(exporter.shareRoot(), UUID.randomUUID().toString())
                 if (!dir.mkdirs() && !dir.isDirectory) {

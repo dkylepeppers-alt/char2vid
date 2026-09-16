@@ -66,6 +66,9 @@ export function createJsonFilePersister(metaPath: string) {
     physical: {},
     collectionMembers: {},
     assetTags: {},
+    characters: {},
+    characterRevisions: {},
+    looks: {},
   });
 
   return {

@@ -213,6 +213,7 @@ export function BackupPage() {
               accept="application/zip,.zip"
               hidden
               disabled={status.kind === 'working'}
+              aria-label="Import library archive"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = '';

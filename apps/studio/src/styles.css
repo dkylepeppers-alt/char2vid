@@ -850,3 +850,83 @@ textarea {
   border-radius: 999px;
   background: #1a1d19;
 }
+
+.character-page,
+.character-editor,
+.reference-slots,
+.look-editor,
+.character-generate,
+.make-character {
+  display: grid;
+  gap: 16px;
+}
+
+.character-editor label,
+.make-character label,
+.slot-add label,
+.look-editor label,
+.character-generate label {
+  display: grid;
+  gap: 6px;
+  color: #c5c8bc;
+}
+
+.character-editor input,
+.character-editor textarea,
+.character-editor select,
+.make-character input,
+.slot-add input,
+.slot-add select,
+.look-editor input,
+.look-editor select,
+.character-generate select {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #3a3e37;
+  border-radius: 14px;
+  background: #1c1f1b;
+  color: inherit;
+}
+
+.character-editor textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.slot-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #30342e;
+  border-radius: 16px;
+  background: #141613;
+}
+
+.slot-role {
+  margin: 0;
+  font-weight: 650;
+}
+
+.slot-actions,
+.mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-action {
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}

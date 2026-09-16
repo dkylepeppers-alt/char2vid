@@ -52,7 +52,12 @@ class LibraryArchiver(
         val importedAssets: Int,
     )
 
-    fun fileNameFor(transferId: String): String = fileNameForTransfer(transferId)
+    fun fileNameFor(transferId: String, characterId: String? = null): String =
+        if (characterId == null) {
+            fileNameForTransfer(transferId)
+        } else {
+            "char2vid-character-${transferId.take(8)}.zip"
+        }
 
     // ---- export ---------------------------------------------------------------
 
@@ -60,8 +65,12 @@ class LibraryArchiver(
      * Stream the library archive into [output] (closed on return). Throws on any
      * checksum mismatch, leaving the caller to discard the partial output.
      */
-    fun exportLibraryTo(output: OutputStream, transferId: String = UUID.randomUUID().toString()): ExportSummary {
-        val snapshot = repo.archiveSnapshot()
+    fun exportLibraryTo(
+        output: OutputStream,
+        transferId: String = UUID.randomUUID().toString(),
+        characterId: String? = null,
+    ): ExportSummary {
+        val snapshot = repo.archiveSnapshot(characterId)
         val assetsById = snapshot.assets.associateBy { it.id }
         val files = ArrayList<ArchiveManifestFile>()
         val sources = ArrayList<File>()
@@ -99,13 +108,15 @@ class LibraryArchiver(
                 revisions = snapshot.revisions.map { ArchiveRevision(it.id, it.assetId, it.sha256, it.createdAt) },
                 collectionMembers = snapshot.collectionMembers.map { ArchiveCollectionMember(it.collectionId, it.assetId) },
                 assetTags = snapshot.assetTags.map { ArchiveAssetTag(it.assetId, it.tag) },
+                characters = snapshot.characters,
+                looks = snapshot.looks,
             )
         val manifest =
             ArchiveManifest(
                 schemaVersion = ArchivePaths.ARCHIVE_SCHEMA_VERSION,
                 createdAt = Instant.now().toString(),
-                scope = "library",
-                scopeId = null,
+                scope = if (characterId == null) "library" else "character",
+                scopeId = characterId,
                 files = files,
                 recordCounts =
                     ArchiveRecordCounts(
@@ -134,18 +145,21 @@ class LibraryArchiver(
             }
             zip.finish()
         }
-        return ExportSummary(transferId, fileNameFor(transferId), records.assets.size, files.size + 2)
+        return ExportSummary(transferId, fileNameFor(transferId, characterId), records.assets.size, files.size + 2)
     }
 
     /**
      * Export into a private scratch file. Only returned on success; on failure the
      * scratch directory is removed so no apparently complete archive remains.
      */
-    fun exportLibraryToScratch(transferId: String = UUID.randomUUID().toString()): Pair<File, ExportSummary> {
+    fun exportLibraryToScratch(
+        transferId: String = UUID.randomUUID().toString(),
+        characterId: String? = null,
+    ): Pair<File, ExportSummary> {
         val dir = repo.createScratchDir("archive-export")
-        val target = File(dir, fileNameFor(transferId))
+        val target = File(dir, fileNameFor(transferId, characterId))
         try {
-            val summary = exportLibraryTo(FileOutputStream(target), transferId)
+            val summary = exportLibraryTo(FileOutputStream(target), transferId, characterId)
             return target to summary
         } catch (error: Exception) {
             dir.deleteRecursively()
@@ -530,7 +544,7 @@ class LibraryArchiver(
         }
         val scan = scan(open)
         val manifest = ArchiveJson.parseManifest(scan.manifestJson ?: throw inconsistent())
-        if (manifest.scope != "library") {
+        if (manifest.scope != "library" && manifest.scope != "character") {
             throw LibraryException(LibraryException.UNSUPPORTED_SCOPE, "archive scope \"${manifest.scope}\" is not supported")
         }
         val rawRecords = ArchiveJson.parseRecords(scan.recordsJson ?: throw inconsistent())
@@ -615,8 +629,40 @@ class LibraryArchiver(
             val revisions = remapped.revisions.map { RevisionEntity(it.id, it.assetId, it.sha256, it.createdAt) }
             val members = remapped.collectionMembers.map { CollectionMemberEntity(it.collectionId, it.assetId) }
             val tags = remapped.assetTags.map { AssetTagEntity(it.assetId, it.tag) }
+            val characters =
+                remapped.characters.map { character ->
+                    CharacterEntity(
+                        id = character.id,
+                        name = character.name,
+                        currentRevisionId = character.currentRevisionId,
+                        coverAssetRevisionId = character.coverAssetRevisionId,
+                        createdAt = character.createdAt,
+                    )
+                }
+            val characterRevisions =
+                remapped.characters.flatMap { character ->
+                    character.revisions.map { revision ->
+                        CharacterRevisionEntity(
+                            id = revision.id,
+                            characterId = revision.characterId,
+                            parentRevisionId = revision.parentRevisionId,
+                            identityNotes = revision.identityNotes,
+                            referencesJson = CharacterJson.encodeReferences(revision.references),
+                        )
+                    }
+                }
+            val looks =
+                remapped.looks.map { look ->
+                    LookEntity(
+                        id = look.id,
+                        characterId = look.characterId,
+                        label = look.label,
+                        notes = look.notes,
+                        referenceRevisionIdsJson = CharacterJson.encodeRevisionIds(look.referenceRevisionIds),
+                    )
+                }
 
-            repo.commitArchiveImport(physicals, assets, revisions, members, tags)
+            repo.commitArchiveImport(physicals, assets, revisions, members, tags, characters, characterRevisions, looks)
             repo.clearArchiveImportJournal()
             scratch.deleteRecursively()
             return ImportResult(idMap, assets.size)
