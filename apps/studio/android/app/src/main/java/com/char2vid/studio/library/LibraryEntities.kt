@@ -141,3 +141,57 @@ data class AssetTagEntity(
     @ColumnInfo(name = "tag")
     val tag: String,
 )
+
+@Entity(
+    tableName = "characters",
+    indices = [Index(value = ["created_at"]), Index(value = ["name"])],
+)
+data class CharacterEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    val id: String,
+    @ColumnInfo(name = "name")
+    val name: String,
+    @ColumnInfo(name = "current_revision_id")
+    val currentRevisionId: String,
+    @ColumnInfo(name = "cover_asset_revision_id")
+    val coverAssetRevisionId: String?,
+    @ColumnInfo(name = "created_at")
+    val createdAt: String,
+)
+
+@Entity(
+    tableName = "character_revisions",
+    indices = [Index(value = ["character_id"])],
+)
+data class CharacterRevisionEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    val id: String,
+    @ColumnInfo(name = "character_id")
+    val characterId: String,
+    @ColumnInfo(name = "parent_revision_id")
+    val parentRevisionId: String?,
+    @ColumnInfo(name = "identity_notes")
+    val identityNotes: String,
+    @ColumnInfo(name = "references_json")
+    val referencesJson: String,
+)
+
+@Entity(
+    tableName = "looks",
+    indices = [Index(value = ["character_id"])],
+)
+data class LookEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    val id: String,
+    @ColumnInfo(name = "character_id")
+    val characterId: String,
+    @ColumnInfo(name = "label")
+    val label: String,
+    @ColumnInfo(name = "notes")
+    val notes: String,
+    @ColumnInfo(name = "reference_revision_ids_json")
+    val referenceRevisionIdsJson: String,
+)

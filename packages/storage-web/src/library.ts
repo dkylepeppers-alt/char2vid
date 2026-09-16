@@ -75,6 +75,42 @@ export async function openWebLibrary(
     applyLibraryAction(request: LibraryActionRequest) {
       return engine.applyLibraryAction(request);
     },
+    createCharacter(input) {
+      return engine.createCharacter(input);
+    },
+    listCharacters() {
+      return engine.listCharacters();
+    },
+    getCharacter(id) {
+      return engine.getCharacter(id);
+    },
+    listCharacterRevisions(characterId) {
+      return engine.listCharacterRevisions(characterId);
+    },
+    getCharacterRevision(id) {
+      return engine.getCharacterRevision(id);
+    },
+    saveCharacterRevision(revision) {
+      return engine.saveCharacterRevision(revision);
+    },
+    saveLook(look) {
+      return engine.saveLook(look);
+    },
+    listLooks(characterId) {
+      return engine.listLooks(characterId);
+    },
+    getLook(id) {
+      return engine.getLook(id);
+    },
+    setCover(characterId, assetRevisionId) {
+      return engine.setCover(characterId, assetRevisionId);
+    },
+    renameCharacter(id, name) {
+      return engine.renameCharacter(id, name);
+    },
+    referenceAvailability(assetRevisionId) {
+      return engine.referenceAvailability(assetRevisionId);
+    },
     async close() {
       await files.close?.();
       db.close();

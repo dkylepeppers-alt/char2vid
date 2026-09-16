@@ -12,6 +12,7 @@ import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { CreatePage } from '../features/create/CreatePage';
+import { CharacterList } from '../features/characters/CharacterList';
 import { BackupPage } from '../features/settings/BackupPage';
 import { QueueSheet } from '../features/jobs/QueueSheet';
 import { ServiceSettings } from '../features/settings/ServiceSettings';
@@ -34,7 +35,8 @@ const emptyStates: Record<Destination, { title: string; detail: string }> = {
   },
   characters: {
     title: 'No characters yet',
-    detail: 'Character references and revision tools are not available yet.',
+    detail:
+      'Open an image in the library and choose Make character to create a reusable identity.',
   },
   create: {
     title: 'Shape your next shot',
@@ -183,6 +185,8 @@ export function App() {
             <LibraryPage />
           ) : destination === 'create' ? (
             <CreatePage />
+          ) : destination === 'characters' ? (
+            <CharacterList />
           ) : (
             <section className="empty-card">
               <div className="empty-art" aria-hidden="true">

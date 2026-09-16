@@ -1,5 +1,13 @@
 import type { AssetRecord } from '@char2vid/domain/storage';
 import { normalizeAssetRecord } from '@char2vid/domain/asset-schema';
+import {
+  parseCharacterRecord,
+  parseCharacterRevision,
+  parseLookRevision,
+  type CharacterRecord,
+  type CharacterRevision,
+  type LookRevision,
+} from '@char2vid/domain/characters/schema';
 
 import type {
   AssetTagRow,
@@ -17,6 +25,9 @@ interface MetaSnapshot {
   physical: Record<string, PhysicalObject>;
   collectionMembers: Record<string, CollectionMember>;
   assetTags: Record<string, AssetTagRow>;
+  characters: Record<string, CharacterRecord>;
+  characterRevisions: Record<string, CharacterRevision>;
+  looks: Record<string, LookRevision>;
 }
 
 export type MetaPersister = {
@@ -32,6 +43,9 @@ function emptySnapshot(): MetaSnapshot {
     physical: {},
     collectionMembers: {},
     assetTags: {},
+    characters: {},
+    characterRevisions: {},
+    looks: {},
   };
 }
 
@@ -59,6 +73,24 @@ function coerceSnapshot(
     physical: raw.physical ?? base.physical,
     collectionMembers: raw.collectionMembers ?? base.collectionMembers,
     assetTags: raw.assetTags ?? base.assetTags,
+    characters: Object.fromEntries(
+      Object.entries(raw.characters ?? {}).map(([id, character]) => [
+        id,
+        parseCharacterRecord(character),
+      ]),
+    ),
+    characterRevisions: Object.fromEntries(
+      Object.entries(raw.characterRevisions ?? {}).map(([id, revision]) => [
+        id,
+        parseCharacterRevision(revision),
+      ]),
+    ),
+    looks: Object.fromEntries(
+      Object.entries(raw.looks ?? {}).map(([id, look]) => [
+        id,
+        parseLookRevision(look),
+      ]),
+    ),
   };
 }
 
@@ -265,6 +297,9 @@ export class JsonMetaStore implements MetaStore {
     revisions: RevisionRecord[];
     collectionMembers: CollectionMember[];
     assetTags: AssetTagRow[];
+    characters?: CharacterRecord[];
+    characterRevisions?: CharacterRevision[];
+    looks?: LookRevision[];
   }): Promise<void> {
     await this.ensureLoaded();
     for (const asset of args.assets) {
@@ -281,6 +316,96 @@ export class JsonMetaStore implements MetaStore {
     for (const row of args.assetTags) {
       this.snapshot.assetTags[tagKey(row.assetId, row.tag)] = row;
     }
+    for (const character of args.characters ?? []) {
+      this.snapshot.characters[character.id] = parseCharacterRecord(character);
+    }
+    for (const revision of args.characterRevisions ?? []) {
+      this.snapshot.characterRevisions[revision.id] =
+        parseCharacterRevision(revision);
+    }
+    for (const look of args.looks ?? []) {
+      this.snapshot.looks[look.id] = parseLookRevision(look);
+    }
     await this.persist();
+  }
+
+  async commitCharacterRevision(args: {
+    character: CharacterRecord;
+    revision: CharacterRevision;
+  }): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.characterRevisions[args.revision.id] = parseCharacterRevision(
+      args.revision,
+    );
+    this.snapshot.characters[args.character.id] = parseCharacterRecord(
+      args.character,
+    );
+    await this.persist();
+  }
+
+  async putCharacter(character: CharacterRecord): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.characters[character.id] = parseCharacterRecord(character);
+    await this.persist();
+  }
+
+  async getCharacter(id: string): Promise<CharacterRecord | undefined> {
+    await this.ensureLoaded();
+    const row = this.snapshot.characters[id];
+    return row ? parseCharacterRecord(row) : undefined;
+  }
+
+  async listCharacters(): Promise<CharacterRecord[]> {
+    await this.ensureLoaded();
+    return Object.values(this.snapshot.characters).map((row) =>
+      parseCharacterRecord(row),
+    );
+  }
+
+  async putCharacterRevision(revision: CharacterRevision): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.characterRevisions[revision.id] =
+      parseCharacterRevision(revision);
+    await this.persist();
+  }
+
+  async getCharacterRevision(
+    id: string,
+  ): Promise<CharacterRevision | undefined> {
+    await this.ensureLoaded();
+    const row = this.snapshot.characterRevisions[id];
+    return row ? parseCharacterRevision(row) : undefined;
+  }
+
+  async listCharacterRevisions(
+    characterId?: string,
+  ): Promise<CharacterRevision[]> {
+    await this.ensureLoaded();
+    return Object.values(this.snapshot.characterRevisions)
+      .map((row) => parseCharacterRevision(row))
+      .filter((row) =>
+        characterId === undefined ? true : row.characterId === characterId,
+      );
+  }
+
+  async putLook(look: LookRevision): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.looks[look.id] = parseLookRevision(look);
+    await this.persist();
+  }
+
+  async getLook(id: string): Promise<LookRevision | undefined> {
+    await this.ensureLoaded();
+    const row = this.snapshot.looks[id];
+    return row ? parseLookRevision(row) : undefined;
+  }
+
+  async listLooks(characterId?: string): Promise<LookRevision[]> {
+    await this.ensureLoaded();
+    return Object.values(this.snapshot.looks)
+      .map((row) => parseLookRevision(row))
+      .filter((row) =>
+        characterId === undefined ? true : row.characterId === characterId,
+      );
   }
 }

@@ -1,3 +1,16 @@
+import type { CharacterPort } from '@char2vid/domain/characters/port';
+import {
+  parseCharacterRecord,
+  parseCharacterRevision,
+  parseLookRevision,
+  type CharacterRecord,
+  type CharacterRevision,
+  type LookRevision,
+} from '@char2vid/domain/characters/schema';
+import {
+  createInitialRevision,
+  selectCover,
+} from '@char2vid/domain/characters/revisions';
 import type { LibraryActionRequest } from '@char2vid/domain/library-actions';
 import type {
   AssetQuery,
@@ -111,7 +124,31 @@ export interface MetaStore {
     revisions: RevisionRecord[];
     collectionMembers: CollectionMember[];
     assetTags: AssetTagRow[];
+    characters?: CharacterRecord[];
+    characterRevisions?: CharacterRevision[];
+    looks?: LookRevision[];
   }): Promise<void>;
+
+  /**
+   * Atomically write a character pointer and its revision (create or advance).
+   * Prevents currentRevisionId orphans across crash boundaries.
+   */
+  commitCharacterRevision(args: {
+    character: CharacterRecord;
+    revision: CharacterRevision;
+  }): Promise<void>;
+
+  putCharacter(character: CharacterRecord): Promise<void>;
+  getCharacter(id: string): Promise<CharacterRecord | undefined>;
+  listCharacters(): Promise<CharacterRecord[]>;
+
+  putCharacterRevision(revision: CharacterRevision): Promise<void>;
+  getCharacterRevision(id: string): Promise<CharacterRevision | undefined>;
+  listCharacterRevisions(characterId?: string): Promise<CharacterRevision[]>;
+
+  putLook(look: LookRevision): Promise<void>;
+  getLook(id: string): Promise<LookRevision | undefined>;
+  listLooks(characterId?: string): Promise<LookRevision[]>;
 }
 
 export class ImportFaultError extends Error {
@@ -271,7 +308,7 @@ function afterCursor(
  *
  * Stages: pending → written (temp hashed) → promoted (final path) → commit + clear.
  */
-export class LibraryEngine {
+export class LibraryEngine implements CharacterPort {
   private readonly files: FileStore;
   private readonly meta: MetaStore;
   private readonly fault: FaultPoint | undefined;
@@ -823,5 +860,190 @@ export class LibraryEngine {
       files: this.files,
       purgeLogicalAsset: (id: string) => this.purgeLogicalAsset(id),
     };
+  }
+
+  async createCharacter(input: {
+    name: string;
+    referenceRevisionId: string;
+  }): Promise<{ characterId: string; revisionId: string }> {
+    const name = input.name.trim();
+    if (!name) {
+      throw new Error('createCharacter requires a name');
+    }
+    const availability = await this.referenceAvailability(
+      input.referenceRevisionId,
+    );
+    if (availability !== 'available') {
+      throw new Error('createCharacter requires an available image revision');
+    }
+    const revision = await this.meta.getRevision(input.referenceRevisionId);
+    if (!revision) {
+      throw new Error('createCharacter requires an available image revision');
+    }
+    const asset = await this.meta.getAsset(revision.assetId);
+    if (!asset || asset.kind !== 'image' || asset.state !== 'available') {
+      throw new Error('createCharacter requires an available image revision');
+    }
+    const characterId = newId();
+    const revisionId = newId();
+    const createdAt = new Date().toISOString();
+    const characterRevision = createInitialRevision({
+      id: revisionId,
+      characterId,
+      referenceRevisionId: input.referenceRevisionId,
+    });
+    const character = parseCharacterRecord({
+      id: characterId,
+      name,
+      currentRevisionId: revisionId,
+      coverAssetRevisionId: input.referenceRevisionId,
+      createdAt,
+    });
+    await this.meta.commitCharacterRevision({
+      character,
+      revision: characterRevision,
+    });
+    return { characterId, revisionId };
+  }
+
+  listCharacters(): Promise<CharacterRecord[]> {
+    return this.meta.listCharacters();
+  }
+
+  getCharacter(id: string): Promise<CharacterRecord | undefined> {
+    return this.meta.getCharacter(id);
+  }
+
+  listCharacterRevisions(characterId: string): Promise<CharacterRevision[]> {
+    return this.meta.listCharacterRevisions(characterId);
+  }
+
+  getCharacterRevision(id: string): Promise<CharacterRevision | undefined> {
+    return this.meta.getCharacterRevision(id);
+  }
+
+  async saveCharacterRevision(revision: CharacterRevision): Promise<void> {
+    const next = parseCharacterRevision(revision);
+    const existing = await this.meta.getCharacterRevision(next.id);
+    if (existing) {
+      throw new Error('character revisions are immutable');
+    }
+    const character = await this.meta.getCharacter(next.characterId);
+    if (!character) {
+      throw new Error(`unknown character: ${next.characterId}`);
+    }
+    if (next.parentRevisionId) {
+      const parent = await this.meta.getCharacterRevision(
+        next.parentRevisionId,
+      );
+      if (!parent) {
+        throw new Error(`unknown parent revision: ${next.parentRevisionId}`);
+      }
+    }
+    await this.meta.commitCharacterRevision({
+      character: {
+        ...character,
+        currentRevisionId: next.id,
+      },
+      revision: next,
+    });
+  }
+
+  async saveLook(look: LookRevision): Promise<void> {
+    const next = parseLookRevision(look);
+    const character = await this.meta.getCharacter(next.characterId);
+    if (!character) {
+      throw new Error(`unknown character: ${next.characterId}`);
+    }
+    await this.meta.putLook(next);
+  }
+
+  listLooks(characterId: string): Promise<LookRevision[]> {
+    return this.meta.listLooks(characterId);
+  }
+
+  getLook(id: string): Promise<LookRevision | undefined> {
+    return this.meta.getLook(id);
+  }
+
+  async setCover(characterId: string, assetRevisionId: string): Promise<void> {
+    const character = await this.meta.getCharacter(characterId);
+    if (!character) {
+      throw new Error(`unknown character: ${characterId}`);
+    }
+    const revision = await this.meta.getCharacterRevision(
+      character.currentRevisionId,
+    );
+    if (!revision) {
+      throw new Error(
+        `unknown character revision: ${character.currentRevisionId}`,
+      );
+    }
+    const cover = selectCover(revision, assetRevisionId);
+    await this.meta.putCharacter({
+      ...character,
+      coverAssetRevisionId: cover,
+    });
+  }
+
+  async renameCharacter(id: string, name: string): Promise<void> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error('character name is required');
+    }
+    const character = await this.meta.getCharacter(id);
+    if (!character) {
+      throw new Error(`unknown character: ${id}`);
+    }
+    await this.meta.putCharacter({ ...character, name: trimmed });
+  }
+
+  async referenceAvailability(
+    assetRevisionId: string,
+  ): Promise<'available' | 'missing'> {
+    const revision = await this.meta.getRevision(assetRevisionId);
+    if (!revision) {
+      return 'missing';
+    }
+    const asset = await this.meta.getAsset(revision.assetId);
+    if (!asset || asset.kind !== 'image' || asset.state !== 'available') {
+      return 'missing';
+    }
+    const physical = await this.meta.getPhysical(revision.sha256);
+    if (!physical) {
+      return 'missing';
+    }
+    if (!(await this.files.pathExists(physical.relativePath))) {
+      return 'missing';
+    }
+    return 'available';
+  }
+
+  /** Test helper: drop the local original and mark the asset missing. */
+  async markAssetMissing(assetId: string): Promise<void> {
+    const asset = await this.meta.getAsset(assetId);
+    if (!asset) {
+      throw new Error(`unknown asset: ${assetId}`);
+    }
+    const revision = await this.meta.getRevision(asset.revisionId);
+    if (revision) {
+      const physical = await this.meta.getPhysical(revision.sha256);
+      if (physical) {
+        const remaining = (await this.meta.listRevisions()).filter(
+          (item) => item.sha256 === revision.sha256 && item.id !== revision.id,
+        );
+        // Only drop shared bytes when no other logical revision still needs them.
+        if (remaining.length === 0) {
+          await this.files.remove(physical.relativePath).catch(() => undefined);
+          await this.meta.deletePhysical(revision.sha256);
+        }
+      }
+    }
+    await this.meta.putAsset(
+      normalizeAssetRecord({
+        ...normalizeAssetRecord(asset),
+        state: 'missing',
+      }),
+    );
   }
 }

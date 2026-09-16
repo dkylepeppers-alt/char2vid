@@ -98,6 +98,39 @@ interface LibraryDao {
     @Query("SELECT * FROM asset_tags WHERE asset_id = :assetId")
     fun listAssetTags(assetId: String): List<AssetTagEntity>
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertCharacter(character: CharacterEntity)
+
+    @Query("SELECT * FROM characters WHERE id = :id")
+    fun getCharacter(id: String): CharacterEntity?
+
+    @Query("SELECT * FROM characters")
+    fun listCharacters(): List<CharacterEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertCharacterRevision(revision: CharacterRevisionEntity)
+
+    @Query("SELECT * FROM character_revisions WHERE id = :id")
+    fun getCharacterRevision(id: String): CharacterRevisionEntity?
+
+    @Query("SELECT * FROM character_revisions WHERE character_id = :characterId")
+    fun listCharacterRevisions(characterId: String): List<CharacterRevisionEntity>
+
+    @Query("SELECT * FROM character_revisions")
+    fun listAllCharacterRevisions(): List<CharacterRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertLook(look: LookEntity)
+
+    @Query("SELECT * FROM looks WHERE id = :id")
+    fun getLook(id: String): LookEntity?
+
+    @Query("SELECT * FROM looks WHERE character_id = :characterId")
+    fun listLooks(characterId: String): List<LookEntity>
+
+    @Query("SELECT * FROM looks")
+    fun listAllLooks(): List<LookEntity>
+
     /**
      * Atomically mark asset available, upsert physical + revision, clear journal.
      */

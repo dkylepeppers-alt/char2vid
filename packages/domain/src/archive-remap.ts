@@ -144,6 +144,9 @@ const ID_LIKE_KEYS = new Set([
   'clipId',
   'bindingId',
   'assetRevisionId',
+  'parentRevisionId',
+  'currentRevisionId',
+  'coverAssetRevisionId',
 ]);
 
 /**
@@ -245,11 +248,36 @@ export function remapArchiveRecords(
   };
 }
 
+function collectGenericRecordIds(record: Record<string, unknown>): string[] {
+  const ids: string[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === 'string' && ID_LIKE_KEYS.has(key)) {
+      ids.push(value);
+    } else if (Array.isArray(value)) {
+      if (key.endsWith('Ids')) {
+        for (const item of value) {
+          if (typeof item === 'string') {
+            ids.push(item);
+          }
+        }
+      }
+      for (const item of value) {
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          ids.push(...collectGenericRecordIds(item as Record<string, unknown>));
+        }
+      }
+    } else if (value && typeof value === 'object') {
+      ids.push(...collectGenericRecordIds(value as Record<string, unknown>));
+    }
+  }
+  return ids;
+}
+
 /** Collect logical IDs that participate in collision detection for library scope. */
 export function collectLibraryIncomingIds(
   records: Pick<
     RemappableArchiveRecords,
-    'assets' | 'revisions' | 'collectionMembers'
+    'assets' | 'revisions' | 'collectionMembers' | 'characters' | 'looks'
   >,
 ): string[] {
   const ids: string[] = [];
@@ -264,6 +292,12 @@ export function collectLibraryIncomingIds(
   }
   for (const member of records.collectionMembers) {
     ids.push(member.collectionId, member.assetId);
+  }
+  for (const character of records.characters ?? []) {
+    ids.push(...collectGenericRecordIds(character));
+  }
+  for (const look of records.looks ?? []) {
+    ids.push(...collectGenericRecordIds(look));
   }
   return ids;
 }

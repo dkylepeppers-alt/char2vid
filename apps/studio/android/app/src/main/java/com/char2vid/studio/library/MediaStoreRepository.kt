@@ -252,6 +252,210 @@ class MediaStoreRepository(
 
     fun physicalObjectCount(): Int = dao.countPhysical()
 
+    fun createCharacter(name: String, referenceRevisionId: String): JSONObject {
+        val trimmed = name.trim()
+        require(trimmed.isNotEmpty()) { "createCharacter requires a name" }
+        if (referenceAvailability(referenceRevisionId) != "available") {
+            throw IllegalArgumentException("createCharacter requires an available image revision")
+        }
+        val revision =
+            dao.getRevision(referenceRevisionId)
+                ?: throw IllegalArgumentException("createCharacter requires an available image revision")
+        val asset =
+            dao.getAsset(revision.assetId)
+                ?: throw IllegalArgumentException("createCharacter requires an available image revision")
+        require(asset.kind == "image" && asset.state == "available") {
+            "createCharacter requires an available image revision"
+        }
+        val characterId = UUID.randomUUID().toString()
+        val revisionId = UUID.randomUUID().toString()
+        val createdAt = Instant.now().toString()
+        val references =
+            listOf(
+                ArchiveCharacterReference(
+                    assetRevisionId = referenceRevisionId,
+                    role = "identity",
+                    view = "front",
+                    approval = "approved",
+                ),
+            )
+        db.runInTransaction {
+            dao.upsertCharacter(
+                CharacterEntity(
+                    id = characterId,
+                    name = trimmed,
+                    currentRevisionId = revisionId,
+                    coverAssetRevisionId = referenceRevisionId,
+                    createdAt = createdAt,
+                ),
+            )
+            dao.upsertCharacterRevision(
+                CharacterRevisionEntity(
+                    id = revisionId,
+                    characterId = characterId,
+                    parentRevisionId = null,
+                    identityNotes = "",
+                    referencesJson = CharacterJson.encodeReferences(references),
+                ),
+            )
+        }
+        val o = JSONObject()
+        o.put("characterId", characterId)
+        o.put("revisionId", revisionId)
+        return o
+    }
+
+    fun listCharacters(): JSONObject {
+        val arr = JSONArray()
+        for (character in dao.listCharacters().sortedBy { it.createdAt }) {
+            arr.put(CharacterJson.characterToBridgeJson(character))
+        }
+        val o = JSONObject()
+        o.put("characters", arr)
+        return o
+    }
+
+    fun getCharacter(id: String): JSONObject {
+        val o = JSONObject()
+        val character = dao.getCharacter(id)
+        if (character == null) {
+            o.put("character", JSONObject.NULL)
+        } else {
+            o.put("character", CharacterJson.characterToBridgeJson(character))
+        }
+        return o
+    }
+
+    fun listCharacterRevisions(characterId: String): JSONObject {
+        val arr = JSONArray()
+        for (revision in dao.listCharacterRevisions(characterId)) {
+            arr.put(revisionToJson(revision))
+        }
+        val o = JSONObject()
+        o.put("revisions", arr)
+        return o
+    }
+
+    fun getCharacterRevision(id: String): JSONObject {
+        val o = JSONObject()
+        val revision = dao.getCharacterRevision(id)
+        if (revision == null) {
+            o.put("revision", JSONObject.NULL)
+        } else {
+            o.put("revision", revisionToJson(revision))
+        }
+        return o
+    }
+
+    fun saveCharacterRevision(raw: JSONObject) {
+        val parsed = CharacterJson.parseRevision(raw, "characterRevision")
+        require(dao.getCharacterRevision(parsed.id) == null) { "character revisions are immutable" }
+        val character =
+            dao.getCharacter(parsed.characterId)
+                ?: throw IllegalArgumentException("unknown character: ${parsed.characterId}")
+        if (parsed.parentRevisionId != null) {
+            require(dao.getCharacterRevision(parsed.parentRevisionId) != null) {
+                "unknown parent revision: ${parsed.parentRevisionId}"
+            }
+        }
+        db.runInTransaction {
+            dao.upsertCharacterRevision(
+                CharacterRevisionEntity(
+                    id = parsed.id,
+                    characterId = parsed.characterId,
+                    parentRevisionId = parsed.parentRevisionId,
+                    identityNotes = parsed.identityNotes,
+                    referencesJson = CharacterJson.encodeReferences(parsed.references),
+                ),
+            )
+            dao.upsertCharacter(character.copy(currentRevisionId = parsed.id))
+        }
+    }
+
+    fun saveLook(raw: JSONObject) {
+        val parsed = CharacterJson.parseLook(raw, "look")
+        require(dao.getCharacter(parsed.characterId) != null) { "unknown character: ${parsed.characterId}" }
+        dao.upsertLook(
+            LookEntity(
+                id = parsed.id,
+                characterId = parsed.characterId,
+                label = parsed.label,
+                notes = parsed.notes,
+                referenceRevisionIdsJson = CharacterJson.encodeRevisionIds(parsed.referenceRevisionIds),
+            ),
+        )
+    }
+
+    fun listLooks(characterId: String): JSONObject {
+        val arr = JSONArray()
+        for (look in dao.listLooks(characterId)) {
+            arr.put(CharacterJson.lookToBridgeJson(look))
+        }
+        val o = JSONObject()
+        o.put("looks", arr)
+        return o
+    }
+
+    fun getLook(id: String): JSONObject {
+        val o = JSONObject()
+        val look = dao.getLook(id)
+        if (look == null) {
+            o.put("look", JSONObject.NULL)
+        } else {
+            o.put("look", CharacterJson.lookToBridgeJson(look))
+        }
+        return o
+    }
+
+    fun setCover(characterId: String, assetRevisionId: String) {
+        val character =
+            dao.getCharacter(characterId)
+                ?: throw IllegalArgumentException("unknown character: $characterId")
+        val revision =
+            dao.getCharacterRevision(character.currentRevisionId)
+                ?: throw IllegalArgumentException("unknown character revision: ${character.currentRevisionId}")
+        val references = CharacterJson.parseReferences(revision.referencesJson)
+        val match = references.find { it.assetRevisionId == assetRevisionId }
+        require(match != null && match.approval == "approved") {
+            "cover must be an approved character reference"
+        }
+        dao.upsertCharacter(character.copy(coverAssetRevisionId = assetRevisionId))
+    }
+
+    fun renameCharacter(id: String, name: String) {
+        val trimmed = name.trim()
+        require(trimmed.isNotEmpty()) { "character name is required" }
+        val character =
+            dao.getCharacter(id) ?: throw IllegalArgumentException("unknown character: $id")
+        dao.upsertCharacter(character.copy(name = trimmed))
+    }
+
+    fun referenceAvailability(assetRevisionId: String): String {
+        val revision = dao.getRevision(assetRevisionId) ?: return "missing"
+        val asset = dao.getAsset(revision.assetId) ?: return "missing"
+        if (asset.kind != "image" || asset.state != "available") {
+            return "missing"
+        }
+        val physical = dao.getPhysical(revision.sha256) ?: return "missing"
+        val file = resolveFile(physical.relativePath)
+        if (!file.isFile) {
+            return "missing"
+        }
+        return "available"
+    }
+
+    private fun revisionToJson(revision: CharacterRevisionEntity): JSONObject {
+        val parsed =
+            ArchiveCharacterRevision(
+                id = revision.id,
+                characterId = revision.characterId,
+                parentRevisionId = revision.parentRevisionId,
+                identityNotes = revision.identityNotes,
+                references = CharacterJson.parseReferences(revision.referencesJson),
+            )
+        return CharacterJson.encodeRevision(parsed)
+    }
+
     // ---- portable archive support -------------------------------------------
 
     /** Live (`trashedAt == null`), available assets plus their closure, per the backup trash policy. */
@@ -261,11 +465,25 @@ class MediaStoreRepository(
         val collectionMembers: List<CollectionMemberEntity>,
         val assetTags: List<AssetTagEntity>,
         val physicalBySha: Map<String, PhysicalObjectEntity>,
+        val characters: List<ArchiveCharacter> = emptyList(),
+        val looks: List<ArchiveLook> = emptyList(),
     )
 
-    fun archiveSnapshot(): ArchiveSnapshot {
+    fun archiveSnapshot(characterId: String? = null): ArchiveSnapshot {
+        val packedCharacters = packArchiveCharacters(characterId)
         val assets =
-            dao.listAssets().filter { it.state == "available" && it.trashedAt == null && it.sha256.isNotEmpty() }
+            if (characterId == null) {
+                dao.listAssets().filter { it.state == "available" && it.trashedAt == null && it.sha256.isNotEmpty() }
+            } else {
+                // Match web character packages: include referenced originals even when they
+                // would be omitted from a full-library live set (trashed / non-available),
+                // as long as they are not pending. Missing local bytes still fail export
+                // when LibraryArchiver reads physical objects — do not silently drop slots.
+                val wanted = packedCharacters.referencedAssetRevisionIds
+                val wantedAssetIds =
+                    dao.listRevisions().filter { wanted.contains(it.id) }.map { it.assetId }.toHashSet()
+                dao.listAssets().filter { wantedAssetIds.contains(it.id) && CharacterJson.includeInCharacterPackage(it.state) }
+            }
         val assetIds = assets.map { it.id }.toHashSet()
         val revisions = dao.listRevisions().filter { assetIds.contains(it.assetId) }
         val members = dao.listAllCollectionMembers().filter { assetIds.contains(it.assetId) }
@@ -287,7 +505,77 @@ class MediaStoreRepository(
                 }
             }
         }
-        return ArchiveSnapshot(assets, revisions, members, tags, physical)
+        return ArchiveSnapshot(
+            assets,
+            revisions,
+            if (characterId == null) members else emptyList(),
+            if (characterId == null) tags else emptyList(),
+            physical,
+            packedCharacters.characters,
+            packedCharacters.looks,
+        )
+    }
+
+    private data class PackedCharacters(
+        val characters: List<ArchiveCharacter>,
+        val looks: List<ArchiveLook>,
+        val referencedAssetRevisionIds: Set<String>,
+    )
+
+    private fun packArchiveCharacters(characterId: String?): PackedCharacters {
+        val entities =
+            if (characterId == null) {
+                dao.listCharacters()
+            } else {
+                listOf(dao.getCharacter(characterId) ?: throw IllegalArgumentException("unknown character: $characterId"))
+            }
+        val referenced = HashSet<String>()
+        val characters = ArrayList<ArchiveCharacter>(entities.size)
+        for (entity in entities) {
+            val revisions =
+                dao.listCharacterRevisions(entity.id).map { row ->
+                    ArchiveCharacterRevision(
+                        id = row.id,
+                        characterId = row.characterId,
+                        parentRevisionId = row.parentRevisionId,
+                        identityNotes = row.identityNotes,
+                        references = CharacterJson.parseReferences(row.referencesJson),
+                    )
+                }
+            if (!entity.coverAssetRevisionId.isNullOrEmpty()) {
+                referenced.add(entity.coverAssetRevisionId)
+            }
+            for (revision in revisions) {
+                for (reference in revision.references) {
+                    referenced.add(reference.assetRevisionId)
+                }
+            }
+            characters.add(
+                ArchiveCharacter(
+                    id = entity.id,
+                    name = entity.name,
+                    currentRevisionId = entity.currentRevisionId,
+                    coverAssetRevisionId = entity.coverAssetRevisionId,
+                    createdAt = entity.createdAt,
+                    revisions = revisions,
+                ),
+            )
+        }
+        val lookEntities =
+            if (characterId == null) dao.listAllLooks() else dao.listLooks(characterId)
+        val looks =
+            lookEntities.map { look ->
+                val ids = CharacterJson.parseRevisionIds(look.referenceRevisionIdsJson)
+                referenced.addAll(ids)
+                ArchiveLook(
+                    id = look.id,
+                    characterId = look.characterId,
+                    label = look.label,
+                    notes = look.notes,
+                    referenceRevisionIds = ids,
+                )
+            }
+        return PackedCharacters(characters, looks, referenced)
     }
 
     /** Same ID universe as the web importer's `existingLogicalIds`. */
@@ -308,6 +596,30 @@ class MediaStoreRepository(
         for (member in dao.listAllCollectionMembers()) {
             ids.add(member.collectionId)
             ids.add(member.assetId)
+        }
+        for (character in dao.listCharacters()) {
+            ids.add(character.id)
+            ids.add(character.currentRevisionId)
+            val cover = character.coverAssetRevisionId
+            if (!cover.isNullOrEmpty()) {
+                ids.add(cover)
+            }
+        }
+        for (revision in dao.listAllCharacterRevisions()) {
+            ids.add(revision.id)
+            ids.add(revision.characterId)
+            val parent = revision.parentRevisionId
+            if (!parent.isNullOrEmpty()) {
+                ids.add(parent)
+            }
+            for (reference in CharacterJson.parseReferences(revision.referencesJson)) {
+                ids.add(reference.assetRevisionId)
+            }
+        }
+        for (look in dao.listAllLooks()) {
+            ids.add(look.id)
+            ids.add(look.characterId)
+            ids.addAll(CharacterJson.parseRevisionIds(look.referenceRevisionIdsJson))
         }
         return ids
     }
@@ -501,6 +813,9 @@ class MediaStoreRepository(
         revisions: List<RevisionEntity>,
         collectionMembers: List<CollectionMemberEntity>,
         assetTags: List<AssetTagEntity>,
+        characters: List<CharacterEntity> = emptyList(),
+        characterRevisions: List<CharacterRevisionEntity> = emptyList(),
+        looks: List<LookEntity> = emptyList(),
     ) {
         db.runInTransaction {
             for (physical in physicals) {
@@ -520,6 +835,15 @@ class MediaStoreRepository(
             }
             for (tag in assetTags) {
                 dao.insertAssetTag(tag)
+            }
+            for (character in characters) {
+                dao.upsertCharacter(character)
+            }
+            for (revision in characterRevisions) {
+                dao.upsertCharacterRevision(revision)
+            }
+            for (look in looks) {
+                dao.upsertLook(look)
             }
         }
     }

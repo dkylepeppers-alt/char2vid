@@ -36,6 +36,29 @@ export default defineConfig({
         replacement: path.join(packagesDir, 'domain/src/archive-remap.ts'),
       },
       {
+        find: '@char2vid/domain/characters/schema',
+        replacement: path.join(packagesDir, 'domain/src/characters/schema.ts'),
+      },
+      {
+        find: '@char2vid/domain/characters/revisions',
+        replacement: path.join(
+          packagesDir,
+          'domain/src/characters/revisions.ts',
+        ),
+      },
+      {
+        find: '@char2vid/domain/characters/looks',
+        replacement: path.join(packagesDir, 'domain/src/characters/looks.ts'),
+      },
+      {
+        find: '@char2vid/domain/characters/port',
+        replacement: path.join(packagesDir, 'domain/src/characters/port.ts'),
+      },
+      {
+        find: '@char2vid/domain/characters',
+        replacement: path.join(packagesDir, 'domain/src/characters/index.ts'),
+      },
+      {
         find: '@char2vid/domain',
         replacement: path.join(packagesDir, 'domain/src/contracts.ts'),
       },

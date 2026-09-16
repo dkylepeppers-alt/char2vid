@@ -10,7 +10,12 @@
     "./library-query": "./src/library-query.ts",
     "./library-actions": "./src/library-actions.ts",
     "./archive-schema": "./src/archive-schema.ts",
-    "./archive-remap": "./src/archive-remap.ts"
+    "./archive-remap": "./src/archive-remap.ts",
+    "./characters": "./src/characters/index.ts",
+    "./characters/schema": "./src/characters/schema.ts",
+    "./characters/revisions": "./src/characters/revisions.ts",
+    "./characters/looks": "./src/characters/looks.ts",
+    "./characters/port": "./src/characters/port.ts"
   },
   "scripts": {
     "build": "tsc --build",

@@ -1,5 +1,13 @@
 import type { AssetRecord } from '@char2vid/domain/storage';
 import { normalizeAssetRecord } from '@char2vid/domain/asset-schema';
+import {
+  parseCharacterRecord,
+  parseCharacterRevision,
+  parseLookRevision,
+  type CharacterRecord,
+  type CharacterRevision,
+  type LookRevision,
+} from '@char2vid/domain/characters/schema';
 import Dexie, { type EntityTable } from 'dexie';
 
 import type {
@@ -18,6 +26,9 @@ type Char2vidDb = Dexie & {
   physical: EntityTable<PhysicalObject, 'sha256'>;
   collectionMembers: EntityTable<CollectionMember & { id: string }, 'id'>;
   assetTags: EntityTable<AssetTagRow & { id: string }, 'id'>;
+  characters: EntityTable<CharacterRecord, 'id'>;
+  characterRevisions: EntityTable<CharacterRevision, 'id'>;
+  looks: EntityTable<LookRevision, 'id'>;
 };
 
 function memberKey(collectionId: string, assetId: string): string {
@@ -63,6 +74,18 @@ export function openChar2vidDb(dbName: string): Char2vidDb {
         }
       });
     });
+  db.version(3).stores({
+    journal: 'importId, assetId, stage',
+    assets:
+      'id, revisionId, sha256, state, folderId, trashedAt, favorite, createdAt, name',
+    revisions: 'id, assetId, sha256',
+    physical: 'sha256, relativePath',
+    collectionMembers: 'id, collectionId, assetId, [collectionId+assetId]',
+    assetTags: 'id, assetId, tag, [assetId+tag]',
+    characters: 'id, name, createdAt, currentRevisionId',
+    characterRevisions: 'id, characterId, parentRevisionId',
+    looks: 'id, characterId',
+  });
   return db;
 }
 
@@ -216,13 +239,21 @@ export class DexieMetaStore implements MetaStore {
     revisions: RevisionRecord[];
     collectionMembers: CollectionMember[];
     assetTags: AssetTagRow[];
+    characters?: CharacterRecord[];
+    characterRevisions?: CharacterRevision[];
+    looks?: LookRevision[];
   }): Promise<void> {
     await this.db.transaction(
       'rw',
-      this.db.assets,
-      this.db.revisions,
-      this.db.collectionMembers,
-      this.db.assetTags,
+      [
+        this.db.assets,
+        this.db.revisions,
+        this.db.collectionMembers,
+        this.db.assetTags,
+        this.db.characters,
+        this.db.characterRevisions,
+        this.db.looks,
+      ],
       async () => {
         for (const asset of args.assets) {
           await this.db.assets.put(normalizeAssetRecord(asset));
@@ -242,8 +273,93 @@ export class DexieMetaStore implements MetaStore {
             ...row,
           });
         }
+        for (const character of args.characters ?? []) {
+          await this.db.characters.put(parseCharacterRecord(character));
+        }
+        for (const revision of args.characterRevisions ?? []) {
+          await this.db.characterRevisions.put(
+            parseCharacterRevision(revision),
+          );
+        }
+        for (const look of args.looks ?? []) {
+          await this.db.looks.put(parseLookRevision(look));
+        }
       },
     );
+  }
+
+  async commitCharacterRevision(args: {
+    character: CharacterRecord;
+    revision: CharacterRevision;
+  }): Promise<void> {
+    await this.db.transaction(
+      'rw',
+      this.db.characters,
+      this.db.characterRevisions,
+      async () => {
+        await this.db.characterRevisions.put(
+          parseCharacterRevision(args.revision),
+        );
+        await this.db.characters.put(parseCharacterRecord(args.character));
+      },
+    );
+  }
+
+  putCharacter(character: CharacterRecord): Promise<void> {
+    return this.db.characters
+      .put(parseCharacterRecord(character))
+      .then(() => undefined);
+  }
+
+  async getCharacter(id: string): Promise<CharacterRecord | undefined> {
+    const row = await this.db.characters.get(id);
+    return row ? parseCharacterRecord(row) : undefined;
+  }
+
+  async listCharacters(): Promise<CharacterRecord[]> {
+    const rows = await this.db.characters.toArray();
+    return rows.map((row) => parseCharacterRecord(row));
+  }
+
+  putCharacterRevision(revision: CharacterRevision): Promise<void> {
+    return this.db.characterRevisions
+      .put(parseCharacterRevision(revision))
+      .then(() => undefined);
+  }
+
+  async getCharacterRevision(
+    id: string,
+  ): Promise<CharacterRevision | undefined> {
+    const row = await this.db.characterRevisions.get(id);
+    return row ? parseCharacterRevision(row) : undefined;
+  }
+
+  async listCharacterRevisions(
+    characterId?: string,
+  ): Promise<CharacterRevision[]> {
+    const rows = characterId
+      ? await this.db.characterRevisions
+          .where('characterId')
+          .equals(characterId)
+          .toArray()
+      : await this.db.characterRevisions.toArray();
+    return rows.map((row) => parseCharacterRevision(row));
+  }
+
+  putLook(look: LookRevision): Promise<void> {
+    return this.db.looks.put(parseLookRevision(look)).then(() => undefined);
+  }
+
+  async getLook(id: string): Promise<LookRevision | undefined> {
+    const row = await this.db.looks.get(id);
+    return row ? parseLookRevision(row) : undefined;
+  }
+
+  async listLooks(characterId?: string): Promise<LookRevision[]> {
+    const rows = characterId
+      ? await this.db.looks.where('characterId').equals(characterId).toArray()
+      : await this.db.looks.toArray();
+    return rows.map((row) => parseLookRevision(row));
   }
 
   async deleteDatabase(): Promise<void> {

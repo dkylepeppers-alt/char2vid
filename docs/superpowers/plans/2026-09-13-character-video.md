@@ -52,7 +52,7 @@ export interface LookRevision {
 
 `createCharacter({ name, referenceRevisionId }): Promise<{ characterId, revisionId }>` requires an available image revision. `reviseCharacter(previous, { id, references?, identityNotes? }): CharacterRevision` is pure and leaves `previous` intact. `saveLook(look): Promise<void>` has no write path to base character references.
 
-- [ ] Add a failing revision test:
+- [x] Add a failing revision test:
 
 ```ts
 import { expect, it } from 'vitest';
@@ -68,10 +68,11 @@ it('preserves the original identity revision', () => {
 });
 ```
 
-- [ ] Implement schema validation, immutable revision writes, look separation, cover selection, and the Library → Make character action. Quick mode produces a usable character from one approved source; detailed mode adds role/view slots. A new generated view is a candidate until accepted.
-- [ ] Add optional character-sheet/view generation using the existing composer and jobs. Expose the selected model, references, requested outputs, and cost; let users replace one slot or an entire sheet. Do not label this as model training or claim compatibility with proprietary iModel files.
-- [ ] Run `npx vitest run tests/contract/character-revisions.test.ts` and `npx playwright test tests/e2e/characters.spec.ts`. Test separate outfits, rejected views, missing local source files, and character export/import using G4.
-- [ ] Commit: `feat: add reusable characters and independent looks`.
+  Evidence: `npx vitest run tests/contract/character-revisions.test.ts` — 11 passed on tip `5bf2b7e` ([#48](https://github.com/dkylepeppers-alt/char2vid/pull/48)).
+- [x] Implement schema validation, immutable revision writes, look separation, cover selection, and the Library → Make character action. Quick mode produces a usable character from one approved source; detailed mode adds role/view slots. A new generated view is a candidate until accepted. ([#48](https://github.com/dkylepeppers-alt/char2vid/pull/48))
+- [x] Add optional character-sheet/view generation using the existing composer and jobs. Expose the selected model, references, requested outputs, and cost; let users replace one slot or an entire sheet. Do not label this as model training or claim compatibility with proprietary iModel files. ([#48](https://github.com/dkylepeppers-alt/char2vid/pull/48); Generate stays disabled without a service session; Playwright empty-state HTML rejects iModel/LoRA/`VITE_*KEY`)
+- [x] Run `npx vitest run tests/contract/character-revisions.test.ts` and `npx playwright test tests/e2e/characters.spec.ts`. Test separate outfits, rejected views, missing local source files, and character export/import using G4. Evidence on tip `5bf2b7e` (Node `v24.19.0`): vitest 11 passed; Playwright characters 2 passed; `CI=1 npm run test:e2e` 13 passed; GitHub Checks `web` passed. Missing local source is covered in the contract suite (`keeps the character when the local source file later goes missing`). Physical-device package restore remains UNVERIFIED.
+- [x] Commit: `feat: add reusable characters and independent looks` (`c5cdd33`; follow-ups on [#48](https://github.com/dkylepeppers-alt/char2vid/pull/48) for Vite aliases, Playwright locators, and a single Characters heading).
 
 ## Task C2: Compile references and preserve accepted prompt text
 
