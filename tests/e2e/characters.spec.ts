@@ -24,7 +24,9 @@ test('creates a character with independent looks, rejected views, and package re
   await page.getByRole('button', { name: 'Quick character' }).click();
 
   await expect(page.getByRole('heading', { name: 'Mira' })).toBeVisible();
-  await expect(page.getByText('identity · front')).toBeVisible();
+  await expect(
+    page.locator('p.slot-role', { hasText: 'identity · front' }),
+  ).toBeVisible();
   await expect(
     page.getByText('approved', { exact: false }).first(),
   ).toBeVisible();
@@ -64,7 +66,9 @@ test('creates a character with independent looks, rejected views, and package re
     .getByLabel('Look reference image')
     .selectOption({ label: 'tiny-red.png' });
   await page.getByRole('button', { name: 'Save look' }).click();
-  await expect(page.getByText('Red jacket')).toBeVisible();
+  await expect(
+    page.locator('p.slot-role', { hasText: 'Red jacket' }),
+  ).toBeVisible();
 
   await page.getByLabel('Slot asset revision ID').fill(revisionId!);
   await page.getByLabel('Slot role').selectOption('identity');
