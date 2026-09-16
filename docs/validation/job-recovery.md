@@ -46,8 +46,8 @@ flight. Duplicate POSTs with that id return the existing receipt.
 
 ## UNVERIFIED
 
-- Physical Android interruption / force-stop / suspend
-- Physical-device Keystore round-trip
+- Physical Android interruption / force-stop / phone-off. On-device worker uses a foreground service + WorkManager so jobs continue after leaving Create while the phone is on.
+- Physical-device Keystore round-trip for the on-device Nano-GPT key
 - Live HTTPS service deploy
 - Live Nano-GPT check-balance, paid generation, status, or download
 - Distinct daily-quota 429 versus transient 429
