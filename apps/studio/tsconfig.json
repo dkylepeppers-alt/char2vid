@@ -26,8 +26,7 @@
       ],
       "@char2vid/nanogpt": ["../../packages/nanogpt/src/index.ts"]
     },
-    "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo",
-    "types": ["node"]
+    "tsBuildInfoFile": "../../node_modules/.cache/studio.tsbuildinfo"
   },
   "include": ["src", "vite.config.ts", "capacitor.config.ts"],
   "references": [
