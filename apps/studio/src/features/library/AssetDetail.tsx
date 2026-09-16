@@ -67,9 +67,7 @@ export function AssetDetail({ library, asset, onClose }: AssetDetailProps) {
       invalidateStudioLibrary();
       onClose();
       void navigate(
-        mode === 'detailed'
-          ? `/characters?character=${created.characterId}`
-          : `/characters?character=${created.characterId}`,
+        `/characters?character=${created.characterId}&mode=${mode}`,
       );
     } catch (err) {
       setExportNote(

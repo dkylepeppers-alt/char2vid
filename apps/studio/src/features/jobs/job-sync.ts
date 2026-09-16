@@ -16,6 +16,7 @@ import {
   SERVICE_ORIGIN_KEY,
 } from '../settings/service-origin';
 import { resolvePlatform } from '../../app/platform';
+import { findLibraryAssetByRevisionId } from './find-library-asset';
 
 export interface JobView extends JobReceipt {
   cost?: {
@@ -104,12 +105,9 @@ export async function stageLibraryReferences(
 ): Promise<string[]> {
   const transferIds: string[] = [];
   for (const binding of references) {
-    const assets = await library.queryAssets({
-      sort: 'createdAt-desc',
-      limit: 200,
-    });
-    const asset = assets.assets.find(
-      (item) => item.revisionId === binding.assetRevisionId,
+    const asset = await findLibraryAssetByRevisionId(
+      library,
+      binding.assetRevisionId,
     );
     if (!asset) {
       throw new Error('reference_asset_missing');

@@ -32,6 +32,7 @@ export function ReferenceSlots({
   revision,
   availability,
   detailed,
+  busy = false,
   onAccept,
   onReject,
   onAdd,
@@ -39,6 +40,7 @@ export function ReferenceSlots({
   revision: CharacterRevision;
   availability: Record<string, ReferenceAvailability>;
   detailed: boolean;
+  busy?: boolean;
   onAccept: (assetRevisionId: string) => void;
   onReject: (assetRevisionId: string) => void;
   onAdd: (slot: {
@@ -81,6 +83,7 @@ export function ReferenceSlots({
                   <button
                     type="button"
                     className="status-chip"
+                    disabled={busy}
                     onClick={() => onAccept(reference.assetRevisionId)}
                   >
                     Accept view
@@ -88,6 +91,7 @@ export function ReferenceSlots({
                   <button
                     type="button"
                     className="status-chip"
+                    disabled={busy}
                     onClick={() => onReject(reference.assetRevisionId)}
                   >
                     Reject view
@@ -98,16 +102,20 @@ export function ReferenceSlots({
           );
         })}
       </ul>
-      {detailed ? <AddSlotForm existing={revision} onAdd={onAdd} /> : null}
+      {detailed ? (
+        <AddSlotForm existing={revision} busy={busy} onAdd={onAdd} />
+      ) : null}
     </section>
   );
 }
 
 function AddSlotForm({
   existing,
+  busy = false,
   onAdd,
 }: {
   existing: CharacterRevision;
+  busy?: boolean;
   onAdd: (slot: {
     assetRevisionId: string;
     role: CharacterReference['role'];
@@ -174,7 +182,7 @@ function AddSlotForm({
           ))}
         </select>
       </label>
-      <button type="submit" className="status-chip">
+      <button type="submit" className="status-chip" disabled={busy}>
         Add candidate slot
       </button>
     </form>

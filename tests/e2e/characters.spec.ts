@@ -23,6 +23,7 @@ test('creates a character with independent looks, rejected views, and package re
   await page.getByLabel('New character name').fill('Mira');
   await page.getByRole('button', { name: 'Quick character' }).click();
 
+  await expect(page).toHaveURL(/mode=quick/);
   await expect(page.getByRole('heading', { name: 'Mira' })).toBeVisible();
   await expect(
     page.locator('p.slot-role', { hasText: 'identity · front' }),
@@ -30,8 +31,13 @@ test('creates a character with independent looks, rejected views, and package re
   await expect(
     page.getByText('approved', { exact: false }).first(),
   ).toBeVisible();
+  await expect(
+    page.getByLabel('Detailed role and view slots'),
+  ).not.toBeChecked();
+  await expect(page.getByLabel('Slot asset revision ID')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Close character editor' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Mira' })).toHaveCount(0);
   await expect(page.getByRole('list', { name: 'Characters' })).toBeVisible();
   await expect(
     page.locator('[data-character-id]').getByText('Mira'),
@@ -68,6 +74,15 @@ test('creates a character with independent looks, rejected views, and package re
   await page.getByRole('button', { name: 'Save look' }).click();
   await expect(
     page.locator('p.slot-role', { hasText: 'Red jacket' }),
+  ).toBeVisible();
+
+  await expect(page.getByLabel('Detailed role and view slots')).toBeChecked();
+  await page
+    .getByLabel('Slot asset revision ID')
+    .fill('00000000-0000-4000-8000-000000000099');
+  await page.getByRole('button', { name: 'Add candidate slot' }).click();
+  await expect(
+    page.getByText('Slot requires an available image revision in the library'),
   ).toBeVisible();
 
   await page.getByLabel('Slot asset revision ID').fill(revisionId!);
@@ -114,4 +129,25 @@ test('characters empty state stays local and does not mention training', async (
   expect(html).not.toMatch(/iModel/i);
   expect(html).not.toMatch(/LoRA/i);
   expect(html).not.toMatch(/VITE_[A-Z0-9_]*KEY/);
+});
+
+test('detailed character opens with role slots enabled', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .locator('input[aria-label="Import media files"]')
+    .setInputFiles(portrait);
+  const card = page.locator('[data-asset-id]').first();
+  await expect(card).toBeVisible();
+  await card.getByRole('button').click();
+  await page.getByLabel('New character name').fill('Nova');
+  await page.getByRole('button', { name: 'Detailed character' }).click();
+  await expect(page).toHaveURL(/mode=detailed/);
+  await expect(page.getByRole('heading', { name: 'Nova' })).toBeVisible();
+  await expect(page.getByLabel('Detailed role and view slots')).toBeChecked();
+  await expect(page.getByLabel('Slot asset revision ID')).toBeVisible();
+  await expect(
+    page.getByRole('button', {
+      name: 'Connect the generation service to submit',
+    }),
+  ).toBeDisabled();
 });
