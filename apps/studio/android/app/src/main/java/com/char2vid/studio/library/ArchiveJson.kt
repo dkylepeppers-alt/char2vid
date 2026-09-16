@@ -475,4 +475,10 @@ object ArchiveJson {
         } catch (_: DateTimeParseException) {
             false
         }
+
+    /** Same UUID grammar as zod 4 `z.string().uuid()` (shared with CharacterJson). */
+    fun matchesUuid(value: String): Boolean = UUID.matches(value)
+
+    /** Same offset datetime grammar as zod `z.string().datetime({ offset: true })`. */
+    fun matchesIsoOffsetDateTime(value: String): Boolean = isIsoDateTime(value)
 }

@@ -12,6 +12,12 @@ object CharacterJson {
     private val VIEWS = setOf("front", "left", "right", "back", "three-quarter")
     private val APPROVALS = setOf("candidate", "approved")
 
+    /**
+     * Web-parity for character-scope archives (`state !== 'pending'`): keep referenced
+     * originals that a live library backup would omit; do not silently drop slots.
+     */
+    fun includeInCharacterPackage(state: String): Boolean = state != "pending"
+
     fun encodeReferences(references: List<ArchiveCharacterReference>): String {
         val arr = JSONArray()
         for (reference in references) {
@@ -73,8 +79,10 @@ object CharacterJson {
                 require(value in VIEWS) { "$path.view is not a known view" }
                 value
             }
+        val assetRevisionId = o.getString("assetRevisionId")
+        require(assetRevisionId.isNotEmpty()) { "$path.assetRevisionId must be non-empty" }
         return ArchiveCharacterReference(
-            assetRevisionId = o.getString("assetRevisionId"),
+            assetRevisionId = assetRevisionId,
             role = role,
             view = view,
             approval = approval,
@@ -110,9 +118,16 @@ object CharacterJson {
             val ro = refsArr.optJSONObject(i) ?: throw IllegalArgumentException("$path.references[$i] must be an object")
             refs.add(parseReference(ro, "$path.references[$i]"))
         }
+        val id = o.getString("id")
+        require(id.isNotEmpty()) { "$path.id must be non-empty" }
+        val characterId = o.getString("characterId")
+        require(characterId.isNotEmpty()) { "$path.characterId must be non-empty" }
+        if (parent != null) {
+            require(parent.isNotEmpty()) { "$path.parentRevisionId must be non-empty" }
+        }
         return ArchiveCharacterRevision(
-            id = o.getString("id"),
-            characterId = o.getString("characterId"),
+            id = id,
+            characterId = characterId,
             parentRevisionId = parent,
             identityNotes = o.optString("identityNotes", ""),
             references = refs,
@@ -153,12 +168,25 @@ object CharacterJson {
             val ro = revArr.optJSONObject(i) ?: throw IllegalArgumentException("$path.revisions[$i] must be an object")
             revisions.add(parseRevision(ro, "$path.revisions[$i]"))
         }
+        val id = clean.getString("id")
+        require(ArchiveJson.matchesUuid(id)) { "$path.id must be a UUID" }
+        val name = clean.getString("name")
+        require(name.isNotEmpty()) { "$path.name must be non-empty" }
+        val currentRevisionId = clean.getString("currentRevisionId")
+        require(ArchiveJson.matchesUuid(currentRevisionId)) { "$path.currentRevisionId must be a UUID" }
+        if (cover != null) {
+            require(cover.isNotEmpty()) { "$path.coverAssetRevisionId must be non-empty" }
+        }
+        val createdAt = clean.getString("createdAt")
+        require(ArchiveJson.matchesIsoOffsetDateTime(createdAt)) {
+            "$path.createdAt must be an ISO-8601 datetime"
+        }
         return ArchiveCharacter(
-            id = clean.getString("id"),
-            name = clean.getString("name"),
-            currentRevisionId = clean.getString("currentRevisionId"),
+            id = id,
+            name = name,
+            currentRevisionId = currentRevisionId,
             coverAssetRevisionId = cover,
-            createdAt = clean.getString("createdAt"),
+            createdAt = createdAt,
             revisions = revisions,
         )
     }
@@ -184,10 +212,16 @@ object CharacterJson {
             require(value.isNotEmpty()) { "$path.referenceRevisionIds[$i] must be non-empty" }
             ids.add(value)
         }
+        val id = clean.getString("id")
+        require(id.isNotEmpty()) { "$path.id must be non-empty" }
+        val characterId = clean.getString("characterId")
+        require(characterId.isNotEmpty()) { "$path.characterId must be non-empty" }
+        val label = clean.getString("label")
+        require(label.isNotEmpty()) { "$path.label must be non-empty" }
         return ArchiveLook(
-            id = clean.getString("id"),
-            characterId = clean.getString("characterId"),
-            label = clean.getString("label"),
+            id = id,
+            characterId = characterId,
+            label = label,
             notes = clean.optString("notes", ""),
             referenceRevisionIds = ids,
         )
