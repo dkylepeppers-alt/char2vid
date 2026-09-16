@@ -6,6 +6,11 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # typescript-eslint / tooling peers currently require typescript <6.1;
+    # ignore TS 7+ majors until the toolchain catches up.
+    ignore:
+      - dependency-name: typescript
+        versions: ['>=7']
     groups:
       capacitor:
         patterns: ['@capacitor/*']
@@ -32,6 +37,13 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
+    # AGP 8.13.x (com.android.tools.build:gradle:8.13.0) is only officially
+    # compatible with Gradle 8.x. Gradle 9.6+ removed InternalProblems APIs
+    # that AGP 8 uses (AndroidProblemReporterProvider), so wrapper 9.x bumps
+    # fail plugin apply. Ignore until we migrate to AGP 9.
+    ignore:
+      - dependency-name: gradle-wrapper
+        versions: ['>=9']
     groups:
       androidx:
         patterns: ['androidx.*']
