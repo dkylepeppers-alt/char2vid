@@ -50,7 +50,7 @@ test('create preserves accepted prompt text and blocks silent reference drops', 
 
   await page.getByRole('link', { name: 'Create', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Prompt modules' }),
+    page.getByRole('heading', { name: 'Generation text' }),
   ).toBeVisible();
   await page.getByLabel('change module text').fill('wave from the doorway');
   await page.getByRole('button', { name: 'Accept compiled prompt' }).click();

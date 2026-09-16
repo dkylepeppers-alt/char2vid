@@ -36,7 +36,7 @@ export function PromptPreview({
 
   return (
     <section className="prompt-preview" aria-labelledby="prompt-preview-title">
-      <h2 id="prompt-preview-title">Prompt modules</h2>
+      <h2 id="prompt-preview-title">Generation text</h2>
       <p>
         Edit or remove modules, then accept the compiled text. Generate uses the
         accepted prompt, not a silent assistant rewrite. Identity and outfit
