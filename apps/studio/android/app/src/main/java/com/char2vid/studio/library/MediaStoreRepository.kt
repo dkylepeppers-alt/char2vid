@@ -279,24 +279,26 @@ class MediaStoreRepository(
                     approval = "approved",
                 ),
             )
-        dao.upsertCharacter(
-            CharacterEntity(
-                id = characterId,
-                name = trimmed,
-                currentRevisionId = revisionId,
-                coverAssetRevisionId = referenceRevisionId,
-                createdAt = createdAt,
-            ),
-        )
-        dao.upsertCharacterRevision(
-            CharacterRevisionEntity(
-                id = revisionId,
-                characterId = characterId,
-                parentRevisionId = null,
-                identityNotes = "",
-                referencesJson = CharacterJson.encodeReferences(references),
-            ),
-        )
+        db.runInTransaction {
+            dao.upsertCharacter(
+                CharacterEntity(
+                    id = characterId,
+                    name = trimmed,
+                    currentRevisionId = revisionId,
+                    coverAssetRevisionId = referenceRevisionId,
+                    createdAt = createdAt,
+                ),
+            )
+            dao.upsertCharacterRevision(
+                CharacterRevisionEntity(
+                    id = revisionId,
+                    characterId = characterId,
+                    parentRevisionId = null,
+                    identityNotes = "",
+                    referencesJson = CharacterJson.encodeReferences(references),
+                ),
+            )
+        }
         val o = JSONObject()
         o.put("characterId", characterId)
         o.put("revisionId", revisionId)
@@ -356,16 +358,18 @@ class MediaStoreRepository(
                 "unknown parent revision: ${parsed.parentRevisionId}"
             }
         }
-        dao.upsertCharacterRevision(
-            CharacterRevisionEntity(
-                id = parsed.id,
-                characterId = parsed.characterId,
-                parentRevisionId = parsed.parentRevisionId,
-                identityNotes = parsed.identityNotes,
-                referencesJson = CharacterJson.encodeReferences(parsed.references),
-            ),
-        )
-        dao.upsertCharacter(character.copy(currentRevisionId = parsed.id))
+        db.runInTransaction {
+            dao.upsertCharacterRevision(
+                CharacterRevisionEntity(
+                    id = parsed.id,
+                    characterId = parsed.characterId,
+                    parentRevisionId = parsed.parentRevisionId,
+                    identityNotes = parsed.identityNotes,
+                    referencesJson = CharacterJson.encodeReferences(parsed.references),
+                ),
+            )
+            dao.upsertCharacter(character.copy(currentRevisionId = parsed.id))
+        }
     }
 
     fun saveLook(raw: JSONObject) {
@@ -471,10 +475,14 @@ class MediaStoreRepository(
             if (characterId == null) {
                 dao.listAssets().filter { it.state == "available" && it.trashedAt == null && it.sha256.isNotEmpty() }
             } else {
+                // Match web character packages: include referenced originals even when they
+                // would be omitted from a full-library live set (trashed / non-available),
+                // as long as they are not pending. Missing local bytes still fail export
+                // when LibraryArchiver reads physical objects — do not silently drop slots.
                 val wanted = packedCharacters.referencedAssetRevisionIds
                 val wantedAssetIds =
                     dao.listRevisions().filter { wanted.contains(it.id) }.map { it.assetId }.toHashSet()
-                dao.listAssets().filter { wantedAssetIds.contains(it.id) && it.state == "available" && it.sha256.isNotEmpty() }
+                dao.listAssets().filter { wantedAssetIds.contains(it.id) && CharacterJson.includeInCharacterPackage(it.state) }
             }
         val assetIds = assets.map { it.id }.toHashSet()
         val revisions = dao.listRevisions().filter { assetIds.contains(it.assetId) }
