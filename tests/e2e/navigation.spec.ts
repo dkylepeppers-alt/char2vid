@@ -78,6 +78,27 @@ test('modal sheet contains focus and restores its trigger', async ({
   await expect(trigger).toBeFocused();
 });
 
+test('phone chrome stays inside the viewport', async ({ page }) => {
+  await page.goto('/');
+  const metrics = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+
+  const nav = page.getByRole('navigation', { name: 'Studio destinations' });
+  const box = await nav.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThan(700);
+
+  await page.getByRole('button', { name: 'Open settings' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Settings' });
+  await expect(sheet).toBeVisible();
+  const sheetBox = await sheet.boundingBox();
+  expect(sheetBox).not.toBeNull();
+  expect(sheetBox!.width).toBeLessThanOrEqual(390 + 1);
+});
+
 test('settings exposes service connection without bundling provider secrets', async ({
   page,
 }) => {

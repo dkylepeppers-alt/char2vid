@@ -6,6 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   android: {
     backgroundColor: '#101210',
+    zoomEnabled: false,
   },
 };
 
