@@ -24,12 +24,11 @@ export function serializeVideoBody(
     }
     body[key] = value;
   }
-  const start = inputs.find(
-    (input) =>
-      input.binding.role === 'start-frame' && input.source.type === 'https',
-  );
+  const start = inputs.find((input) => input.binding.role === 'start-frame');
   if (start?.source.type === 'https') {
     body.imageUrl = start.source.url;
+  } else if (start?.source.type === 'data') {
+    body.imageDataUrl = start.source.dataUrl;
   }
   return body;
 }

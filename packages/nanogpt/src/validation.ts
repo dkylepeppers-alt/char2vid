@@ -41,8 +41,14 @@ export function getCompatibleModels(
   });
 }
 
-function httpsUrl(input: PreparedInput): string | undefined {
-  return input.source.type === 'https' ? input.source.url : undefined;
+function referenceUrl(input: PreparedInput): string | undefined {
+  if (input.source.type === 'https') {
+    return input.source.url;
+  }
+  if (input.source.type === 'data') {
+    return input.source.dataUrl;
+  }
+  return undefined;
 }
 
 export function validateDraft(
@@ -136,7 +142,7 @@ export function buildRequest(
     return { issues };
   }
   const urls = preparedInputs
-    .map(httpsUrl)
+    .map(referenceUrl)
     .filter((url): url is string => url !== undefined);
   if (
     draft.operation === 'image-generate' ||

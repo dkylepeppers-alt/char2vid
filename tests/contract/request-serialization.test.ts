@@ -234,6 +234,26 @@ describe('buildRequest (P3)', () => {
     });
   });
 
+  it('serializes on-device data URLs into the same image input family', () => {
+    const model = imageModel('fixture/image');
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
+    const result = buildRequest(draft(), model, [
+      {
+        binding: { assetRevisionId: 'a', role: 'identity', ordinal: 0 },
+        sha256: 'ab'.repeat(32),
+        mime: 'image/png',
+        bytes: 4,
+        source: { type: 'data', dataUrl },
+      },
+    ]);
+    expect(
+      result.issues.filter((issue) => issue.severity === 'blocking'),
+    ).toEqual([]);
+    expect(result.request?.body).toMatchObject({
+      input_references: [{ type: 'image_url', image_url: { url: dataUrl } }],
+    });
+  });
+
   it('rejects endpoint metadata URLs that are not on nano-gpt.com', () => {
     const model = imageModel('fixture/image', {
       endpointsPath: 'https://evil.example/api/v1/images/models/x/endpoints',
