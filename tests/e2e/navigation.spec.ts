@@ -89,6 +89,12 @@ test('settings exposes service connection without bundling provider secrets', as
   ).toBeVisible();
   await expect(page.getByLabel('Nano-GPT API key')).toBeVisible();
   await expect(page.getByLabel('Service origin')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Save key on this phone' }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Store key on service' }),
+  ).toBeVisible();
 
   const html = await page.content();
   expect(html).not.toMatch(/VITE_[A-Z0-9_]*KEY/);

@@ -147,7 +147,7 @@ test('detailed character opens with role slots enabled', async ({ page }) => {
   await expect(page.getByLabel('Slot asset revision ID')).toBeVisible();
   await expect(
     page.getByRole('button', {
-      name: 'Connect the generation service to submit',
+      name: 'Save a Nano-GPT key in Settings to submit',
     }),
   ).toBeDisabled();
 });
