@@ -329,6 +329,20 @@ export class JsonMetaStore implements MetaStore {
     await this.persist();
   }
 
+  async commitCharacterRevision(args: {
+    character: CharacterRecord;
+    revision: CharacterRevision;
+  }): Promise<void> {
+    await this.ensureLoaded();
+    this.snapshot.characterRevisions[args.revision.id] = parseCharacterRevision(
+      args.revision,
+    );
+    this.snapshot.characters[args.character.id] = parseCharacterRecord(
+      args.character,
+    );
+    await this.persist();
+  }
+
   async putCharacter(character: CharacterRecord): Promise<void> {
     await this.ensureLoaded();
     this.snapshot.characters[character.id] = parseCharacterRecord(character);

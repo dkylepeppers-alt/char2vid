@@ -44,6 +44,13 @@ import type {
   RevisionRecord,
 } from './protocol';
 
+/**
+ * Character-aware archive format. Domain still pins ARCHIVE_SCHEMA_VERSION at 1
+ * for the typed v1 parser; exporters advertise 2 whenever character/look records
+ * are included so older v1 importers reject instead of silently dropping them.
+ */
+export const ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS = 2 as const;
+
 export interface ArchiveSource {
   /** Raw zip bytes. */
   bytes: Uint8Array;
@@ -247,7 +254,7 @@ export async function exportArchive(
     }
     assets = (await host.meta.listAssets())
       .map((a) => normalizeAssetRecord(a))
-      .filter((a) => wantedAssetIds.has(a.id) && a.state !== 'pending')
+      .filter((a) => wantedAssetIds.has(a.id) && a.state === 'available')
       .map((a) => allowlistAssetRecord(a));
   }
 
@@ -297,20 +304,27 @@ export async function exportArchive(
     request.scope === 'character' ? [] : collectionMembers;
   const exportedTags = request.scope === 'character' ? [] : assetTags;
 
+  const includeCharacters =
+    packed.characters.length > 0 || packed.looks.length > 0;
+  const schemaVersion = includeCharacters
+    ? ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
+    : ARCHIVE_SCHEMA_VERSION;
+
   const records: ArchiveRecordsV1 = {
     assets,
     revisions,
     collectionMembers: exportedMembers,
     assetTags: exportedTags,
-    characters: packed.characters,
-    looks: packed.looks,
+    // Honest gate: only ship character payloads under schema v2.
+    characters: includeCharacters ? packed.characters : [],
+    looks: includeCharacters ? packed.looks : [],
     shots: [],
     graphEdges: [],
     timeline: [],
   };
 
-  const manifest: ArchiveManifestV1 = {
-    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  const manifest = {
+    schemaVersion,
     createdAt: new Date().toISOString(),
     scope: request.scope,
     scopeId: request.scope === 'character' ? (request.id ?? null) : null,
@@ -417,19 +431,24 @@ export async function inspectArchive(
   let manifest: ArchiveManifestV1;
   try {
     const raw = decodeJson(manifestBytes) as { schemaVersion?: unknown };
+    const rawVersion =
+      typeof raw?.schemaVersion === 'number' ? raw.schemaVersion : null;
     if (
-      typeof raw?.schemaVersion === 'number' &&
-      raw.schemaVersion !== ARCHIVE_SCHEMA_VERSION
+      rawVersion !== null &&
+      rawVersion !== ARCHIVE_SCHEMA_VERSION &&
+      rawVersion !== ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
     ) {
-      report.schemaVersion = raw.schemaVersion;
+      report.schemaVersion = rawVersion;
       report.unsupportedVersion = true;
-      report.errors.push(
-        `unsupported archive schemaVersion ${raw.schemaVersion}`,
-      );
+      report.errors.push(`unsupported archive schemaVersion ${rawVersion}`);
       return report;
     }
-    manifest = parseArchiveManifestV1(raw);
-    report.schemaVersion = manifest.schemaVersion;
+    // Domain parser is still literal-v1; coerce version for field validation.
+    manifest = parseArchiveManifestV1({
+      ...raw,
+      schemaVersion: ARCHIVE_SCHEMA_VERSION,
+    });
+    report.schemaVersion = rawVersion ?? manifest.schemaVersion;
   } catch (error) {
     report.errors.push(
       `invalid manifest.json: ${error instanceof Error ? error.message : String(error)}`,
@@ -670,9 +689,14 @@ export async function importArchive(
   }
 
   const entries = unzipArchive(source.bytes);
-  const manifest = parseArchiveManifestV1(
-    decodeJson(entries['manifest.json']!),
-  );
+  const rawManifest = decodeJson(entries['manifest.json']!) as {
+    schemaVersion?: unknown;
+  };
+  // Coerce advertised v2 down to the domain v1 literal for field validation.
+  const manifest = parseArchiveManifestV1({
+    ...rawManifest,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  });
   if (manifest.scope !== 'library' && manifest.scope !== 'character') {
     throw new Error(
       `archive scope "${manifest.scope}" is not implemented in this web slice`,

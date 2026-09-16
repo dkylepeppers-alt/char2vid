@@ -129,6 +129,15 @@ export interface MetaStore {
     looks?: LookRevision[];
   }): Promise<void>;
 
+  /**
+   * Atomically write a character pointer and its revision (create or advance).
+   * Prevents currentRevisionId orphans across crash boundaries.
+   */
+  commitCharacterRevision(args: {
+    character: CharacterRecord;
+    revision: CharacterRevision;
+  }): Promise<void>;
+
   putCharacter(character: CharacterRecord): Promise<void>;
   getCharacter(id: string): Promise<CharacterRecord | undefined>;
   listCharacters(): Promise<CharacterRecord[]>;
@@ -890,8 +899,10 @@ export class LibraryEngine implements CharacterPort {
       coverAssetRevisionId: input.referenceRevisionId,
       createdAt,
     });
-    await this.meta.putCharacter(character);
-    await this.meta.putCharacterRevision(characterRevision);
+    await this.meta.commitCharacterRevision({
+      character,
+      revision: characterRevision,
+    });
     return { characterId, revisionId };
   }
 
@@ -929,10 +940,12 @@ export class LibraryEngine implements CharacterPort {
         throw new Error(`unknown parent revision: ${next.parentRevisionId}`);
       }
     }
-    await this.meta.putCharacterRevision(next);
-    await this.meta.putCharacter({
-      ...character,
-      currentRevisionId: next.id,
+    await this.meta.commitCharacterRevision({
+      character: {
+        ...character,
+        currentRevisionId: next.id,
+      },
+      revision: next,
     });
   }
 
@@ -1016,11 +1029,12 @@ export class LibraryEngine implements CharacterPort {
     if (revision) {
       const physical = await this.meta.getPhysical(revision.sha256);
       if (physical) {
-        await this.files.remove(physical.relativePath).catch(() => undefined);
         const remaining = (await this.meta.listRevisions()).filter(
           (item) => item.sha256 === revision.sha256 && item.id !== revision.id,
         );
+        // Only drop shared bytes when no other logical revision still needs them.
         if (remaining.length === 0) {
+          await this.files.remove(physical.relativePath).catch(() => undefined);
           await this.meta.deletePhysical(revision.sha256);
         }
       }

@@ -288,6 +288,23 @@ export class DexieMetaStore implements MetaStore {
     );
   }
 
+  async commitCharacterRevision(args: {
+    character: CharacterRecord;
+    revision: CharacterRevision;
+  }): Promise<void> {
+    await this.db.transaction(
+      'rw',
+      this.db.characters,
+      this.db.characterRevisions,
+      async () => {
+        await this.db.characterRevisions.put(
+          parseCharacterRevision(args.revision),
+        );
+        await this.db.characters.put(parseCharacterRecord(args.character));
+      },
+    );
+  }
+
   putCharacter(character: CharacterRecord): Promise<void> {
     return this.db.characters
       .put(parseCharacterRecord(character))

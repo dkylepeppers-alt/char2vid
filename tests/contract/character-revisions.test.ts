@@ -19,11 +19,45 @@ import {
   parseCharacterRevision,
   parseLookRevision,
 } from '../../packages/domain/src/characters/schema';
+import { createHash } from 'node:crypto';
+
 import {
+  ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
   exportArchive,
   importArchive,
+  inspectArchive,
 } from '../../packages/storage-web/src/archive';
+import { JsonMetaStore } from '../../packages/storage-web/src/json-meta';
 import { openTestLibrary } from '../helpers/open-test-library';
+
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+async function streamToBytes(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (value) {
+      chunks.push(value);
+      total += value.byteLength;
+    }
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
 
 const fixturePath = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -344,9 +378,13 @@ describe('persisted characters', () => {
       const manifest = JSON.parse(strFromU8(zip['manifest.json']!)) as {
         scope: string;
         scopeId: string;
+        schemaVersion: number;
       };
       expect(manifest.scope).toBe('character');
       expect(manifest.scopeId).toBe(created.characterId);
+      expect(manifest.schemaVersion).toBe(
+        ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+      );
       const records = JSON.parse(strFromU8(zip['records.json']!)) as {
         characters: unknown[];
         looks: unknown[];
@@ -373,6 +411,146 @@ describe('persisted characters', () => {
     } finally {
       await source.close();
       await target.close();
+    }
+  });
+
+  it('keeps shared physical bytes when marking one of two identical assets missing', async () => {
+    const png = await loadPng();
+    const expectedHash = sha256(png);
+    const handle = await openTestLibrary();
+    try {
+      const a = await handle.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'a.png',
+        mime: 'image/png',
+      });
+      const b = await handle.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'b.png',
+        mime: 'image/png',
+      });
+      expect(a.sha256).toBe(expectedHash);
+      expect(b.sha256).toBe(expectedHash);
+      expect(await handle.physicalObjectCount()).toBe(1);
+
+      await handle.markAssetMissing(a.id);
+      expect(await handle.physicalObjectCount()).toBe(1);
+      const bytes = await streamToBytes(
+        await handle.library.readRevision(b.revisionId),
+      );
+      expect(sha256(bytes)).toBe(expectedHash);
+      expect(await handle.library.referenceAvailability(b.revisionId)).toBe(
+        'available',
+      );
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('persists character pointer and initial revision in one metadata write', async () => {
+    let saveCount = 0;
+    let lastCharacters = 0;
+    let lastRevisions = 0;
+    const meta = new JsonMetaStore({
+      async load() {
+        return {
+          journal: {},
+          assets: {},
+          revisions: {},
+          physical: {},
+          collectionMembers: {},
+          assetTags: {},
+          characters: {},
+          characterRevisions: {},
+          looks: {},
+        };
+      },
+      async save(snapshot) {
+        saveCount += 1;
+        lastCharacters = Object.keys(snapshot.characters).length;
+        lastRevisions = Object.keys(snapshot.characterRevisions).length;
+      },
+    });
+    const characterId = crypto.randomUUID();
+    const revisionId = crypto.randomUUID();
+    await meta.commitCharacterRevision({
+      character: parseCharacterRecord({
+        id: characterId,
+        name: 'Atomic',
+        currentRevisionId: revisionId,
+        coverAssetRevisionId: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      }),
+      revision: createInitialRevision({
+        id: revisionId,
+        characterId,
+        referenceRevisionId: crypto.randomUUID(),
+      }),
+    });
+    expect(saveCount).toBe(1);
+    expect(lastCharacters).toBe(1);
+    expect(lastRevisions).toBe(1);
+    expect(await meta.getCharacter(characterId)).toBeDefined();
+    expect(await meta.getCharacterRevision(revisionId)).toBeDefined();
+  });
+
+  it('character export omits missing assets and keeps available trashed originals', async () => {
+    const png = await loadPng();
+    const red = await loadRedPng();
+    const handle = await openTestLibrary();
+    try {
+      const portrait = await handle.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'portrait.png',
+        mime: 'image/png',
+      });
+      const jacket = await handle.library.importMedia({
+        kind: 'browser-file',
+        handle: red,
+        name: 'jacket.png',
+        mime: 'image/png',
+      });
+      const created = await handle.library.createCharacter({
+        name: 'Mira',
+        referenceRevisionId: portrait.revisionId,
+      });
+      await handle.library.saveLook(
+        createLookRevision({
+          id: crypto.randomUUID(),
+          characterId: created.characterId,
+          label: 'Red jacket',
+          notes: '',
+          referenceRevisionIds: [jacket.revisionId],
+        }),
+      );
+
+      await handle.library.applyLibraryAction({
+        assetIds: [portrait.id],
+        action: 'trash',
+      });
+      await handle.markAssetMissing(jacket.id);
+
+      const exported = await exportArchive(handle.getArchiveHost(), {
+        scope: 'character',
+        id: created.characterId,
+      });
+      const report = await inspectArchive({ bytes: exported.bytes });
+      expect(report.ok).toBe(true);
+      expect(report.schemaVersion).toBe(ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS);
+
+      const zip = unzipSync(exported.bytes);
+      const records = JSON.parse(strFromU8(zip['records.json']!)) as {
+        assets: { id: string; state: string; trashedAt: string | null }[];
+      };
+      expect(records.assets.map((a) => a.id)).toEqual([portrait.id]);
+      expect(records.assets[0]?.state).toBe('available');
+      expect(records.assets[0]?.trashedAt).not.toBeNull();
+      expect(records.assets.some((a) => a.id === jacket.id)).toBe(false);
+    } finally {
+      await handle.close();
     }
   });
 });
