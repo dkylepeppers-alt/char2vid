@@ -98,6 +98,10 @@ export default defineConfig({
         replacement: path.join(packagesDir, 'native-bridge/src/credentials.ts'),
       },
       {
+        find: '@char2vid/native-bridge/jobs',
+        replacement: path.join(packagesDir, 'native-bridge/src/jobs.ts'),
+      },
+      {
         find: '@char2vid/native-bridge',
         replacement: path.join(packagesDir, 'native-bridge/src/index.ts'),
       },
