@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { resolvePlatform } from '../../app/platform';
+import { collapseOptionalRemoteService } from '../library/media-import';
 import {
   nativeTokenForOrigin,
   normalizeServiceOrigin,
@@ -292,47 +293,8 @@ export function ServiceSettings() {
     }
   }, [boundToken, native, origin]);
 
-  return (
-    <section className="backup-panel" aria-labelledby="service-title">
-      <div>
-        <p className="section-kicker">Generation service</p>
-        <h3 id="service-title">Service connection</h3>
-        <p>
-          {native
-            ? 'Paste your Nano-GPT key and save it on this phone. Generation keeps polling after you leave the app. A remote service is optional.'
-            : 'The personal service holds the Nano-GPT key and temporary media. This app only keeps a session cookie.'}
-        </p>
-      </div>
-
-      {native ? (
-        <>
-          <label htmlFor="service-api-key">Nano-GPT API key</label>
-          <input
-            id="service-api-key"
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
-          <div className="backup-actions">
-            <button
-              type="button"
-              className="primary-action"
-              onClick={() => void onSaveKeyOnDevice()}
-              disabled={status.kind === 'working' || apiKey.trim().length === 0}
-            >
-              Save key on this phone
-            </button>
-          </div>
-          {deviceKeyLast4 ? (
-            <p className="backup-status" role="status">
-              Key on this phone: …{deviceKeyLast4}
-            </p>
-          ) : null}
-          <p className="section-kicker">Optional remote service</p>
-        </>
-      ) : null}
-
+  const remoteFields = (
+    <>
       <label htmlFor="service-origin">Service origin</label>
       <input
         id="service-origin"
@@ -436,6 +398,49 @@ export function ServiceSettings() {
           {session.providerKey.fingerprint})
         </p>
       ) : null}
+    </>
+  );
+
+  return (
+    <section className="backup-panel" aria-labelledby="service-title">
+      <div>
+        <p className="section-kicker">Generation service</p>
+        <h3 id="service-title">Service connection</h3>
+        <p>
+          {native
+            ? 'Paste your Nano-GPT key and save it on this phone. Generation keeps polling after you leave the app. A remote service is optional.'
+            : 'The personal service holds the Nano-GPT key and temporary media. This app only keeps a session cookie.'}
+        </p>
+      </div>
+
+      {native ? (
+        <>
+          <label htmlFor="service-api-key">Nano-GPT API key</label>
+          <input
+            id="service-api-key"
+            type="password"
+            autoComplete="off"
+            enterKeyHint="done"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+          />
+          <div className="backup-actions">
+            <button
+              type="button"
+              className="primary-action"
+              onClick={() => void onSaveKeyOnDevice()}
+              disabled={status.kind === 'working' || apiKey.trim().length === 0}
+            >
+              Save key on this phone
+            </button>
+          </div>
+          {deviceKeyLast4 ? (
+            <p className="backup-status" role="status">
+              Key on this phone: …{deviceKeyLast4}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
       {status.kind !== 'idle' && (
         <p
@@ -448,6 +453,15 @@ export function ServiceSettings() {
         >
           {status.message}
         </p>
+      )}
+
+      {collapseOptionalRemoteService(native ? 'android' : 'web') ? (
+        <details className="backup-details">
+          <summary>Optional remote service</summary>
+          {remoteFields}
+        </details>
+      ) : (
+        remoteFields
       )}
     </section>
   );
