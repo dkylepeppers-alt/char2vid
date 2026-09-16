@@ -9,11 +9,8 @@ import {
 } from '@char2vid/nanogpt';
 
 import { getStudioLibrary } from '../library/library-session';
-import {
-  resolveStudioSession,
-  stageLibraryReferences,
-  submitGenerationJob,
-} from '../jobs/job-sync';
+import { resolveStudioSession } from '../jobs/job-sync';
+import { hasOnDeviceProviderKey, submitDraftJob } from '../jobs/on-device-jobs';
 import {
   clearDraftClientRequestId,
   createSubmitGate,
@@ -129,6 +126,13 @@ export function CreatePage() {
         }
       })
       .catch(() => undefined);
+    void hasOnDeviceProviderKey()
+      .then((ready) => {
+        if (!cancelled && ready) {
+          setServiceReady(true);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -191,7 +195,8 @@ export function CreatePage() {
         <h2 id="draft-title">Shape your next shot</h2>
         <p>
           Image-first create: pick a catalog model, attach library references,
-          and submit a durable job. This UI never calls Nano-GPT directly.
+          and submit a durable job. On Android, this phone polls Nano-GPT after
+          you leave the screen.
         </p>
       </div>
       <label htmlFor="prompt">Prompt</label>
@@ -311,26 +316,10 @@ export function CreatePage() {
             mint: () => crypto.randomUUID(),
           });
           void (async () => {
-            const session = await resolveStudioSession();
-            if (!session) {
-              setServiceReady(false);
-              setSubmitState('Connect the generation service to submit');
-              return;
-            }
-            const library = await getStudioLibrary();
-            const transferIds = await stageLibraryReferences(
-              session,
-              library,
-              references,
-            );
-            const receipt = await submitGenerationJob(
-              session,
-              {
-                clientRequestId,
-                ...draft,
-              },
-              transferIds,
-            );
+            const receipt = await submitDraftJob({
+              draft: { clientRequestId, ...draft },
+              model: selected,
+            });
             clearDraftClientRequestId(window.localStorage);
             setSubmitState(
               `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
@@ -346,7 +335,7 @@ export function CreatePage() {
             });
         }}
       >
-        {canGenerate ? 'Generate' : 'Connect the generation service to submit'}
+        {canGenerate ? 'Generate' : 'Save a Nano-GPT key in Settings to submit'}
       </button>
       {submitState && submitState !== 'working' ? (
         <p className="backup-status" role="status">

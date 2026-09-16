@@ -8,12 +8,8 @@ import {
   type NanoGptModelDescriptor,
 } from '@char2vid/nanogpt';
 
-import {
-  resolveStudioSession,
-  stageLibraryReferences,
-  submitGenerationJob,
-} from '../jobs/job-sync';
-import { getStudioLibrary } from '../library/library-session';
+import { resolveStudioSession } from '../jobs/job-sync';
+import { hasOnDeviceProviderKey, submitDraftJob } from '../jobs/on-device-jobs';
 import {
   clearDraftClientRequestId,
   createSubmitGate,
@@ -90,6 +86,13 @@ export function CharacterSheetGenerate({
           setServiceReady(false);
         }
       });
+    void hasOnDeviceProviderKey()
+      .then((ready) => {
+        if (!cancelled && ready) {
+          setServiceReady(true);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -243,23 +246,10 @@ export function CharacterSheetGenerate({
             mint: () => crypto.randomUUID(),
           });
           void (async () => {
-            const session = await resolveStudioSession();
-            if (!session) {
-              setServiceReady(false);
-              setSubmitState('Connect the generation service to submit');
-              return;
-            }
-            const library = await getStudioLibrary();
-            const transferIds = await stageLibraryReferences(
-              session,
-              library,
-              references,
-            );
-            const receipt = await submitGenerationJob(
-              session,
-              { clientRequestId, ...draft },
-              transferIds,
-            );
+            const receipt = await submitDraftJob({
+              draft: { clientRequestId, ...draft },
+              model: selected,
+            });
             clearDraftClientRequestId(window.localStorage);
             setSubmitState(
               `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
@@ -277,7 +267,7 @@ export function CharacterSheetGenerate({
       >
         {serviceReady && selected && references.length > 0
           ? 'Generate view'
-          : 'Connect the generation service to submit'}
+          : 'Save a Nano-GPT key in Settings to submit'}
       </button>
       {submitState && submitState !== 'working' ? (
         <p className="backup-status" role="status">
