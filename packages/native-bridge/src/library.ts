@@ -26,6 +26,10 @@ interface Char2vidLibraryPlugin {
     name: string;
     mime: string;
   }): Promise<AssetRecord>;
+  pickAndImport(): Promise<{
+    status: 'imported' | 'cancelled';
+    assets: AssetRecord[];
+  }>;
   getAsset(options: { id: string }): Promise<{ asset: AssetRecord | null }>;
   openRevisionRead(options: {
     revisionId: string;
@@ -119,6 +123,20 @@ export class NativeLibraryPort implements LibraryPort {
       mime: source.mime,
     });
     return parseAssetRecord(record);
+  }
+
+  async pickAndImport(): Promise<{
+    status: 'imported' | 'cancelled';
+    assets: AssetRecord[];
+  }> {
+    if (!isAndroidNative()) {
+      throw new Error('NativeLibraryPort requires Android');
+    }
+    const result = await Char2vidLibrary.pickAndImport();
+    return {
+      status: result.status,
+      assets: (result.assets ?? []).map((asset) => parseAssetRecord(asset)),
+    };
   }
 
   async getAsset(id: string): Promise<AssetRecord | undefined> {
@@ -314,4 +332,18 @@ export function getNativeLibrary(): LibraryPort {
 
 export function isNativeLibraryAvailable(): boolean {
   return isAndroidNative();
+}
+
+export async function pickAndImportNativeMedia(): Promise<{
+  status: 'imported' | 'cancelled';
+  assets: AssetRecord[];
+}> {
+  if (!isAndroidNative()) {
+    throw new Error('Native media import requires Android');
+  }
+  const result = await Char2vidLibrary.pickAndImport();
+  return {
+    status: result.status,
+    assets: (result.assets ?? []).map((asset) => parseAssetRecord(asset)),
+  };
 }

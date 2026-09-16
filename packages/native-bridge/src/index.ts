@@ -37,6 +37,7 @@ export {
   NativeLibraryPort,
   getNativeLibrary,
   isNativeLibraryAvailable,
+  pickAndImportNativeMedia,
 } from './library';
 
 export {

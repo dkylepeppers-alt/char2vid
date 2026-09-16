@@ -8,7 +8,9 @@ import {
   getStudioLibrary,
   subscribeLibraryInvalidation,
 } from './library-session';
+import { selectMediaImportMode } from './media-import';
 import { SelectionBar } from './SelectionBar';
+import { resolvePlatform } from '../../app/platform';
 
 const PAGE_SIZE = 48;
 
@@ -28,6 +30,7 @@ export function LibraryPage() {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -101,11 +104,30 @@ export function LibraryPage() {
     [assets, detailId],
   );
 
+  async function handleNativeImport() {
+    setBusy(true);
+    setImportError(null);
+    try {
+      const { pickAndImportNativeMedia } =
+        await import('@char2vid/native-bridge/library');
+      const result = await pickAndImportNativeMedia();
+      if (result.status === 'cancelled') {
+        return;
+      }
+      await loadPage({ append: false });
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleImport(files: FileList | null) {
     if (!library || !files || files.length === 0) {
       return;
     }
     setBusy(true);
+    setImportError(null);
     try {
       for (const file of Array.from(files)) {
         await library.importMedia({
@@ -116,6 +138,8 @@ export function LibraryPage() {
         });
       }
       await loadPage({ append: false });
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Import failed');
     } finally {
       setBusy(false);
       if (importInput.current) {
@@ -246,7 +270,15 @@ export function LibraryPage() {
           <button
             type="button"
             className="primary-action library-import"
-            onClick={() => importInput.current?.click()}
+            onClick={() => {
+              if (
+                selectMediaImportMode(resolvePlatform()) === 'native-picker'
+              ) {
+                void handleNativeImport();
+                return;
+              }
+              importInput.current?.click();
+            }}
             disabled={busy || trashedView}
           >
             Import
@@ -262,6 +294,12 @@ export function LibraryPage() {
           />
         </div>
       </div>
+
+      {importError ? (
+        <p className="backup-status backup-status-error" role="status">
+          {importError}
+        </p>
+      ) : null}
 
       <SelectionBar
         selectedCount={selected.size}
