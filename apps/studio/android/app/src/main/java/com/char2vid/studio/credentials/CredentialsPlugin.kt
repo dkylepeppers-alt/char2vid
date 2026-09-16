@@ -17,8 +17,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Keystore-backed app-service session storage (P2).
- * Stores only the studio↔service device token — never a Nano-GPT key.
+ * Keystore-backed app-service session storage (P2) and on-device provider key.
+ * The Nano-GPT key uses a separate Keystore alias from the device session.
  * Physical-device Keystore round-trip remains UNVERIFIED.
  */
 @CapacitorPlugin(name = "Char2vidCredentials")
@@ -71,6 +71,51 @@ class CredentialsPlugin : Plugin() {
     @PluginMethod
     fun clearSession(call: PluginCall) {
         prefs().edit().remove(KEY_BLOB).apply()
+        val result = JSObject()
+        result.put("cleared", true)
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    fun saveProviderKey(call: PluginCall) {
+        val apiKey = call.getString("apiKey")
+        if (apiKey.isNullOrBlank()) {
+            call.reject("saveProviderKey requires apiKey")
+            return
+        }
+        try {
+            val store = com.char2vid.studio.jobs.ProviderKeyStore(context)
+            store.save(apiKey)
+            val result = JSObject()
+            result.put("stored", true)
+            result.put("last4", store.last4())
+            call.resolve(result)
+        } catch (error: Exception) {
+            call.reject(error.message ?: "saveProviderKey failed", error)
+        }
+    }
+
+    @PluginMethod
+    fun hasProviderKey(call: PluginCall) {
+        try {
+            val store = com.char2vid.studio.jobs.ProviderKeyStore(context)
+            val result = JSObject()
+            result.put("stored", store.hasKey())
+            val last4 = store.last4()
+            if (last4 == null) {
+                result.put("last4", JSONObject.NULL)
+            } else {
+                result.put("last4", last4)
+            }
+            call.resolve(result)
+        } catch (error: Exception) {
+            call.reject(error.message ?: "hasProviderKey failed", error)
+        }
+    }
+
+    @PluginMethod
+    fun clearProviderKey(call: PluginCall) {
+        com.char2vid.studio.jobs.ProviderKeyStore(context).clear()
         val result = JSObject()
         result.put("cleared", true)
         call.resolve(result)

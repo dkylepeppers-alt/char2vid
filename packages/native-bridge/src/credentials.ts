@@ -1,8 +1,9 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
- * App-service session credential. On Android this is Keystore-backed and
- * excluded from portable backups. The Nano-GPT provider key never lives here.
+ * App-service session credential and on-device provider key.
+ * On Android both are Keystore-backed and excluded from portable backups.
+ * The Nano-GPT key uses a separate blob from the device session token.
  */
 export interface ServiceSessionCredential {
   deviceToken: string;
@@ -18,6 +19,12 @@ interface Char2vidCredentialsPlugin {
     serviceOrigin: string | null;
   }>;
   clearSession(): Promise<{ cleared: true }>;
+  saveProviderKey(options: { apiKey: string }): Promise<{
+    stored: true;
+    last4: string | null;
+  }>;
+  hasProviderKey(): Promise<{ stored: boolean; last4: string | null }>;
+  clearProviderKey(): Promise<{ cleared: true }>;
 }
 
 const Char2vidCredentials = registerPlugin<Char2vidCredentialsPlugin>(
@@ -59,4 +66,37 @@ export async function clearNativeServiceSession(): Promise<void> {
     return;
   }
   await Char2vidCredentials.clearSession();
+}
+
+export async function saveNativeProviderKey(
+  apiKey: string,
+): Promise<string | undefined> {
+  if (!isAndroidNative()) {
+    throw new Error('Native provider keys require Android Keystore');
+  }
+  const result = await Char2vidCredentials.saveProviderKey({ apiKey });
+  return result.last4 ?? undefined;
+}
+
+export async function hasNativeProviderKey(): Promise<boolean> {
+  if (!isAndroidNative()) {
+    return false;
+  }
+  const result = await Char2vidCredentials.hasProviderKey();
+  return result.stored === true;
+}
+
+export async function nativeProviderKeyLast4(): Promise<string | undefined> {
+  if (!isAndroidNative()) {
+    return undefined;
+  }
+  const result = await Char2vidCredentials.hasProviderKey();
+  return result.last4 ?? undefined;
+}
+
+export async function clearNativeProviderKey(): Promise<void> {
+  if (!isAndroidNative()) {
+    return;
+  }
+  await Char2vidCredentials.clearProviderKey();
 }
