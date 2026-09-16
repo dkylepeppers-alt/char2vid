@@ -74,7 +74,7 @@ it('keeps distinct IDs sharing a display name', () => {
 
 `safeDownload(url, destination, limits)` validates every DNS resolution/redirect, rejects private/link-local destinations, enforces MIME/size/time bounds, and never forwards inference headers across origins.
 
-**Evidence (this PR):** Fastify + `node:sqlite` service, AES-256-GCM provider-key vault, HttpOnly cookie vs native bearer, 8 MiB resumable parts, HMAC-signed `GET /studio-media/:id`. Contract tests use fake keys only and never call Nano-GPT. Live `POST /api/check-balance` key validation, HTTPS deployment, and physical Keystore proof remain **UNVERIFIED**. Job-bound input leases wait for P4.
+**Evidence (this PR):** Fastify + `node:sqlite` service, AES-256-GCM provider-key vault, HttpOnly cookie vs native bearer, 8 MiB resumable parts, HMAC-signed `GET /studio-media/:id`. Contract tests use fake keys only and never call Nano-GPT. Live `POST /api/check-balance` key validation, HTTPS deployment, and physical Keystore proof remain **UNVERIFIED**. Job-bound input leases landed in P4 (`job_input_leases`).
 
 - [x] Add tests proving unauthenticated writes fail, setup cannot be reused, a device cannot access another owner's transfer, repeated identical chunks are accepted, changed chunks conflict, and a truncated upload cannot finalize.
   - Evidence: `tests/contract/service-security.test.ts` and `tests/contract/transfers.test.ts` (`npx vitest run tests/contract/service-security.test.ts tests/contract/transfers.test.ts tests/unit/validate-key.test.ts` — 15 passed).
@@ -91,7 +91,7 @@ retain active job inputs; expire terminal/unclaimed data by the spec policy
 ```
 
   - Evidence: `apps/service/src/transfers/*` — quota reservation, contiguous finalize, checksum, restart mid-upload, stale signature, SSRF-safe download. Pending TTL 24h / finalized 7d. Write/finalize reject expired transfers.
-- [x] Bind finalized objects to job-bound input leases (deferred to P4).
+- [x] Bind finalized objects to job-bound input leases (landed in P4).
   - Evidence (P4): `submitJob` writes `job_input_leases`; `expireDueTransfers` skips transfers bound to non-terminal jobs (`tests/contract/jobs.test.ts` keeps a finalized reference after an 8-day clock jump).
 - [x] Run `npx vitest run tests/contract/service-security.test.ts tests/contract/transfers.test.ts`. Include redirect-to-private-network, stale signature, wrong checksum, service restart during upload, and quota exhaustion. Use fake credentials only.
   - Evidence: focused vitest on those files; Playwright cannot prove a live HTTPS deploy from CI.
