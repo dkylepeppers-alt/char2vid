@@ -87,12 +87,9 @@ export function CharacterList() {
   }
 
   return (
-    <section className="character-page" aria-labelledby="character-list-title">
+    <section className="character-page" aria-label="Characters">
       <div className="library-toolbar">
         <div className="library-toolbar-main">
-          <h2 id="character-list-title" className="visually-hidden">
-            Characters
-          </h2>
           <label className="library-search">
             <span className="visually-hidden">Search characters</span>
             <input
