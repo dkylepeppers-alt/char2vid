@@ -39,6 +39,22 @@ describe('prompt compiler', () => {
     expect(result.finalText).not.toContain('red jacket');
   });
 
+  it('appends only missing ordinal tags for verified adapter syntax', () => {
+    const second: ReferenceBinding = {
+      assetRevisionId: 'portrait-2',
+      role: 'identity',
+      characterRevisionId: 'cr-mira-2',
+      ordinal: 1,
+    };
+    const result = compilePrompt({
+      acceptedText: 'wave hello @0',
+      bindings: [subject, second],
+      adapterSyntax: { kind: 'ordinal-mention' },
+    });
+    expect(result.finalText).toBe('wave hello @0\n@1');
+    expect(result.finalText.match(/@0/g)).toEqual(['@0']);
+  });
+
   it('adds only verified adapter binding syntax', () => {
     const without = compilePrompt({
       acceptedText: 'wave hello',

@@ -277,6 +277,38 @@ describe('reference plan', () => {
     ).toBe(true);
   });
 
+  it('does not collapse distinct bindings that reuse one asset past maxItems', () => {
+    const requested = [
+      binding({
+        assetRevisionId: 'shared',
+        characterRevisionId: 'c1',
+        role: 'identity',
+        ordinal: 0,
+      }),
+      binding({
+        assetRevisionId: 'shared',
+        characterRevisionId: 'c2',
+        role: 'look',
+        ordinal: 1,
+      }),
+    ];
+    const result = planReferences({
+      requested,
+      maxItems: 1,
+      supportedRoles: ['identity', 'look'],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.omitted).toHaveLength(1);
+    expect(result.selected[0]?.characterRevisionId).toBe('c1');
+    expect(result.omitted[0]?.characterRevisionId).toBe('c2');
+    expect(
+      result.issues.some(
+        (issue) =>
+          issue.code === 'reference_capacity' && issue.severity === 'blocking',
+      ),
+    ).toBe(true);
+  });
+
   it('clears a capacity conflict after the user omits the extra identity', () => {
     const requested = [
       binding({

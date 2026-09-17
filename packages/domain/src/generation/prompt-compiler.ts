@@ -71,6 +71,10 @@ export function compileModules(modules: readonly PromptModule[]): string {
     .join('. ');
 }
 
+function hasOrdinalTag(text: string, tag: string): boolean {
+  return new RegExp(`(^|\\s)${tag}(?!\\d)`).test(text);
+}
+
 export function compilePrompt(input: CompilePromptInput): {
   finalText: string;
   bindings: ReferenceBinding[];
@@ -80,12 +84,11 @@ export function compilePrompt(input: CompilePromptInput): {
   const bindings = input.bindings.map((binding) => ({ ...binding }));
   let finalText = input.acceptedText;
   if (input.adapterSyntax?.kind === 'ordinal-mention' && bindings.length > 0) {
-    const tags = bindings.map((binding) => `@${binding.ordinal}`).join(' ');
-    const alreadyPresent = bindings.every((binding) =>
-      input.acceptedText.includes(`@${binding.ordinal}`),
-    );
-    if (!alreadyPresent) {
-      finalText = `${input.acceptedText}\n${tags}`;
+    const missing = bindings
+      .map((binding) => `@${binding.ordinal}`)
+      .filter((tag) => !hasOrdinalTag(input.acceptedText, tag));
+    if (missing.length > 0) {
+      finalText = `${input.acceptedText}\n${missing.join(' ')}`;
     }
   }
   return { finalText, bindings };
