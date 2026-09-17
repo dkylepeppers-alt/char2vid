@@ -4,7 +4,10 @@ import type {
   AssetRecord,
   LibraryPort,
 } from '../../packages/domain/src/storage';
-import { findLibraryAssetByRevisionId } from '../../apps/studio/src/features/jobs/find-library-asset';
+import {
+  findLibraryAssetByRevisionId,
+  findLibraryAssetBySha256,
+} from '../../apps/studio/src/features/jobs/find-library-asset';
 
 function asset(revisionId: string, id = revisionId): AssetRecord {
   return {
@@ -43,6 +46,24 @@ describe('findLibraryAssetByRevisionId', () => {
     expect(found?.revisionId).toBe(target.revisionId);
     expect(queryAssets).toHaveBeenCalledTimes(2);
     expect(queryAssets.mock.calls[1][0]).toMatchObject({ cursor: 'page-2' });
+  });
+
+  it('finds an available asset by sha256 across query pages', async () => {
+    const target = {
+      ...asset('11111111-1111-4111-8111-111111111111'),
+      sha256: 'b'.repeat(64),
+    };
+    const queryAssets = vi
+      .fn()
+      .mockResolvedValueOnce({
+        assets: [asset('00000000-0000-4000-8000-000000000001')],
+        nextCursor: 'page-2',
+      })
+      .mockResolvedValueOnce({ assets: [target] });
+    const library = { queryAssets } as unknown as LibraryPort;
+    const found = await findLibraryAssetBySha256(library, target.sha256);
+    expect(found?.revisionId).toBe(target.revisionId);
+    expect(queryAssets).toHaveBeenCalledTimes(2);
   });
 
   it('returns undefined when pages are exhausted', async () => {

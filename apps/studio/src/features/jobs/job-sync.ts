@@ -6,6 +6,10 @@ import type {
 import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 
 import { attachImportedCharacterSlots } from './attach-generated-slot';
+import {
+  rememberJobOutputImport,
+  resolveImportedOutput,
+} from './job-output-imports';
 
 import {
   getStudioLibrary,
@@ -19,6 +23,8 @@ import {
 } from '../settings/service-origin';
 import { resolvePlatform } from '../../app/platform';
 import { findLibraryAssetByRevisionId } from './find-library-asset';
+
+export { JOB_OUTPUT_IMPORT_MAP_KEY } from './job-output-imports';
 
 export interface JobView extends JobReceipt {
   cost?: {
@@ -206,12 +212,45 @@ export async function cancelStudioJob(
   return (await response.json()) as JobView;
 }
 
+export interface ReconcileJobOptions {
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
+}
+
+const reconcileInFlight = new Map<string, Promise<JobView>>();
+
+function resolveReconcileStorage(
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null,
+): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null {
+  if (storage !== undefined) {
+    return storage;
+  }
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage;
+  }
+  return null;
+}
+
 async function importOutput(
   session: StudioSession,
   library: LibraryPort,
   job: JobView,
   output: NonNullable<JobView['outputs']>[number],
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null,
 ): Promise<AssetRecord> {
+  const existing = await resolveImportedOutput(
+    library,
+    storage,
+    job.id,
+    output.ordinal,
+    output.sha256,
+  );
+  if (existing) {
+    rememberJobOutputImport(storage, job.id, output.ordinal, {
+      revisionId: existing.revisionId,
+      sha256: existing.sha256,
+    });
+    return existing;
+  }
   const response = await studioApiFetch(
     session,
     `/studio-api/jobs/${job.id}/outputs/${output.ordinal}`,
@@ -224,12 +263,31 @@ async function importOutput(
   if (hash !== output.sha256) {
     throw new Error('output_hash_mismatch');
   }
-  return library.importMedia({
+  const reused = await resolveImportedOutput(
+    library,
+    storage,
+    job.id,
+    output.ordinal,
+    output.sha256,
+  );
+  if (reused) {
+    rememberJobOutputImport(storage, job.id, output.ordinal, {
+      revisionId: reused.revisionId,
+      sha256: reused.sha256,
+    });
+    return reused;
+  }
+  const imported = await library.importMedia({
     kind: 'stream',
     handle: bytes,
     name: `job-${job.id.slice(0, 8)}-${output.ordinal}`,
     mime: output.mime,
   });
+  rememberJobOutputImport(storage, job.id, output.ordinal, {
+    revisionId: imported.revisionId,
+    sha256: imported.sha256,
+  });
+  return imported;
 }
 
 async function reportSaveProgress(
@@ -255,16 +313,46 @@ export async function reconcileJobOutputs(
   session: StudioSession,
   library: LibraryPort,
   job: JobView,
+  options: ReconcileJobOptions = {},
+): Promise<JobView> {
+  const existing = reconcileInFlight.get(job.id);
+  if (existing) {
+    return existing;
+  }
+  const run = reconcileJobOutputsUnlocked(
+    session,
+    library,
+    job,
+    options,
+  ).finally(() => {
+    reconcileInFlight.delete(job.id);
+  });
+  reconcileInFlight.set(job.id, run);
+  return run;
+}
+
+async function reconcileJobOutputsUnlocked(
+  session: StudioSession,
+  library: LibraryPort,
+  job: JobView,
+  options: ReconcileJobOptions,
 ): Promise<JobView> {
   if (job.providerState !== 'completed' || job.saveState === 'saved') {
     return job;
   }
+  const storage = resolveReconcileStorage(options.storage);
   await reportSaveProgress(session, job.id, 'downloading');
   const hashes: string[] = [];
   const importedRevisionIds: string[] = [];
   try {
     for (const output of job.outputs ?? []) {
-      const imported = await importOutput(session, library, job, output);
+      const imported = await importOutput(
+        session,
+        library,
+        job,
+        output,
+        storage,
+      );
       hashes.push(imported.sha256);
       importedRevisionIds.push(imported.revisionId);
     }
