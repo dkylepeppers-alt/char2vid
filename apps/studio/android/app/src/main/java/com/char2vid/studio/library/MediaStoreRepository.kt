@@ -39,6 +39,7 @@ class MediaStoreRepository(
         File(context.filesDir, "library").also { it.mkdirs() }
 
     private val openReads = ConcurrentHashMap<String, OpenRead>()
+    private val openWrites = ConcurrentHashMap<String, File>()
 
     data class OpenRead(
         val input: InputStream,
@@ -221,6 +222,38 @@ class MediaStoreRepository(
         } finally {
             source.delete()
         }
+    }
+
+    fun beginByteImport(): JSONObject {
+        val writeId = UUID.randomUUID().toString()
+        val file = File(context.cacheDir, "byte-import-$writeId")
+        file.parentFile?.mkdirs()
+        FileOutputStream(file).close()
+        openWrites[writeId] = file
+        val o = JSONObject()
+        o.put("writeId", writeId)
+        o.put("uri", file.toURI().toString())
+        return o
+    }
+
+    fun appendByteImportChunk(writeId: String, dataBase64: String) {
+        require(writeId.isNotBlank()) { "writeId required" }
+        require(dataBase64.isNotBlank()) { "chunk required" }
+        val file =
+            openWrites[writeId]
+                ?: throw IllegalArgumentException("unknown writeId")
+        val bytes = android.util.Base64.decode(dataBase64, android.util.Base64.NO_WRAP)
+        require(bytes.isNotEmpty() && bytes.size <= 1024 * 1024) {
+            "chunk exceeds native import limit"
+        }
+        FileOutputStream(file, true).use { output -> output.write(bytes) }
+    }
+
+    fun abandonByteImport(writeId: String) {
+        val file =
+            openWrites.remove(writeId)
+                ?: File(context.cacheDir, "byte-import-$writeId")
+        file.delete()
     }
 
     fun getAsset(id: String): AssetRecordDto? {
