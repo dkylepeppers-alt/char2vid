@@ -36,6 +36,38 @@ export default defineConfig({
         replacement: path.join(packagesDir, 'domain/src/archive-remap.ts'),
       },
       {
+        find: '@char2vid/domain/generation/reference-plan',
+        replacement: path.join(
+          packagesDir,
+          'domain/src/generation/reference-plan.ts',
+        ),
+      },
+      {
+        find: '@char2vid/domain/generation/prompt-compiler',
+        replacement: path.join(
+          packagesDir,
+          'domain/src/generation/prompt-compiler.ts',
+        ),
+      },
+      {
+        find: '@char2vid/domain/generation/request-snapshot',
+        replacement: path.join(
+          packagesDir,
+          'domain/src/generation/request-snapshot.ts',
+        ),
+      },
+      {
+        find: '@char2vid/domain/generation/slot-attach',
+        replacement: path.join(
+          packagesDir,
+          'domain/src/generation/slot-attach.ts',
+        ),
+      },
+      {
+        find: '@char2vid/domain/generation',
+        replacement: path.join(packagesDir, 'domain/src/generation/index.ts'),
+      },
+      {
         find: '@char2vid/domain/characters/schema',
         replacement: path.join(packagesDir, 'domain/src/characters/schema.ts'),
       },

@@ -28,6 +28,8 @@ npm run android:debug
 
 Read `docs/validation/android-foundation.md` for the pinned Android toolchain. Run native commands from the documented directory. Never commit local SDK paths, build output, `.env` secrets, signing keys, generated media, or databases. Commit source-controlled Android project changes and the Gradle wrapper together.
 
+`npm run typecheck` (`tsc --build`) uses TypeScript **7.0.2** from `@typescript/native`. The package named `typescript` is `@typescript/typescript6` so `typescript-eslint@8.70.0` can import a compiler API (TypeScript 7.0 does not ship one; published eslint peers remain `typescript <6.1.0`). Do not flatten those aliases to `typescript@7`, and do not use `--legacy-peer-deps` / `--force` to paper over the peer range. Drop the shim only after a typescript-eslint release peers TypeScript 7.
+
 ## Architectural boundaries
 
 - `packages/domain`: platform-independent types and behavior; no React, DOM storage, Capacitor, Android, or database drivers.

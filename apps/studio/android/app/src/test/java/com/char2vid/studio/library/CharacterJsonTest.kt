@@ -90,9 +90,9 @@ class CharacterJsonTest {
     }
 
     @Test
-    fun characterPackageAssetFilterMatchesWebPendingRule() {
+    fun characterPackageAssetFilterMatchesWebAvailableRule() {
         assertTrue(CharacterJson.includeInCharacterPackage("available"))
-        assertTrue(CharacterJson.includeInCharacterPackage("missing"))
+        assertFalse(CharacterJson.includeInCharacterPackage("missing"))
         assertFalse(CharacterJson.includeInCharacterPackage("pending"))
     }
 

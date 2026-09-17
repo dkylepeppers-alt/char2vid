@@ -88,15 +88,25 @@ function isAndroidNative(): boolean {
 }
 
 function base64ToUint8Array(b64: string): Uint8Array {
-  const binary =
-    typeof atob === 'function'
-      ? atob(b64)
-      : Buffer.from(b64, 'base64').toString('binary');
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    out[i] = binary.charCodeAt(i);
+  if (typeof atob === 'function') {
+    const binary = atob(b64);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      out[i] = binary.charCodeAt(i);
+    }
+    return out;
   }
-  return out;
+  const buffer = (
+    globalThis as typeof globalThis & {
+      Buffer?: {
+        from(input: string, encoding: string): Uint8Array;
+      };
+    }
+  ).Buffer;
+  if (typeof buffer?.from === 'function') {
+    return new Uint8Array(buffer.from(b64, 'base64'));
+  }
+  throw new Error('base64 decode requires atob or Buffer in this environment');
 }
 
 /**

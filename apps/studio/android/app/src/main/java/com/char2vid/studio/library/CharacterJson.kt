@@ -13,10 +13,11 @@ object CharacterJson {
     private val APPROVALS = setOf("candidate", "approved")
 
     /**
-     * Web-parity for character-scope archives (`state !== 'pending'`): keep referenced
-     * originals that a live library backup would omit; do not silently drop slots.
+     * Web-parity for character-scope archives (`state == available`): keep
+     * referenced originals a live library backup would omit when they are
+     * still available, including trashed files; never pack pending or missing.
      */
-    fun includeInCharacterPackage(state: String): Boolean = state != "pending"
+    fun includeInCharacterPackage(state: String): Boolean = state == "available"
 
     fun encodeReferences(references: List<ArchiveCharacterReference>): String {
         val arr = JSONArray()

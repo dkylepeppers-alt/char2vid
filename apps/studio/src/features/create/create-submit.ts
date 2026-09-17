@@ -15,6 +15,7 @@ export function draftFingerprint(
     parameters: draft.parameters,
     projectId: draft.projectId ?? null,
     shotRevisionId: draft.shotRevisionId ?? null,
+    characterSlot: draft.characterSlot ?? null,
   });
 }
 

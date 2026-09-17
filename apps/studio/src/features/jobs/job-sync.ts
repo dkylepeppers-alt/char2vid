@@ -5,6 +5,8 @@ import type {
 } from '@char2vid/domain';
 import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 
+import { attachImportedCharacterSlots } from './attach-generated-slot';
+
 import {
   getStudioLibrary,
   invalidateStudioLibrary,
@@ -260,15 +262,24 @@ export async function reconcileJobOutputs(
   }
   await reportSaveProgress(session, job.id, 'downloading');
   const hashes: string[] = [];
+  const importedRevisionIds: string[] = [];
   try {
     for (const output of job.outputs ?? []) {
       const imported = await importOutput(session, library, job, output);
       hashes.push(imported.sha256);
+      importedRevisionIds.push(imported.revisionId);
     }
     await reportSaveProgress(session, job.id, 'verifying');
   } catch (error) {
     await reportSaveProgress(session, job.id, 'failed').catch(() => undefined);
     throw error;
+  }
+  if (job.characterSlot) {
+    await attachImportedCharacterSlots(
+      library,
+      job.characterSlot,
+      importedRevisionIds,
+    );
   }
   const ack = await studioApiFetch(
     session,

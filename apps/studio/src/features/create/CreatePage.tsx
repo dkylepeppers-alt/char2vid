@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Operation, ReferenceBinding } from '@char2vid/domain';
+import type {
+  Operation,
+  ReferenceBinding,
+  ReferenceRole,
+} from '@char2vid/domain';
+import {
+  compileModules,
+  createEmptyPromptModules,
+  textForGenerate,
+  type PromptModule,
+} from '@char2vid/domain/generation/prompt-compiler';
+import { freezeRequest } from '@char2vid/domain/generation/request-snapshot';
 import type { AssetRecord } from '@char2vid/domain/storage';
 import {
   buildRequest,
@@ -19,6 +30,9 @@ import {
 } from './create-submit';
 import { ModelControls } from './ModelControls';
 import { MODEL_PAGE_SIZE, ModelPicker, type ModelFilter } from './ModelPicker';
+import { planStudioReferences } from './plan-create-references';
+import { PromptPreview } from './PromptPreview';
+import { ReferenceAssignmentSheet } from './ReferenceAssignmentSheet';
 import { ReferenceTray } from './ReferenceTray';
 
 const DRAFT_KEY = 'char2vid.create-draft';
@@ -27,6 +41,8 @@ const RECENT_KEY = 'char2vid.recent-models';
 const MODEL_KEY = 'char2vid.create-model';
 const PARAMS_KEY = 'char2vid.create-params';
 const REFS_KEY = 'char2vid.create-references';
+const MODULES_KEY = 'char2vid.create-prompt-modules';
+const APPLY_PROPOSAL_KEY = 'char2vid.create-apply-proposal';
 
 const OPERATION: Operation = 'image-generate';
 
@@ -37,6 +53,14 @@ function readJson<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function readPromptModules(): PromptModule[] {
+  const stored = readJson<PromptModule[] | null>(MODULES_KEY, null);
+  if (!Array.isArray(stored) || stored.length === 0) {
+    return createEmptyPromptModules();
+  }
+  return stored;
 }
 
 async function catalogFetcher(url: string) {
@@ -75,6 +99,10 @@ export function CreatePage() {
   );
   const [references, setReferences] = useState<ReferenceBinding[]>(() =>
     readJson(REFS_KEY, []),
+  );
+  const [modules, setModules] = useState<PromptModule[]>(readPromptModules);
+  const [applyProposal, setApplyProposal] = useState(
+    () => window.localStorage.getItem(APPLY_PROPOSAL_KEY) === '1',
   );
   const [libraryAssets, setLibraryAssets] = useState<AssetRecord[]>([]);
   const [serviceReady, setServiceReady] = useState(false);
@@ -139,6 +167,33 @@ export function CreatePage() {
   }, []);
 
   const selected = models.find((model) => model.id === selectedId) ?? null;
+  const mimeByRevisionId = useMemo(
+    () =>
+      Object.fromEntries(
+        libraryAssets.map((asset) => [asset.revisionId, asset.mime]),
+      ),
+    [libraryAssets],
+  );
+  const plan = useMemo(
+    () =>
+      planStudioReferences({
+        requested: references,
+        operation: OPERATION,
+        model: selected,
+        parameters,
+        mimeByRevisionId,
+      }),
+    [mimeByRevisionId, parameters, references, selected],
+  );
+  const compiledPrompt = compileModules(modules);
+  const acceptedGenerateText = textForGenerate({
+    acceptedText: prompt,
+    proposalText: compiledPrompt,
+    applyProposal,
+  });
+  const blockingPlan = plan.issues.some(
+    (issue) => issue.severity === 'blocking',
+  );
 
   const preview = useMemo(() => {
     if (!selected) return null;
@@ -147,18 +202,56 @@ export function CreatePage() {
         clientRequestId: 'preview',
         operation: OPERATION,
         modelId: selected.id,
-        prompt,
-        references,
+        prompt: acceptedGenerateText,
+        references: plan.selected,
         parameters,
       },
       selected,
       [],
     );
-  }, [parameters, prompt, references, selected]);
+  }, [acceptedGenerateText, parameters, plan.selected, selected]);
+
+  const frozen = useMemo(() => {
+    if (!selected) return null;
+    const hashes = Object.fromEntries(
+      libraryAssets.map((asset) => [asset.revisionId, asset.sha256]),
+    );
+    return freezeRequest(
+      {
+        clientRequestId: 'preview',
+        operation: OPERATION,
+        modelId: selected.id,
+        prompt: acceptedGenerateText,
+        references: plan.selected,
+        parameters,
+      },
+      { id: selected.id, fetchedAt: selected.fetchedAt },
+      plan.selected.map((binding) => ({
+        ...binding,
+        sha256: hashes[binding.assetRevisionId],
+      })),
+    );
+  }, [
+    acceptedGenerateText,
+    libraryAssets,
+    parameters,
+    plan.selected,
+    selected,
+  ]);
 
   const persistReferences = useCallback((next: ReferenceBinding[]) => {
     setReferences(next);
     window.localStorage.setItem(REFS_KEY, JSON.stringify(next));
+  }, []);
+
+  const persistAccepted = useCallback((value: string) => {
+    setPrompt(value);
+    window.localStorage.setItem(DRAFT_KEY, value);
+  }, []);
+
+  const persistModules = useCallback((next: PromptModule[]) => {
+    setModules(next);
+    window.localStorage.setItem(MODULES_KEY, JSON.stringify(next));
   }, []);
 
   const selectModel = useCallback(
@@ -186,7 +279,10 @@ export function CreatePage() {
   );
 
   const canGenerate =
-    serviceReady && selected !== null && prompt.trim().length > 0;
+    serviceReady &&
+    selected !== null &&
+    acceptedGenerateText.trim().length > 0 &&
+    !blockingPlan;
 
   return (
     <section className="draft-card create-page" aria-labelledby="draft-title">
@@ -199,15 +295,16 @@ export function CreatePage() {
           you leave the screen.
         </p>
       </div>
-      <label htmlFor="prompt">Prompt</label>
-      <textarea
-        id="prompt"
-        value={prompt}
-        placeholder="Describe the image or scene you want to make…"
-        onChange={(event) => {
-          const value = event.target.value;
-          setPrompt(value);
-          window.localStorage.setItem(DRAFT_KEY, value);
+      <PromptPreview
+        modules={modules}
+        acceptedText={prompt}
+        applyProposal={applyProposal}
+        bindings={plan.selected}
+        onAcceptedText={persistAccepted}
+        onModules={persistModules}
+        onApplyProposal={(value) => {
+          setApplyProposal(value);
+          window.localStorage.setItem(APPLY_PROPOSAL_KEY, value ? '1' : '0');
         }}
       />
       <ReferenceTray
@@ -224,6 +321,27 @@ export function CreatePage() {
           ]);
         }}
         onRemove={(assetRevisionId) => {
+          persistReferences(
+            references
+              .filter((item) => item.assetRevisionId !== assetRevisionId)
+              .map((item, ordinal) => ({ ...item, ordinal })),
+          );
+        }}
+      />
+      <ReferenceAssignmentSheet
+        selected={plan.selected}
+        omitted={plan.omitted}
+        issues={plan.issues}
+        onRoleChange={(assetRevisionId, role: ReferenceRole) => {
+          persistReferences(
+            references.map((item) =>
+              item.assetRevisionId === assetRevisionId
+                ? { ...item, role }
+                : item,
+            ),
+          );
+        }}
+        onOmit={(assetRevisionId) => {
           persistReferences(
             references
               .filter((item) => item.assetRevisionId !== assetRevisionId)
@@ -285,7 +403,10 @@ export function CreatePage() {
               {JSON.stringify(
                 {
                   model: selected.id,
-                  issues: preview?.issues ?? [],
+                  selectedReferences: plan.selected,
+                  omittedReferences: plan.omitted,
+                  issues: [...plan.issues, ...(preview?.issues ?? [])],
+                  requestHash: frozen?.requestHash ?? null,
                   request: preview?.request ?? null,
                 },
                 null,
@@ -306,8 +427,8 @@ export function CreatePage() {
           const draft = {
             operation: OPERATION,
             modelId: selected.id,
-            prompt,
-            references,
+            prompt: acceptedGenerateText,
+            references: plan.selected,
             parameters,
           };
           const clientRequestId = resolveDraftClientRequestId({
@@ -335,7 +456,11 @@ export function CreatePage() {
             });
         }}
       >
-        {canGenerate ? 'Generate' : 'Save a Nano-GPT key in Settings to submit'}
+        {canGenerate
+          ? 'Generate'
+          : blockingPlan
+            ? 'Resolve reference issues to generate'
+            : 'Save a Nano-GPT key in Settings to submit'}
       </button>
       {submitState && submitState !== 'working' ? (
         <p className="backup-status" role="status">
