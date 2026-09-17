@@ -209,6 +209,20 @@ class MediaStoreRepository(
         }
     }
 
+    fun importFromBytes(dataBase64: String, name: String, mime: String): AssetRecordDto {
+        require(dataBase64.isNotBlank()) { "data required" }
+        require(name.isNotBlank()) { "name required" }
+        require(mime.isNotBlank()) { "mime required" }
+        val bytes = android.util.Base64.decode(dataBase64, android.util.Base64.NO_WRAP)
+        val source = File(context.cacheDir, "import-${UUID.randomUUID()}")
+        source.writeBytes(bytes)
+        try {
+            return importFromNativeUri(source.toURI().toString(), name, mime)
+        } finally {
+            source.delete()
+        }
+    }
+
     fun getAsset(id: String): AssetRecordDto? {
         val asset = dao.getAsset(id) ?: return null
         return toDto(asset)
@@ -357,6 +371,9 @@ class MediaStoreRepository(
             require(dao.getCharacterRevision(parsed.parentRevisionId) != null) {
                 "unknown parent revision: ${parsed.parentRevisionId}"
             }
+        }
+        require(parsed.parentRevisionId == character.currentRevisionId) {
+            "character_revision_conflict"
         }
         db.runInTransaction {
             dao.upsertCharacterRevision(

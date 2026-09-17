@@ -1,4 +1,7 @@
-import type { CharacterPort } from '@char2vid/domain/characters/port';
+import {
+  CHARACTER_REVISION_CONFLICT,
+  type CharacterPort,
+} from '@char2vid/domain/characters/port';
 import {
   parseCharacterRecord,
   parseCharacterRevision,
@@ -939,6 +942,9 @@ export class LibraryEngine implements CharacterPort {
       if (!parent) {
         throw new Error(`unknown parent revision: ${next.parentRevisionId}`);
       }
+    }
+    if (next.parentRevisionId !== character.currentRevisionId) {
+      throw new Error(CHARACTER_REVISION_CONFLICT);
     }
     await this.meta.commitCharacterRevision({
       character: {
