@@ -15,9 +15,6 @@ export type NativeImportRequest =
     };
 
 function bytesToBase64(bytes: Uint8Array): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
   let raw = '';
   for (const value of bytes) {
     raw += String.fromCharCode(value);
