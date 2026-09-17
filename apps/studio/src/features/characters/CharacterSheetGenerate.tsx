@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Operation, ReferenceBinding } from '@char2vid/domain';
 import type { CharacterRevision } from '@char2vid/domain/characters/schema';
+import { freezeRequest } from '@char2vid/domain/generation/request-snapshot';
 import {
   buildRequest,
   refreshCatalogs,
@@ -12,6 +13,7 @@ import {
   resolveStudioSession,
   stageLibraryReferences,
   submitGenerationJob,
+  syncStudioJobs,
 } from '../jobs/job-sync';
 import { getStudioLibrary } from '../library/library-session';
 import {
@@ -26,13 +28,17 @@ import {
   ModelPicker,
   type ModelFilter,
 } from '../create/ModelPicker';
+import { planStudioReferences } from '../create/plan-create-references';
+import { ReferenceAssignmentSheet } from '../create/ReferenceAssignmentSheet';
 
 const OPERATION: Operation = 'image-generate';
 
 export function CharacterSheetGenerate({
   revision,
+  onAttached,
 }: {
   revision: CharacterRevision;
+  onAttached?: () => void;
 }) {
   const identity = revision.references.find(
     (reference) =>
@@ -100,16 +106,42 @@ export function CharacterSheetGenerate({
     mode === 'sheet'
       ? 'Character sheet: front, left, right, back, and three-quarter views. Preserve identity. Not a training request.'
       : `Additional ${view} view of the same character. Preserve identity. Not a training request.`;
-  const references: ReferenceBinding[] = identity
-    ? [
-        {
-          assetRevisionId: identity.assetRevisionId,
-          role: 'identity',
-          characterRevisionId: revision.id,
-          ordinal: 0,
-        },
-      ]
-    : [];
+  const characterSlot = useMemo(
+    () => ({
+      characterId: revision.characterId,
+      role: 'identity' as const,
+      ...(mode === 'one-slot'
+        ? {
+            view: view as 'front' | 'left' | 'right' | 'back' | 'three-quarter',
+          }
+        : {}),
+    }),
+    [mode, revision.characterId, view],
+  );
+  const references: ReferenceBinding[] = useMemo(
+    () =>
+      identity
+        ? [
+            {
+              assetRevisionId: identity.assetRevisionId,
+              role: 'identity',
+              characterRevisionId: revision.id,
+              ordinal: 0,
+            },
+          ]
+        : [],
+    [identity, revision.id],
+  );
+  const plan = useMemo(
+    () =>
+      planStudioReferences({
+        requested: references,
+        operation: OPERATION,
+        model: selected,
+        parameters,
+      }),
+    [parameters, references, selected],
+  );
   const preview = useMemo(() => {
     if (!selected) return null;
     return buildRequest(
@@ -118,13 +150,30 @@ export function CharacterSheetGenerate({
         operation: OPERATION,
         modelId: selected.id,
         prompt,
-        references,
+        references: plan.selected,
         parameters,
+        characterSlot,
       },
       selected,
       [],
     );
-  }, [parameters, prompt, references, selected]);
+  }, [characterSlot, parameters, plan.selected, prompt, selected]);
+  const frozen = useMemo(() => {
+    if (!selected) return null;
+    return freezeRequest(
+      {
+        clientRequestId: 'preview',
+        operation: OPERATION,
+        modelId: selected.id,
+        prompt,
+        references: plan.selected,
+        parameters,
+        characterSlot,
+      },
+      { id: selected.id, fetchedAt: selected.fetchedAt },
+      plan.selected,
+    );
+  }, [characterSlot, parameters, plan.selected, prompt, selected]);
 
   const estimate =
     'Cost is estimated by the generation service when the job is queued; this screen does not invent a price.';
@@ -137,9 +186,9 @@ export function CharacterSheetGenerate({
       <h3 id="character-generate-title">Generate a view</h3>
       <p>
         Optional character-sheet or single-view generation uses the shared
-        composer and jobs. Results land in the library as ordinary images;
-        attach them as candidate slots and accept them separately. This does not
-        train a model and is not compatible with proprietary iModel files.
+        composer and jobs. Saved results attach as candidate slots on this
+        character; accept them separately. This does not train a model and is
+        not compatible with proprietary iModel files.
       </p>
       <label>
         Requested outputs
@@ -171,9 +220,14 @@ export function CharacterSheetGenerate({
         </label>
       ) : null}
       <p className="library-card-meta">
-        Model: {selected?.id ?? 'none'} · References: {references.length} ·
+        Model: {selected?.id ?? 'none'} · References: {plan.selected.length} ·
         Cost: {estimate}
       </p>
+      <ReferenceAssignmentSheet
+        selected={plan.selected}
+        omitted={plan.omitted}
+        issues={plan.issues}
+      />
       <ModelPicker
         models={models}
         operation={OPERATION}
@@ -208,9 +262,11 @@ export function CharacterSheetGenerate({
         {JSON.stringify(
           {
             model: selected?.id ?? null,
-            references,
+            references: plan.selected,
+            characterSlot,
             requestedOutputs: mode,
-            issues: preview?.issues ?? [],
+            requestHash: frozen?.requestHash ?? null,
+            issues: [...plan.issues, ...(preview?.issues ?? [])],
             request: preview?.request ?? null,
           },
           null,
@@ -223,7 +279,8 @@ export function CharacterSheetGenerate({
         disabled={
           !serviceReady ||
           !selected ||
-          references.length === 0 ||
+          plan.selected.length === 0 ||
+          plan.issues.some((issue) => issue.severity === 'blocking') ||
           submitState === 'working'
         }
         aria-busy={submitState === 'working'}
@@ -234,8 +291,9 @@ export function CharacterSheetGenerate({
             operation: OPERATION,
             modelId: selected.id,
             prompt,
-            references,
+            references: plan.selected,
             parameters,
+            characterSlot,
           };
           const clientRequestId = resolveDraftClientRequestId({
             storage: window.localStorage,
@@ -253,7 +311,7 @@ export function CharacterSheetGenerate({
             const transferIds = await stageLibraryReferences(
               session,
               library,
-              references,
+              plan.selected,
             );
             const receipt = await submitGenerationJob(
               session,
@@ -261,9 +319,30 @@ export function CharacterSheetGenerate({
               transferIds,
             );
             clearDraftClientRequestId(window.localStorage);
+            const cost = receipt.cost;
+            const costLabel =
+              cost?.state === 'final' && cost.amount !== undefined
+                ? `final ${cost.amount}`
+                : (cost?.state ?? 'unknown');
             setSubmitState(
-              `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
+              `Queued ${receipt.clientRequestId} (${receipt.providerState}). Cost ${costLabel}. Candidate slot attach waits for the local save.`,
             );
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+              const jobs = await syncStudioJobs();
+              const current = jobs.find(
+                (job) => job.clientRequestId === clientRequestId,
+              );
+              if (current?.saveState === 'saved') {
+                onAttached?.();
+                setSubmitState(
+                  `Saved ${receipt.clientRequestId} and attached a candidate slot.`,
+                );
+                break;
+              }
+              await new Promise((resolve) => {
+                window.setTimeout(resolve, 500);
+              });
+            }
           })()
             .catch((error: unknown) => {
               setSubmitState(
@@ -275,7 +354,10 @@ export function CharacterSheetGenerate({
             });
         }}
       >
-        {serviceReady && selected && references.length > 0
+        {serviceReady &&
+        selected &&
+        plan.selected.length > 0 &&
+        !plan.issues.some((issue) => issue.severity === 'blocking')
           ? 'Generate view'
           : 'Connect the generation service to submit'}
       </button>

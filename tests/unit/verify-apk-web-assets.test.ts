@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { strToU8, zipSync } from 'fflate';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { verifyApkWebAssets } from '../../scripts/verify-apk-web-assets.mjs';
 
 const temporaryDirectories: string[] = [];
 
@@ -33,20 +36,14 @@ function writeTree(root: string, files: Record<string, string>) {
 
 function writeApk(files: Record<string, string>) {
   const root = makeTempDir();
-  const staging = join(root, 'apk-tree');
   const apkPath = join(root, 'app-debug.apk');
-  writeTree(staging, files);
-  const zipped = spawnSync(
-    'python3',
-    [
-      '-c',
-      'import os, sys, zipfile\nroot, out = sys.argv[1], sys.argv[2]\nwith zipfile.ZipFile(out, "w") as archive:\n    for dirpath, _, names in os.walk(root):\n        for name in names:\n            full = os.path.join(dirpath, name)\n            archive.write(full, os.path.relpath(full, root).replace(os.sep, "/"))\n',
-      staging,
-      apkPath,
-    ],
-    { encoding: 'utf8' },
+  const archive = Object.fromEntries(
+    Object.entries(files).map(([relativePath, contents]) => [
+      relativePath,
+      strToU8(contents),
+    ]),
   );
-  expect(zipped.status, zipped.stderr).toBe(0);
+  writeFileSync(apkPath, zipSync(archive, { level: 6 }));
   return apkPath;
 }
 
@@ -62,6 +59,29 @@ function runVerify(apkPath: string, distDir: string) {
 }
 
 describe('APK web asset packaging', () => {
+  it('exports a verifier that succeeds in-process', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+      'assets/index.js': 'Make character',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>char2vid studio</title>',
+      'assets/public/assets/index.js': 'Make character',
+    });
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
+    try {
+      expect(() => verifyApkWebAssets(apkPath, distDir)).not.toThrow();
+      expect(stderr).toHaveBeenCalledWith(
+        'Verified 2 web assets in the APK.\n',
+      );
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
   it('accepts an APK whose public assets match the studio dist byte-for-byte', () => {
     const distDir = join(makeTempDir(), 'dist');
     writeTree(distDir, {
@@ -113,6 +133,20 @@ describe('APK web asset packaging', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('index.html');
     expect(result.stderr).toContain('hash mismatch');
+  });
+
+  it('exports a verifier that surfaces mismatches in-process', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>stale studio</title>',
+    });
+
+    expect(() => verifyApkWebAssets(apkPath, distDir)).toThrowError(
+      'index.html hash mismatch',
+    );
   });
 
   it('compares large bundled assets without truncating unzip output', () => {
