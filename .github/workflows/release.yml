@@ -66,6 +66,8 @@ jobs:
       - name: Build versioned unsigned APK
         working-directory: apps/studio/android
         run: ./gradlew --no-daemon assembleRelease "-PreleaseVersionName=${RELEASE_TAG#v}" "-PreleaseVersionCode=$VERSION_CODE"
+      - name: Verify APK packages the current studio web build
+        run: node scripts/verify-apk-web-assets.mjs apps/studio/android/app/build/outputs/apk/release/app-release-unsigned.apk apps/studio/dist
       - name: Sign and verify APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
