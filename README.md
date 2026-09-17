@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status (16 September 2026):** M1 local library (G1–G4), M2 through P5, and C1 characters/looks (with post-spar Highs) are on `main`. Issues [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7)–[#10](https://github.com/dkylepeppers-alt/char2vid/issues/10) stay open for unpaid residuals. Emulator CI proves native import/export/archives, job-output hash reconcile, and character package contracts; physical-device install, live HTTPS service deploy, Keystore round-trip, live catalog census, and paid Nano-GPT calls stay **UNVERIFIED**. Generate→slot attach rides C2; character→video pipeline (C2+) remains ahead.
+**Status (16 September 2026):** M1 local library (G1–G4), M2 through P5, and C1 characters/looks are on `main`. Issues [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7)–[#10](https://github.com/dkylepeppers-alt/char2vid/issues/10) remain as task trackers; [#10](https://github.com/dkylepeppers-alt/char2vid/issues/10) still covers physical package restore and C2+ scope. Connected Android tests prove native import/export/archives and job-output hash reconcile. Character-package JSON contracts run as JVM unit tests (`testDebugUnitTest`), not as the emulator `connectedDebugAndroidTest` job. Physical-device install, live HTTPS service deploy, Keystore round-trip, live catalog census, and paid Nano-GPT calls stay **UNVERIFIED**. Generate→slot attach is C2 workflow (not a paid-provider gate); the character→video pipeline (C2+) remains ahead.
 
 ## Develop and test
 
