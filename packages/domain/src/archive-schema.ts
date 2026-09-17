@@ -3,8 +3,41 @@ import { z } from 'zod';
 import { assetRecordSchema } from './asset-schema';
 import type { AssetRecord } from './storage';
 
-/** Archive format version for portable library/project/character packages. */
+/** Library-only archives (no character/look records). */
 export const ARCHIVE_SCHEMA_VERSION = 1 as const;
+
+/**
+ * Character-aware archives. Older v1 importers must reject this version
+ * instead of silently dropping character/look records. Current importers
+ * accept both 1 and 2.
+ */
+export const ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS = 2 as const;
+
+export const SUPPORTED_ARCHIVE_SCHEMA_VERSIONS = [
+  ARCHIVE_SCHEMA_VERSION,
+  ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+] as const;
+
+export type ArchiveSchemaVersion =
+  (typeof SUPPORTED_ARCHIVE_SCHEMA_VERSIONS)[number];
+
+/** v1 for library-only payloads; v2 whenever character or look records ship. */
+export function archiveSchemaVersionFor(
+  includeCharacters: boolean,
+): ArchiveSchemaVersion {
+  return includeCharacters
+    ? ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
+    : ARCHIVE_SCHEMA_VERSION;
+}
+
+export function isSupportedArchiveSchemaVersion(
+  version: unknown,
+): version is ArchiveSchemaVersion {
+  return (
+    version === ARCHIVE_SCHEMA_VERSION ||
+    version === ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
+  );
+}
 
 /** Soft limits to reject zip bombs before mutating the library. */
 export const MAX_ARCHIVE_FILE_COUNT = 50_000;
@@ -32,7 +65,7 @@ export interface ArchiveManifestFileV1 {
 }
 
 export interface ArchiveManifestV1 {
-  schemaVersion: typeof ARCHIVE_SCHEMA_VERSION;
+  schemaVersion: ArchiveSchemaVersion;
   createdAt: string;
   scope: ArchiveScope;
   scopeId: string | null;
@@ -76,7 +109,10 @@ export const archiveManifestFileSchema = z.object({
 });
 
 export const archiveManifestV1Schema: z.ZodType<ArchiveManifestV1> = z.object({
-  schemaVersion: z.literal(ARCHIVE_SCHEMA_VERSION),
+  schemaVersion: z.union([
+    z.literal(ARCHIVE_SCHEMA_VERSION),
+    z.literal(ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS),
+  ]),
   createdAt: z.string().datetime({ offset: true }),
   scope: z.enum(['library', 'project', 'character']),
   scopeId: z.union([z.string().min(1), z.null()]),
