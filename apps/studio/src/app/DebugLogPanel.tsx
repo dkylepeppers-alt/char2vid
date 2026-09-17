@@ -7,12 +7,12 @@ export function DebugLogPanel() {
   const session = getStudioDebugSession();
   const [enabled, setEnabled] = useState(() => session.enabled());
   const [lines, setLines] = useState(() =>
-    session.ring.snapshot().map(formatStudioDebugLine),
+    session.ring.snapshot().map(formatStudioDebugLine).reverse(),
   );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setLines(session.ring.snapshot().map(formatStudioDebugLine));
+      setLines(session.ring.snapshot().map(formatStudioDebugLine).reverse());
       setEnabled(session.enabled());
     }, 1000);
     return () => window.clearInterval(timer);
