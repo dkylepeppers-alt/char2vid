@@ -68,6 +68,33 @@ class LibraryPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun importFromBytes(call: PluginCall) {
+        val data = call.getString("data")
+        val name = call.getString("name")
+        val mime = call.getString("mime")
+        if (data.isNullOrBlank()) {
+            call.reject("importFromBytes requires data")
+            return
+        }
+        if (name.isNullOrBlank()) {
+            call.reject("importFromBytes requires name")
+            return
+        }
+        if (mime.isNullOrBlank()) {
+            call.reject("importFromBytes requires mime")
+            return
+        }
+        executor.execute {
+            try {
+                val asset = repo().importFromBytes(data, name, mime)
+                call.resolve(jsFromJson(asset.toJson()))
+            } catch (error: Exception) {
+                call.reject(error.message ?: "importFromBytes failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
     fun getAsset(call: PluginCall) {
         val id = call.getString("id")
         if (id.isNullOrBlank()) {

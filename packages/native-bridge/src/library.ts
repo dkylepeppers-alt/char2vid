@@ -19,10 +19,16 @@ import {
   type CharacterRevision,
   type LookRevision,
 } from '@char2vid/domain/characters/schema';
+import { resolveNativeImportRequest } from './import-bytes';
 
 interface Char2vidLibraryPlugin {
   importFromNativeUri(options: {
     uri: string;
+    name: string;
+    mime: string;
+  }): Promise<AssetRecord>;
+  importFromBytes(options: {
+    data: string;
     name: string;
     mime: string;
   }): Promise<AssetRecord>;
@@ -114,20 +120,19 @@ export class NativeLibraryPort implements LibraryPort {
     if (!isAndroidNative()) {
       throw new Error('NativeLibraryPort requires Android');
     }
-    if (source.kind !== 'native-uri') {
-      throw new Error(
-        `NativeLibraryPort only accepts native-uri imports (got ${source.kind})`,
-      );
-    }
-    if (typeof source.handle !== 'string' || source.handle.length === 0) {
-      throw new Error('native-uri import requires a uri handle string');
-    }
-    const uri = source.handle;
-    const record = await Char2vidLibrary.importFromNativeUri({
-      uri,
-      name: source.name,
-      mime: source.mime,
-    });
+    const request = await resolveNativeImportRequest(source);
+    const record =
+      request.method === 'importFromNativeUri'
+        ? await Char2vidLibrary.importFromNativeUri({
+            uri: request.uri,
+            name: request.name,
+            mime: request.mime,
+          })
+        : await Char2vidLibrary.importFromBytes({
+            data: request.data,
+            name: request.name,
+            mime: request.mime,
+          });
     return parseAssetRecord(record);
   }
 

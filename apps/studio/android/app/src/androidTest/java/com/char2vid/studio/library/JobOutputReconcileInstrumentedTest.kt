@@ -76,4 +76,31 @@ class JobOutputReconcileInstrumentedTest {
         assertNotNull(again)
         assertEquals(expectedSha, again!!.sha256)
     }
+
+    @Test
+    fun importFromBytesMatchesNativeUriImport() {
+        val png =
+            byteArrayOf(
+                0x89.toByte(),
+                0x50,
+                0x4e,
+                0x47,
+                0x0d,
+                0x0a,
+                0x1a,
+                0x0a,
+                0x21,
+                0x22,
+                0x23,
+            )
+        val expectedSha =
+            MessageDigest.getInstance("SHA-256")
+                .digest(png)
+                .joinToString("") { "%02x".format(it) }
+        val data =
+            android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP)
+        val imported = repo.importFromBytes(data, "job-output-bytes.png", "image/png")
+        assertEquals("available", imported.state)
+        assertEquals(expectedSha, imported.sha256)
+    }
 }
