@@ -4,10 +4,8 @@ import type { LibraryPort } from '@char2vid/domain/storage';
 import { attachGeneratedOutputs } from '@char2vid/domain/generation/slot-attach';
 
 function isRevisionConflict(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes(CHARACTER_REVISION_CONFLICT)
-  );
+  const code = CHARACTER_REVISION_CONFLICT || 'character_revision_conflict';
+  return error instanceof Error && error.message.includes(code);
 }
 
 export async function attachImportedCharacterSlots(

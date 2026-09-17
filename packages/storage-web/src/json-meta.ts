@@ -17,6 +17,7 @@ import type {
   PhysicalObject,
   RevisionRecord,
 } from './protocol';
+import { assertCharacterRevisionAdvance } from './character-revision-commit';
 
 interface MetaSnapshot {
   journal: Record<string, JournalEntry>;
@@ -99,9 +100,19 @@ export class JsonMetaStore implements MetaStore {
   private snapshot: MetaSnapshot = emptySnapshot();
   private readonly persister: MetaPersister | undefined;
   private loaded = false;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(persister?: MetaPersister) {
     this.persister = persister;
+  }
+
+  private enqueueExclusive<T>(work: () => Promise<T>): Promise<T> {
+    const run = this.writeQueue.then(work, work);
+    this.writeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private async ensureLoaded(): Promise<void> {
@@ -330,17 +341,50 @@ export class JsonMetaStore implements MetaStore {
   }
 
   async commitCharacterRevision(args: {
-    character: CharacterRecord;
+    character?: CharacterRecord;
     revision: CharacterRevision;
+    expectedCurrentRevisionId?: string | null;
   }): Promise<void> {
-    await this.ensureLoaded();
-    this.snapshot.characterRevisions[args.revision.id] = parseCharacterRevision(
-      args.revision,
-    );
-    this.snapshot.characters[args.character.id] = parseCharacterRecord(
-      args.character,
-    );
-    await this.persist();
+    await this.enqueueExclusive(async () => {
+      await this.ensureLoaded();
+      if (args.expectedCurrentRevisionId !== undefined) {
+        const liveRow = this.snapshot.characters[args.revision.characterId];
+        const existingRow = this.snapshot.characterRevisions[args.revision.id];
+        const parentRow = args.revision.parentRevisionId
+          ? this.snapshot.characterRevisions[args.revision.parentRevisionId]
+          : undefined;
+        const live = assertCharacterRevisionAdvance({
+          live: liveRow ? parseCharacterRecord(liveRow) : undefined,
+          existingRevision: existingRow
+            ? parseCharacterRevision(existingRow)
+            : undefined,
+          parentRevision: parentRow
+            ? parseCharacterRevision(parentRow)
+            : undefined,
+          revision: args.revision,
+          expectedCurrentRevisionId: args.expectedCurrentRevisionId,
+        });
+        this.snapshot.characterRevisions[args.revision.id] =
+          parseCharacterRevision(args.revision);
+        this.snapshot.characters[live.id] = parseCharacterRecord({
+          ...live,
+          currentRevisionId: args.revision.id,
+        });
+        await this.persist();
+        return;
+      }
+      if (!args.character) {
+        throw new Error(
+          'commitCharacterRevision requires character when creating',
+        );
+      }
+      this.snapshot.characterRevisions[args.revision.id] =
+        parseCharacterRevision(args.revision);
+      this.snapshot.characters[args.character.id] = parseCharacterRecord(
+        args.character,
+      );
+      await this.persist();
+    });
   }
 
   async putCharacter(character: CharacterRecord): Promise<void> {

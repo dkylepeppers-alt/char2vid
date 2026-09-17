@@ -363,19 +363,19 @@ class MediaStoreRepository(
 
     fun saveCharacterRevision(raw: JSONObject) {
         val parsed = CharacterJson.parseRevision(raw, "characterRevision")
-        require(dao.getCharacterRevision(parsed.id) == null) { "character revisions are immutable" }
-        val character =
-            dao.getCharacter(parsed.characterId)
-                ?: throw IllegalArgumentException("unknown character: ${parsed.characterId}")
-        if (parsed.parentRevisionId != null) {
-            require(dao.getCharacterRevision(parsed.parentRevisionId) != null) {
-                "unknown parent revision: ${parsed.parentRevisionId}"
-            }
-        }
-        require(parsed.parentRevisionId == character.currentRevisionId) {
-            "character_revision_conflict"
-        }
         db.runInTransaction {
+            require(dao.getCharacterRevision(parsed.id) == null) { "character revisions are immutable" }
+            val character =
+                dao.getCharacter(parsed.characterId)
+                    ?: throw IllegalArgumentException("unknown character: ${parsed.characterId}")
+            if (parsed.parentRevisionId != null) {
+                require(dao.getCharacterRevision(parsed.parentRevisionId) != null) {
+                    "unknown parent revision: ${parsed.parentRevisionId}"
+                }
+            }
+            require(parsed.parentRevisionId == character.currentRevisionId) {
+                "character_revision_conflict"
+            }
             dao.upsertCharacterRevision(
                 CharacterRevisionEntity(
                     id = parsed.id,
