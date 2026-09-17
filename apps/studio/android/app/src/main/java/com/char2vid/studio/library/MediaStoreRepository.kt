@@ -476,9 +476,8 @@ class MediaStoreRepository(
                 dao.listAssets().filter { it.state == "available" && it.trashedAt == null && it.sha256.isNotEmpty() }
             } else {
                 // Match web character packages: include referenced originals even when they
-                // would be omitted from a full-library live set (trashed / non-available),
-                // as long as they are not pending. Missing local bytes still fail export
-                // when LibraryArchiver reads physical objects — do not silently drop slots.
+                // would be omitted from a full-library live set (trashed), as long as they
+                // are still available. Missing and pending files are omitted.
                 val wanted = packedCharacters.referencedAssetRevisionIds
                 val wantedAssetIds =
                     dao.listRevisions().filter { wanted.contains(it.id) }.map { it.assetId }.toHashSet()

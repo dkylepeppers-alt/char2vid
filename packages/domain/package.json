@@ -15,7 +15,12 @@
     "./characters/schema": "./src/characters/schema.ts",
     "./characters/revisions": "./src/characters/revisions.ts",
     "./characters/looks": "./src/characters/looks.ts",
-    "./characters/port": "./src/characters/port.ts"
+    "./characters/port": "./src/characters/port.ts",
+    "./generation": "./src/generation/index.ts",
+    "./generation/reference-plan": "./src/generation/reference-plan.ts",
+    "./generation/prompt-compiler": "./src/generation/prompt-compiler.ts",
+    "./generation/request-snapshot": "./src/generation/request-snapshot.ts",
+    "./generation/slot-attach": "./src/generation/slot-attach.ts"
   },
   "scripts": {
     "build": "tsc --build",

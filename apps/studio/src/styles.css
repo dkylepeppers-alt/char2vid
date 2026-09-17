@@ -930,3 +930,51 @@ textarea {
   place-items: center;
   cursor: pointer;
 }
+
+.prompt-preview,
+.reference-assignment {
+  display: grid;
+  gap: 12px;
+}
+
+.prompt-module-list,
+.reference-assignment ol,
+.reference-assignment ul,
+.plan-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.prompt-module-list li,
+.reference-assignment li {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #2b2e2a;
+}
+
+.prompt-preview textarea,
+.reference-assignment select {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #3a3e37;
+  border-radius: 14px;
+  background: #1c1f1b;
+  color: inherit;
+}
+
+.prompt-preview textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.plan-issues.blocking {
+  color: #ff8f8f;
+}
+
+.plan-issues.advisory {
+  color: #d6c07a;
+}
