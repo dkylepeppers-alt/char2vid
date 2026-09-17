@@ -3,3 +3,20 @@ include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
 apply from: 'capacitor.settings.gradle'
+
+// Capacitor 8.5.x library modules still classpath AGP 8.13.0. AGP 8 cannot
+// run on Gradle 9.6+ (InternalProblems / AndroidProblemReporterProvider).
+// Capacitor 9 is still alpha, so keep Capacitor 8 GA and rewrite those
+// classpaths to the project AGP.
+def agpVersion = providers.gradleProperty('char2vidAgpVersion').get()
+gradle.beforeProject { project ->
+    def classpathConfig = project.buildscript.configurations.findByName('classpath')
+    if (classpathConfig == null) {
+        return
+    }
+    classpathConfig.resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'com.android.tools.build' && details.requested.name == 'gradle') {
+            details.useVersion agpVersion
+        }
+    }
+}

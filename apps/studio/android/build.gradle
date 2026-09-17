@@ -7,10 +7,11 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath "com.android.tools.build:gradle:${char2vidAgpVersion}"
         classpath 'com.google.gms:google-services:4.5.0'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0'
-        classpath 'com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:2.1.0-1.0.29'
+        // AGP 9 bundles Kotlin; pin a current KGP so Room/KSP stay on a known compiler.
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${char2vidKotlinVersion}"
+        classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${char2vidKspVersion}"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -19,6 +20,15 @@ buildscript {
 
 apply from: "variables.gradle"
 
+// Gradle 9 deprecates implicit extra-property lookup on parent projects
+// (error in Gradle 10). Capacitor 8 scripts still use hasProperty() /
+// $versionName against the root ext block; copy those pins locally.
+subprojects {
+    rootProject.ext.properties.each { key, value ->
+        ext.set(key, value)
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -26,6 +36,6 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
 }
