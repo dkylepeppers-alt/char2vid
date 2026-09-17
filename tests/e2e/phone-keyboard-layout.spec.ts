@@ -33,6 +33,61 @@ function overlaps(a: Box, b: Box): boolean {
   );
 }
 
+async function stubVisualViewport(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let height = window.innerHeight;
+    let offsetTop = 0;
+    const listeners: Record<string, Array<() => void>> = {};
+    const visualViewport = {
+      get height() {
+        return height;
+      },
+      get offsetTop() {
+        return offsetTop;
+      },
+      get width() {
+        return window.innerWidth;
+      },
+      addEventListener(type: string, listener: () => void) {
+        (listeners[type] ??= []).push(listener);
+      },
+      removeEventListener(type: string, listener: () => void) {
+        listeners[type] = (listeners[type] ?? []).filter(
+          (callback) => callback !== listener,
+        );
+      },
+    };
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      get() {
+        return visualViewport;
+      },
+    });
+    Object.defineProperty(window, '__setChar2vidVisualViewport', {
+      value(next: { height: number; offsetTop?: number }) {
+        height = next.height;
+        offsetTop = next.offsetTop ?? 0;
+        for (const callback of listeners.resize ?? []) {
+          callback();
+        }
+      },
+    });
+  });
+}
+
+async function shrinkVisualViewportToKeyboard(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (
+      window as Window & {
+        __setChar2vidVisualViewport?: (next: {
+          height: number;
+          offsetTop?: number;
+        }) => void;
+      }
+    ).__setChar2vidVisualViewport?.({ height: 480 });
+  });
+}
+
 async function assertFieldClearsBottomNav(
   page: Page,
   field: Locator,
@@ -99,6 +154,32 @@ test.describe('phone full-height viewport', () => {
   }) => {
     await page.goto('/create');
     await assertFieldClearsBottomNav(page, page.getByLabel('Prompt'));
+  });
+
+  test('lifts the bottom nav when the visual viewport shrinks to keyboard height', async ({
+    page,
+  }) => {
+    await stubVisualViewport(page);
+    await page.goto('/create');
+    await shrinkVisualViewportToKeyboard(page);
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() =>
+          getComputedStyle(document.documentElement)
+            .getPropertyValue('--keyboard-inset')
+            .trim(),
+        ),
+      )
+      .toBe('364px');
+
+    const nav = page.getByRole('navigation', { name: 'Studio destinations' });
+    await expect(nav).toHaveCSS('bottom', '364px');
+
+    const prompt = page.getByLabel('Prompt');
+    await assertFieldClearsBottomNav(page, prompt);
+    const fieldBox = await clientBox(prompt);
+    expect(fieldBox.bottom).toBeLessThanOrEqual(480 + 2);
   });
 });
 
