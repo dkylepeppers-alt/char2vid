@@ -14,6 +14,7 @@ data class DeviceJob(
     val pollCount: Int,
     val nextPollAtMs: Long?,
     val outputJson: String?,
+    val characterSlotJson: String? = null,
     val createdAtMs: Long,
     val updatedAtMs: Long,
 )

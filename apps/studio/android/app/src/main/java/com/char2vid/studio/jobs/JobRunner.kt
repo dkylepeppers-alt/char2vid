@@ -52,6 +52,10 @@ class JobRunner(
             dao.update(JobTransitions.markFailed(submitting, "provider_key_missing", nowMs()).toEntity())
             return
         }
+        if (!ProviderUrls.isNanoGptSubmitUrl(submitting.requestUrl)) {
+            dao.update(JobTransitions.markFailed(submitting, "provider_url_rejected", nowMs()).toEntity())
+            return
+        }
         val result =
             try {
                 http.postJson(submitting.requestUrl, submitting.requestBodyJson, apiKey)
@@ -100,7 +104,8 @@ class JobRunner(
     private fun handleImageLike(job: DeviceJob, result: ProviderHttpResult) {
         if (job.operation == "speech" || job.operation == "music") {
             if (result.contentType.startsWith("audio/") || result.contentType == "application/octet-stream") {
-                saveBytes(job, 0, result.bytes, result.contentType.ifBlank { "audio/mpeg" })
+                val mime = OutputMime.infer(job.operation, result.contentType, result.bytes)
+                saveBytes(job, 0, result.bytes, mime)
                 return
             }
         }
@@ -125,11 +130,17 @@ class JobRunner(
         for (item in items) {
             val bytes =
                 if (item.url != null) {
-                    http.getBytes(item.url)
+                    http.downloadOutput(item.url).bytes
                 } else {
                     Base64.getDecoder().decode(item.base64)
                 }
-            val mime = if (job.operation.startsWith("video")) "video/mp4" else "image/png"
+            val claimed =
+                if (job.operation.startsWith("video")) {
+                    "video/mp4"
+                } else {
+                    "image/png"
+                }
+            val mime = OutputMime.infer(job.operation, claimed, bytes)
             outputs.put(importOutput(job, item.ordinal, bytes, mime))
         }
         dao.update(JobTransitions.markCompleted(job, outputs.toString(), nowMs()).toEntity())
@@ -168,9 +179,10 @@ class JobRunner(
                         JobTransitions.markFailed(job, status.error ?: status.state, nowMs()).toEntity(),
                     )
                 "completed" -> {
-                    val bytes = http.getBytes(status.outputUrl!!)
+                    val downloaded = http.downloadOutput(status.outputUrl!!)
+                    val mime = OutputMime.infer(job.operation, downloaded.contentType, downloaded.bytes)
                     val outputs = JSONArray()
-                    outputs.put(importOutput(job, 0, bytes, "video/mp4"))
+                    outputs.put(importOutput(job, 0, downloaded.bytes, mime))
                     dao.update(JobTransitions.markCompleted(job, outputs.toString(), nowMs()).toEntity())
                 }
             }
@@ -193,26 +205,25 @@ class JobRunner(
         bytes: ByteArray,
         mime: String,
     ): JSONObject {
-        val ext =
-            when {
-                mime.startsWith("video/") -> "mp4"
-                mime.startsWith("audio/") -> "mp3"
-                else -> "png"
-            }
+        val ext = OutputMime.extensionFor(mime)
         val file = File(cacheDir, "job-${job.id}-$ordinal.$ext")
-        file.writeBytes(bytes)
-        val imported =
-            library.importFromNativeUri(
-                file.toURI().toString(),
-                file.name,
-                mime,
-            )
-        return JSONObject()
-            .put("ordinal", ordinal)
-            .put("sha256", imported.sha256)
-            .put("mime", mime)
-            .put("bytes", bytes.size)
-            .put("revisionId", imported.revisionId)
+        try {
+            file.writeBytes(bytes)
+            val imported =
+                library.importFromNativeUri(
+                    file.toURI().toString(),
+                    file.name,
+                    mime,
+                )
+            return JSONObject()
+                .put("ordinal", ordinal)
+                .put("sha256", imported.sha256)
+                .put("mime", mime)
+                .put("bytes", bytes.size)
+                .put("revisionId", imported.revisionId)
+        } finally {
+            file.delete()
+        }
     }
 
     companion object {
@@ -225,7 +236,9 @@ class JobRunner(
             requestUrl: String,
             requestMethod: String,
             requestBodyJson: String,
+            characterSlotJson: String? = null,
         ): DeviceJob {
+            ProviderUrls.requireNanoGptSubmitUrl(requestUrl)
             val db = JobDatabase.getInstance(context)
             val existing = db.jobs().getByClientRequestId(clientRequestId)?.toModel()
             if (existing != null) {
@@ -247,6 +260,7 @@ class JobRunner(
                     pollCount = 0,
                     nextPollAtMs = null,
                     outputJson = null,
+                    characterSlotJson = characterSlotJson,
                     createdAtMs = now,
                     updatedAtMs = now,
                 )

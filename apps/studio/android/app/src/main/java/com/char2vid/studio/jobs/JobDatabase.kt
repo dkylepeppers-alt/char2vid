@@ -4,14 +4,25 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [DeviceJobEntity::class], version = 1, exportSchema = false)
+@Database(entities = [DeviceJobEntity::class], version = 2, exportSchema = false)
 abstract class JobDatabase : RoomDatabase() {
     abstract fun jobs(): DeviceJobDao
 
     companion object {
         @Volatile
         private var instance: JobDatabase? = null
+
+        private val MIGRATION_1_2 =
+            object : Migration(1, 2) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "ALTER TABLE device_jobs ADD COLUMN characterSlotJson TEXT",
+                    )
+                }
+            }
 
         fun getInstance(context: Context): JobDatabase {
             val existing = instance
@@ -25,7 +36,7 @@ abstract class JobDatabase : RoomDatabase() {
                             JobDatabase::class.java,
                             "char2vid-jobs.db",
                         )
-                        .fallbackToDestructiveMigration()
+                        .addMigrations(MIGRATION_1_2)
                         .allowMainThreadQueries()
                         .build()
                         .also { instance = it }

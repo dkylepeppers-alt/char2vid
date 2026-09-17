@@ -33,6 +33,11 @@ class JobsPlugin : Plugin() {
             call.reject("request.url and request.body are required")
             return
         }
+        if (!ProviderUrls.isNanoGptSubmitUrl(url)) {
+            call.reject("provider_url_rejected")
+            return
+        }
+        val characterSlot = call.getObject("characterSlot")
         try {
             val bodyJson =
                 when (body) {
@@ -48,6 +53,7 @@ class JobsPlugin : Plugin() {
                     url,
                     method,
                     bodyJson,
+                    characterSlot?.toString(),
                 )
             call.resolve(toJs(job))
         } catch (error: Exception) {
@@ -140,6 +146,9 @@ class JobsPlugin : Plugin() {
         }
         json.put("outputRevisionIds", revisionIds)
         json.put("outputs", outputs)
+        if (!job.characterSlotJson.isNullOrBlank()) {
+            json.put("characterSlot", JSObject(job.characterSlotJson))
+        }
         json.put("updatedAt", java.time.Instant.ofEpochMilli(job.updatedAtMs).toString())
         return json
     }

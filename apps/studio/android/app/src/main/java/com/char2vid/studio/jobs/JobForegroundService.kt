@@ -85,15 +85,7 @@ class JobForegroundService : Service() {
     }
 
     private fun ensureChannel() {
-        val manager = getSystemService(NotificationManager::class.java)
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID,
-                "Generation jobs",
-                NotificationManager.IMPORTANCE_LOW,
-            )
-        channel.description = "Keeps polling Nano-GPT after you leave Create."
-        manager.createNotificationChannel(channel)
+        JobForegroundService.ensureChannel(this)
     }
 
     private fun buildNotification(text: String): Notification =
@@ -111,8 +103,20 @@ class JobForegroundService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "char2vid.jobs"
+        const val CHANNEL_ID = "char2vid.jobs"
         private const val NOTIFICATION_ID = 42
+
+        fun ensureChannel(context: Context) {
+            val manager = context.getSystemService(NotificationManager::class.java)
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Generation jobs",
+                    NotificationManager.IMPORTANCE_LOW,
+                )
+            channel.description = "Keeps polling Nano-GPT after you leave Create."
+            manager.createNotificationChannel(channel)
+        }
 
         fun start(context: Context) {
             val intent = Intent(context, JobForegroundService::class.java)

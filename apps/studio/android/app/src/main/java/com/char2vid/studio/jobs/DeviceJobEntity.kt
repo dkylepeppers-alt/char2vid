@@ -19,6 +19,7 @@ data class DeviceJobEntity(
     val pollCount: Int,
     val nextPollAtMs: Long?,
     val outputJson: String?,
+    val characterSlotJson: String?,
     val createdAtMs: Long,
     val updatedAtMs: Long,
 )
@@ -38,6 +39,7 @@ fun DeviceJobEntity.toModel(): DeviceJob =
         pollCount = pollCount,
         nextPollAtMs = nextPollAtMs,
         outputJson = outputJson,
+        characterSlotJson = characterSlotJson,
         createdAtMs = createdAtMs,
         updatedAtMs = updatedAtMs,
     )
@@ -57,6 +59,7 @@ fun DeviceJob.toEntity(): DeviceJobEntity =
         pollCount = pollCount,
         nextPollAtMs = nextPollAtMs,
         outputJson = outputJson,
+        characterSlotJson = characterSlotJson,
         createdAtMs = createdAtMs,
         updatedAtMs = updatedAtMs,
     )
