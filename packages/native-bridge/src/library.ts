@@ -84,10 +84,10 @@ function isAndroidNative(): boolean {
 }
 
 function base64ToUint8Array(b64: string): Uint8Array {
-  const binary =
-    typeof atob === 'function'
-      ? atob(b64)
-      : Buffer.from(b64, 'base64').toString('binary');
+  if (typeof atob !== 'function') {
+    throw new Error('base64 decode requires atob in this environment');
+  }
+  const binary = atob(b64);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     out[i] = binary.charCodeAt(i);
