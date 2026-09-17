@@ -1,8 +1,9 @@
 package com.char2vid.studio.library
 
 /**
- * Archive v1 record shapes. Field names and nullability mirror
+ * Archive record shapes. Field names and nullability mirror
  * `archive-schema.ts` (`ArchiveManifestV1`, `archiveRecordsV1Schema`).
+ * `schemaVersion` is 1 (library-only) or 2 (character-aware).
  */
 data class ArchiveManifestFile(
     val path: String,

@@ -7,7 +7,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 /**
- * Explicit allowlist serializer / validating parser for archive v1 JSON.
+ * Explicit allowlist serializer / validating parser for archive JSON
+ * (schema v1 library-only and schema v2 character-aware).
  *
  * Validation intentionally tracks the zod schemas in `archive-schema.ts` and
  * `asset-schema.ts`: unknown keys are ignored (zod strips them), required keys
@@ -190,8 +191,8 @@ object ArchiveJson {
     fun parseManifest(json: String): ArchiveManifest {
         val o = parseObject(json, "manifest")
         val version = requireInt(o, "schemaVersion", "manifest")
-        require(version == ArchivePaths.ARCHIVE_SCHEMA_VERSION) {
-            "manifest.schemaVersion must be ${ArchivePaths.ARCHIVE_SCHEMA_VERSION}"
+        require(ArchivePaths.isSupportedSchemaVersion(version)) {
+            "manifest.schemaVersion must be ${ArchivePaths.ARCHIVE_SCHEMA_VERSION} or ${ArchivePaths.ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS}"
         }
         val createdAt = requireDateTime(o, "createdAt", "manifest")
         val scope = requireString(o, "scope", "manifest")

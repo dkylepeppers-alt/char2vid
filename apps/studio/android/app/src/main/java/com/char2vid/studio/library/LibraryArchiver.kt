@@ -19,8 +19,12 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
- * G4 portable library archive (v1) on Android: ZIP with `manifest.json`,
+ * G4 portable library archive on Android: ZIP with `manifest.json`,
  * `records.json`, `media/<sha256>.<ext>`.
+ *
+ * Schema v1 is library-only. Schema v2 is written when character/look records
+ * are included. Inspect/import accept both so legacy v1 character packages
+ * still restore; unknown versions are rejected.
  *
  * Semantics track `packages/storage-web/src/archive.ts` so archives produced
  * here import in the browser and browser archives import here:
@@ -111,9 +115,10 @@ class LibraryArchiver(
                 characters = snapshot.characters,
                 looks = snapshot.looks,
             )
+        val includeCharacters = snapshot.characters.isNotEmpty() || snapshot.looks.isNotEmpty()
         val manifest =
             ArchiveManifest(
-                schemaVersion = ArchivePaths.ARCHIVE_SCHEMA_VERSION,
+                schemaVersion = ArchivePaths.schemaVersionFor(includeCharacters),
                 createdAt = Instant.now().toString(),
                 scope = if (characterId == null) "library" else "character",
                 scopeId = characterId,
@@ -354,7 +359,7 @@ class LibraryArchiver(
         val manifest: ArchiveManifest
         try {
             val peeked = ArchiveJson.peekSchemaVersion(manifestJson)
-            if (peeked != null && peeked != ArchivePaths.ARCHIVE_SCHEMA_VERSION) {
+            if (peeked != null && !ArchivePaths.isSupportedSchemaVersion(peeked)) {
                 report.schemaVersion = peeked
                 report.unsupportedVersion = true
                 report.errors.add("unsupported archive schemaVersion $peeked")

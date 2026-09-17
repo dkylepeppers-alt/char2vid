@@ -71,4 +71,77 @@ class ArchiveRemapTest {
         assertEquals("portrait", remapped.assetTags[0].tag)
         assertTrue(remapped.assets[0].trashedAt == null)
     }
+
+    @Test
+    fun characterAndLookIdsRemapTogetherWithAssetRevisions() {
+        val createdAt = "2026-09-15T00:00:00.000Z"
+        val character =
+            ArchiveCharacter(
+                id = "char-1",
+                name = "Mira",
+                currentRevisionId = "crev-1",
+                coverAssetRevisionId = "rev",
+                createdAt = createdAt,
+                revisions =
+                    listOf(
+                        ArchiveCharacterRevision(
+                            id = "crev-1",
+                            characterId = "char-1",
+                            parentRevisionId = null,
+                            identityNotes = "keep source",
+                            references =
+                                listOf(
+                                    ArchiveCharacterReference(
+                                        assetRevisionId = "rev",
+                                        role = "identity",
+                                        view = "front",
+                                        approval = "approved",
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val look =
+            ArchiveLook(
+                id = "look-1",
+                characterId = "char-1",
+                label = "Red jacket",
+                notes = "",
+                referenceRevisionIds = listOf("rev"),
+            )
+        val records =
+            ArchiveRecords(
+                assets = emptyList(),
+                revisions = emptyList(),
+                collectionMembers = emptyList(),
+                assetTags = emptyList(),
+                characters = listOf(character),
+                looks = listOf(look),
+            )
+        val idMap =
+            mapOf(
+                "char-1" to "char-2",
+                "crev-1" to "crev-2",
+                "rev" to "rev-2",
+                "look-1" to "look-2",
+            )
+        val remapped = ArchiveRemap.remapRecords(records, idMap)
+        val remappedCharacter = remapped.characters[0]
+        assertEquals("char-2", remappedCharacter.id)
+        assertEquals("crev-2", remappedCharacter.currentRevisionId)
+        assertEquals("rev-2", remappedCharacter.coverAssetRevisionId)
+        assertEquals("crev-2", remappedCharacter.revisions[0].id)
+        assertEquals("char-2", remappedCharacter.revisions[0].characterId)
+        assertEquals(null, remappedCharacter.revisions[0].parentRevisionId)
+        assertEquals("keep source", remappedCharacter.revisions[0].identityNotes)
+        assertEquals("rev-2", remappedCharacter.revisions[0].references[0].assetRevisionId)
+        assertEquals("identity", remappedCharacter.revisions[0].references[0].role)
+        assertEquals("look-2", remapped.looks[0].id)
+        assertEquals("char-2", remapped.looks[0].characterId)
+        assertEquals(listOf("rev-2"), remapped.looks[0].referenceRevisionIds)
+        // Source records stay intact — remap returns a new graph.
+        assertEquals("char-1", character.id)
+        assertEquals("crev-1", character.currentRevisionId)
+        assertEquals("rev", character.revisions[0].references[0].assetRevisionId)
+    }
 }

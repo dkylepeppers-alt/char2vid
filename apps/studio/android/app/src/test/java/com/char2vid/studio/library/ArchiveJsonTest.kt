@@ -80,6 +80,44 @@ class ArchiveJsonTest {
     }
 
     @Test
+    fun parseManifestAcceptsCharacterAwareSchemaVersionWithoutCoercion() {
+        val manifest =
+            ArchiveManifest(
+                schemaVersion = ArchivePaths.ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+                createdAt = "2026-09-14T18:00:00Z",
+                scope = "character",
+                scopeId = assetId,
+                files = listOf(ArchiveManifestFile("media/$sha.png", sha, 70, "image/png")),
+                recordCounts = ArchiveRecordCounts(1, 1, 0, 0),
+            )
+        val parsed = ArchiveJson.parseManifest(ArchiveJson.encodeManifest(manifest))
+        assertEquals(ArchivePaths.ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS, parsed.schemaVersion)
+        assertEquals("character", parsed.scope)
+        assertEquals(assetId, parsed.scopeId)
+    }
+
+    @Test
+    fun parseManifestRejectsUnknownSchemaVersion() {
+        try {
+            ArchiveJson.parseManifest(
+                """
+                {
+                  "schemaVersion": 7,
+                  "createdAt": "2026-09-14T18:00:00Z",
+                  "scope": "library",
+                  "scopeId": null,
+                  "files": [],
+                  "recordCounts": {"assets":0,"revisions":0,"collectionMembers":0,"assetTags":0}
+                }
+                """.trimIndent(),
+            )
+            fail("expected schemaVersion 7 to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+    }
+
+    @Test
     fun parsingRejectsShapesZodWouldReject() {
         val good = JSONObject(ArchiveJson.encodeRecords(ArchiveRecords(listOf(asset()), emptyList(), emptyList(), emptyList())))
 
