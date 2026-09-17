@@ -4,7 +4,9 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { strToU8, zipSync } from 'fflate';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { verifyApkWebAssets } from '../../scripts/verify-apk-web-assets.mjs';
 
 const temporaryDirectories: string[] = [];
 
@@ -57,6 +59,25 @@ function runVerify(apkPath: string, distDir: string) {
 }
 
 describe('APK web asset packaging', () => {
+  it('exports a verifier that succeeds in-process', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+      'assets/index.js': 'Make character',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>char2vid studio</title>',
+      'assets/public/assets/index.js': 'Make character',
+    });
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      expect(() => verifyApkWebAssets(apkPath, distDir)).not.toThrow();
+      expect(stderr).toHaveBeenCalledWith('Verified 2 web assets in the APK.\n');
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
   it('accepts an APK whose public assets match the studio dist byte-for-byte', () => {
     const distDir = join(makeTempDir(), 'dist');
     writeTree(distDir, {
@@ -108,6 +129,20 @@ describe('APK web asset packaging', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('index.html');
     expect(result.stderr).toContain('hash mismatch');
+  });
+
+  it('exports a verifier that surfaces mismatches in-process', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>stale studio</title>',
+    });
+
+    expect(() => verifyApkWebAssets(apkPath, distDir)).toThrowError(
+      'index.html hash mismatch',
+    );
   });
 
   it('compares large bundled assets without truncating unzip output', () => {
