@@ -20,7 +20,8 @@
     "./generation/reference-plan": "./src/generation/reference-plan.ts",
     "./generation/prompt-compiler": "./src/generation/prompt-compiler.ts",
     "./generation/request-snapshot": "./src/generation/request-snapshot.ts",
-    "./generation/slot-attach": "./src/generation/slot-attach.ts"
+    "./generation/slot-attach": "./src/generation/slot-attach.ts",
+    "./debug-log": "./src/debug-log/index.ts"
   },
   "scripts": {
     "build": "tsc --build",
