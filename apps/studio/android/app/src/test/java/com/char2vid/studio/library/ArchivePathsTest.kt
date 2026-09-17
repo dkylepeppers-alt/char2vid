@@ -58,6 +58,16 @@ class ArchivePathsTest {
     }
 
     @Test
+    fun schemaVersionForCharactersMatchesWebDispatch() {
+        assertEquals(1, ArchivePaths.schemaVersionFor(includeCharacters = false))
+        assertEquals(2, ArchivePaths.schemaVersionFor(includeCharacters = true))
+        assertTrue(ArchivePaths.isSupportedSchemaVersion(1))
+        assertTrue(ArchivePaths.isSupportedSchemaVersion(2))
+        assertFalse(ArchivePaths.isSupportedSchemaVersion(7))
+        assertFalse(ArchivePaths.isSupportedSchemaVersion(null))
+    }
+
+    @Test
     fun zipGuardMessageYieldsTraversalPath() {
         assertEquals(
             "../evil",

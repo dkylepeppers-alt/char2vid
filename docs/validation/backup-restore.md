@@ -5,6 +5,17 @@ and `media/<sha256>.<ext>`. Credentials and temporary signed URLs are excluded
 from exports. The native plugin streams through `ZipOutputStream` /
 `ZipInputStream`; JavaScript never receives whole-archive bytes on Android.
 
+Schema dispatch (web and Android):
+
+- **v1** — library-only archives (no character/look records). Still importable.
+- **v2** — character-aware archives. Written when character or look records are
+  included so older v1-only importers reject instead of silently dropping them.
+  Current web and Android importers accept both v1 and v2, including legacy
+  Android v1 character packages.
+- Other `schemaVersion` values set `unsupportedVersion` and are not imported.
+
+`scope: 'character'` is implemented. `scope: 'project'` remains unsupported.
+
 ## Proven (web / Node contracts)
 
 Implementation PR for this slice targets web + domain first.
@@ -52,14 +63,16 @@ and collision remap. Instrumented tests passed on the `android.yml`
 | Import is bound to one inspected ZIP snapshot (changing source between opens cannot swap bytes) | `ArchiveInstrumentedTest`                   |
 | Import scratch ZIP is removed after success and after a rejected archive                        | `ArchiveInstrumentedTest`                   |
 | Path / JSON / remap unit parity with the web schema                                             | `ArchivePathsTest` / JSON / Remap JVM tests |
+| Character-aware schema v2 export dispatch; v1 library-only still parses                         | `ArchivePathsTest` / `ArchiveJsonTest`      |
 
-`scope: 'project' | 'character'` returns structured `unsupported_scope` (those
-record types do not exist yet).
+`scope: 'project'` returns structured `unsupported_scope`.
 
 ## UNVERIFIED (do not claim done)
 
 - Physical **Android → fresh Android** archive round trip (real SAF picker UI)
 - **Browser → Android** archive restore on device
 - **1 GiB** whole-archive transfer without holding the archive in JavaScript / process memory on device
-- Full **character / project** record closure beyond today’s library assets, revisions, tags, and collection membership
+- Full **project** record closure. Character records round-trip in schema v2
+  (web contracts + Android JVM codec/remap tests); physical-device restore
+  stays **UNVERIFIED**.
 - `ExportPlugin` / `ArchivePlugin` system picker UI, persistable SAF grants, and activity callbacks (emulator tests drive `MediaExporter` / `LibraryArchiver` plus file:// destination helpers)

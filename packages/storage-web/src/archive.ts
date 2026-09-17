@@ -1,12 +1,14 @@
 import { unzipSync, zipSync, strToU8, strFromU8 } from 'fflate';
 
 import {
-  ARCHIVE_SCHEMA_VERSION,
+  ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
   MAX_ARCHIVE_EXPANDED_BYTES,
   MAX_ARCHIVE_FILE_COUNT,
   allowlistAssetRecord,
+  archiveSchemaVersionFor,
   emptyArchiveReport,
   isAllowedArchiveMemberPath,
+  isSupportedArchiveSchemaVersion,
   mediaArchivePath,
   parseArchiveManifestV1,
   parseArchiveRecordsV1,
@@ -45,11 +47,10 @@ import type {
 } from './protocol';
 
 /**
- * Character-aware archive format. Domain still pins ARCHIVE_SCHEMA_VERSION at 1
- * for the typed v1 parser; exporters advertise 2 whenever character/look records
- * are included so older v1 importers reject instead of silently dropping them.
+ * Character-aware archive format lives in domain as schema v2. Re-exported
+ * here so existing web callers keep a stable import path.
  */
-export const ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS = 2 as const;
+export { ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS };
 
 export interface ArchiveSource {
   /** Raw zip bytes. */
@@ -306,9 +307,7 @@ export async function exportArchive(
 
   const includeCharacters =
     packed.characters.length > 0 || packed.looks.length > 0;
-  const schemaVersion = includeCharacters
-    ? ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
-    : ARCHIVE_SCHEMA_VERSION;
+  const schemaVersion = archiveSchemaVersionFor(includeCharacters);
 
   const records: ArchiveRecordsV1 = {
     assets,
@@ -433,21 +432,13 @@ export async function inspectArchive(
     const raw = decodeJson(manifestBytes) as { schemaVersion?: unknown };
     const rawVersion =
       typeof raw?.schemaVersion === 'number' ? raw.schemaVersion : null;
-    if (
-      rawVersion !== null &&
-      rawVersion !== ARCHIVE_SCHEMA_VERSION &&
-      rawVersion !== ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
-    ) {
+    if (rawVersion !== null && !isSupportedArchiveSchemaVersion(rawVersion)) {
       report.schemaVersion = rawVersion;
       report.unsupportedVersion = true;
       report.errors.push(`unsupported archive schemaVersion ${rawVersion}`);
       return report;
     }
-    // Domain parser is still literal-v1; coerce version for field validation.
-    manifest = parseArchiveManifestV1({
-      ...raw,
-      schemaVersion: ARCHIVE_SCHEMA_VERSION,
-    });
+    manifest = parseArchiveManifestV1(raw);
     report.schemaVersion = rawVersion ?? manifest.schemaVersion;
   } catch (error) {
     report.errors.push(
@@ -689,14 +680,8 @@ export async function importArchive(
   }
 
   const entries = unzipArchive(source.bytes);
-  const rawManifest = decodeJson(entries['manifest.json']!) as {
-    schemaVersion?: unknown;
-  };
-  // Coerce advertised v2 down to the domain v1 literal for field validation.
-  const manifest = parseArchiveManifestV1({
-    ...rawManifest,
-    schemaVersion: ARCHIVE_SCHEMA_VERSION,
-  });
+  const rawManifest = decodeJson(entries['manifest.json']!);
+  const manifest = parseArchiveManifestV1(rawManifest);
   if (manifest.scope !== 'library' && manifest.scope !== 'character') {
     throw new Error(
       `archive scope "${manifest.scope}" is not implemented in this web slice`,

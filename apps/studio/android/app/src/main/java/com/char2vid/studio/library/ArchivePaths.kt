@@ -1,17 +1,28 @@
 package com.char2vid.studio.library
 
 /**
- * Archive v1 member-path rules. Must stay byte-for-byte equivalent in
+ * Archive member-path rules. Must stay byte-for-byte equivalent in
  * semantics to `validateArchivePath` / `isAllowedArchiveMemberPath` /
  * `mediaArchivePath` in `packages/domain/src/archive-schema.ts`.
+ *
+ * Schema v1 is library-only. Schema v2 is advertised when character/look
+ * records are included so older v1 importers reject instead of dropping them.
+ * Current importers accept both versions.
  */
 object ArchivePaths {
     const val ARCHIVE_SCHEMA_VERSION = 1
+    const val ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS = 2
     const val MAX_ARCHIVE_FILE_COUNT = 50_000
     const val MAX_ARCHIVE_EXPANDED_BYTES: Long = 2L * 1024L * 1024L * 1024L
 
     const val MANIFEST_PATH = "manifest.json"
     const val RECORDS_PATH = "records.json"
+
+    fun schemaVersionFor(includeCharacters: Boolean): Int =
+        if (includeCharacters) ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS else ARCHIVE_SCHEMA_VERSION
+
+    fun isSupportedSchemaVersion(version: Int?): Boolean =
+        version == ARCHIVE_SCHEMA_VERSION || version == ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS
 
     private val DRIVE_PREFIX = Regex("^[a-zA-Z]:[\\\\/]")
     private val NORMALIZED_DRIVE_PREFIX = Regex("^[a-zA-Z]:/")
