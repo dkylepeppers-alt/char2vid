@@ -86,7 +86,7 @@ The workflow does not generate signing credentials or publish a release automati
 - Add Fastify and `better-sqlite3` in the service task. Add Zod/provider adapters with their runtime validation contracts.
 - Add TanStack Query for remote state, Zustand when transient state warrants it, and TanStack Virtual for the gallery. These never replace durable asset/job storage.
 - Add React Flow with S1, Media3 with native editing, and a pinned FFmpeg service image with browser rendering.
-- Update Capacitor core/Android/CLI together. Official plugins can have different patch versions; follow their declared compatibility. Review Android Gradle/SDK upgrades as a coordinated toolchain change.
+- Update Capacitor core/Android/CLI together. Official plugins can have different patch versions; follow their declared compatibility. Review Android Gradle/SDK upgrades as a coordinated toolchain change. Gradle 9.x requires AGP 9.x; do not land a wrapper-only 9.x bump. Keep Capacitor 8 until Capacitor 9 is generally available.
 - Dependabot groups routine npm, Actions, and AndroidX changes weekly; major changes remain separate. CI validates updates before landing. Do not ignore TypeScript 7; do not replace `@typescript/native` / `@typescript/typescript6` with a single `typescript@7` while `typescript-eslint` still peers `<6.1.0`.
 - Keep small authored media fixtures in Git when needed. Real galleries, generated outputs, database files, APKs, and signing material belong outside source control.
 
