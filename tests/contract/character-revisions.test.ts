@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { expect, it, describe } from 'vitest';
-import { unzipSync, strFromU8 } from 'fflate';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 
 import { reviseCharacter } from '../../packages/domain/src/characters/revisions';
 import {
@@ -21,8 +21,8 @@ import {
 } from '../../packages/domain/src/characters/schema';
 import { createHash } from 'node:crypto';
 
+import { ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS } from '../../packages/domain/src/archive-schema';
 import {
-  ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
   exportArchive,
   importArchive,
   inspectArchive,
@@ -395,6 +395,79 @@ describe('persisted characters', () => {
       const imported = await importArchive(
         target.getArchiveHost(),
         { bytes: exported.bytes },
+        { conflict: 'remap' },
+      );
+      expect(imported.importedAssets).toBe(2);
+      const characters = await target.library.listCharacters();
+      expect(characters).toHaveLength(1);
+      expect(characters[0]?.name).toBe('Mira');
+      const looks = await target.library.listLooks(characters[0]!.id);
+      expect(looks[0]?.label).toBe('Red jacket');
+      const revision = await target.library.getCharacterRevision(
+        characters[0]!.currentRevisionId,
+      );
+      expect(revision?.references[0]?.role).toBe('identity');
+      expect(revision?.references[0]?.approval).toBe('approved');
+    } finally {
+      await source.close();
+      await target.close();
+    }
+  });
+
+  it('imports a legacy v1 character package without dropping looks or identity', async () => {
+    const png = await loadPng();
+    const red = await loadRedPng();
+    const source = await openTestLibrary();
+    const target = await openTestLibrary();
+    try {
+      const portrait = await source.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'portrait.png',
+        mime: 'image/png',
+      });
+      const jacket = await source.library.importMedia({
+        kind: 'browser-file',
+        handle: red,
+        name: 'jacket.png',
+        mime: 'image/png',
+      });
+      const created = await source.library.createCharacter({
+        name: 'Mira',
+        referenceRevisionId: portrait.revisionId,
+      });
+      await source.library.saveLook(
+        createLookRevision({
+          id: crypto.randomUUID(),
+          characterId: created.characterId,
+          label: 'Red jacket',
+          notes: '',
+          referenceRevisionIds: [jacket.revisionId],
+        }),
+      );
+      const exported = await exportArchive(source.getArchiveHost(), {
+        scope: 'character',
+        id: created.characterId,
+      });
+      const entries = unzipSync(exported.bytes);
+      const manifest = JSON.parse(strFromU8(entries['manifest.json']!)) as {
+        schemaVersion: number;
+      };
+      expect(manifest.schemaVersion).toBe(
+        ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+      );
+      manifest.schemaVersion = 1;
+      entries['manifest.json'] = strToU8(
+        `${JSON.stringify(manifest, null, 2)}\n`,
+      );
+      const v1Bytes = zipSync(entries);
+      const report = await inspectArchive({ bytes: v1Bytes });
+      expect(report.ok).toBe(true);
+      expect(report.schemaVersion).toBe(1);
+
+      const imported = await importArchive(
+        target.getArchiveHost(),
+        { bytes: v1Bytes },
         { conflict: 'remap' },
       );
       expect(imported.importedAssets).toBe(2);

@@ -5,7 +5,14 @@ import { fileURLToPath } from 'node:url';
 import { expect, it, describe } from 'vitest';
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 
-import { validateArchivePath } from '../../packages/domain/src/archive-schema';
+import {
+  ARCHIVE_SCHEMA_VERSION,
+  ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+  archiveSchemaVersionFor,
+  isSupportedArchiveSchemaVersion,
+  parseArchiveManifestV1,
+  validateArchivePath,
+} from '../../packages/domain/src/archive-schema';
 import {
   exportArchive,
   inspectArchive,
@@ -74,6 +81,138 @@ describe('archive path validation', () => {
 
   it('accepts a relative media member', () => {
     expect(validateArchivePath('media/abc123.png')).toBe(true);
+  });
+});
+
+function emptyManifest(schemaVersion: number) {
+  return {
+    schemaVersion,
+    createdAt: '2026-09-14T18:00:00.000Z',
+    scope: 'library' as const,
+    scopeId: null,
+    files: [],
+    recordCounts: {
+      assets: 0,
+      revisions: 0,
+      collectionMembers: 0,
+      assetTags: 0,
+    },
+  };
+}
+
+describe('archive schema versions', () => {
+  it('advertises v2 only when character or look records are included', () => {
+    expect(archiveSchemaVersionFor(false)).toBe(ARCHIVE_SCHEMA_VERSION);
+    expect(archiveSchemaVersionFor(true)).toBe(
+      ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+    );
+    expect(isSupportedArchiveSchemaVersion(ARCHIVE_SCHEMA_VERSION)).toBe(true);
+    expect(
+      isSupportedArchiveSchemaVersion(ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS),
+    ).toBe(true);
+    expect(isSupportedArchiveSchemaVersion(7)).toBe(false);
+  });
+
+  it('parses library v1 and character-aware v2 manifests without coercion', () => {
+    const v1 = parseArchiveManifestV1(emptyManifest(ARCHIVE_SCHEMA_VERSION));
+    expect(v1.schemaVersion).toBe(ARCHIVE_SCHEMA_VERSION);
+    const v2 = parseArchiveManifestV1(
+      emptyManifest(ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS),
+    );
+    expect(v2.schemaVersion).toBe(ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS);
+    expect(() => parseArchiveManifestV1(emptyManifest(7))).toThrow();
+  });
+
+  it('rejects an unsupported advertised schema version during inspect', async () => {
+    const png = await loadPng();
+    const source = await openTestLibrary();
+    let zipBytes: Uint8Array;
+    try {
+      await source.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'tiny.png',
+        mime: 'image/png',
+      });
+      zipBytes = (
+        await exportArchive(source.getArchiveHost(), { scope: 'library' })
+      ).bytes;
+    } finally {
+      await source.close();
+    }
+
+    const entries = unzipSync(zipBytes);
+    const manifest = JSON.parse(strFromU8(entries['manifest.json']!)) as {
+      schemaVersion: number;
+    };
+    manifest.schemaVersion = 7;
+    entries['manifest.json'] = strToU8(
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    const report = await inspectArchive({ bytes: zipSync(entries) });
+    expect(report.ok).toBe(false);
+    expect(report.unsupportedVersion).toBe(true);
+    expect(report.schemaVersion).toBe(7);
+  });
+
+  it('library export with a character advertises v2 and round-trips the revision', async () => {
+    const png = await loadPng();
+    const source = await openTestLibrary();
+    const target = await openTestLibrary();
+    try {
+      const portrait = await source.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'portrait.png',
+        mime: 'image/png',
+      });
+      const created = await source.library.createCharacter({
+        name: 'Mira',
+        referenceRevisionId: portrait.revisionId,
+      });
+      const exported = await exportArchive(source.getArchiveHost(), {
+        scope: 'library',
+      });
+      const zip = unzipSync(exported.bytes);
+      const manifest = JSON.parse(strFromU8(zip['manifest.json']!)) as {
+        schemaVersion: number;
+      };
+      expect(manifest.schemaVersion).toBe(
+        ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS,
+      );
+
+      const sourceRevision = await source.library.getCharacterRevision(
+        created.revisionId,
+      );
+
+      const imported = await importArchive(
+        target.getArchiveHost(),
+        { bytes: exported.bytes },
+        { conflict: 'remap' },
+      );
+      expect(imported.importedAssets).toBe(1);
+      // Fresh target: colliding IDs are not present, so the map is identity.
+      expect(imported.idMap[created.characterId]).toBe(created.characterId);
+      expect(imported.idMap[created.revisionId]).toBe(created.revisionId);
+
+      const characters = await target.library.listCharacters();
+      expect(characters).toHaveLength(1);
+      expect(characters[0]?.name).toBe('Mira');
+      const revision = await target.library.getCharacterRevision(
+        characters[0]!.currentRevisionId,
+      );
+      expect(revision?.id).toBe(created.revisionId);
+      expect(revision?.references[0]?.role).toBe('identity');
+      expect(revision?.references[0]?.approval).toBe('approved');
+      expect(revision?.parentRevisionId).toBeUndefined();
+      // Export must not mutate the source revision.
+      expect(sourceRevision).toEqual(
+        await source.library.getCharacterRevision(created.revisionId),
+      );
+    } finally {
+      await source.close();
+      await target.close();
+    }
   });
 });
 

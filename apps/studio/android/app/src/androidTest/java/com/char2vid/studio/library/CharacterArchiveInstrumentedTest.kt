@@ -51,6 +51,21 @@ class CharacterArchiveInstrumentedTest {
         val zip = File(context.cacheDir, "character-${System.nanoTime()}.zip").also { scratch.add(it) }
         FileOutputStream(zip).use { out -> archiver.exportLibraryTo(out, characterId = characterId) }
 
+        val exportedManifest =
+            java.util.zip.ZipInputStream(FileInputStream(zip)).use { zin ->
+                var entry = zin.nextEntry
+                while (entry != null) {
+                    if (entry.name == ArchivePaths.MANIFEST_PATH) {
+                        return@use JSONObject(zin.bufferedReader().readText())
+                    }
+                    entry = zin.nextEntry
+                }
+                error("missing manifest.json")
+            }
+        assertEquals(ArchivePaths.ARCHIVE_SCHEMA_VERSION_WITH_CHARACTERS, exportedManifest.getInt("schemaVersion"))
+        assertEquals("character", exportedManifest.getString("scope"))
+        assertEquals(characterId, exportedManifest.getString("scopeId"))
+
         repo = InstrumentedFixtures.resetLibrary(context)
         archiver = LibraryArchiver(context, repo)
         val imported = archiver.importArchive({ FileInputStream(zip) }, conflict = "remap")
