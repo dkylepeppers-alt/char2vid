@@ -203,6 +203,45 @@ describe('jobs (P4)', () => {
     }
   });
 
+  it('echoes characterSlot on the receipt and ignores expiring parameter URLs in the hash', async () => {
+    const { service, token } = await authService(new FakeGenerationProvider());
+    try {
+      const slot = {
+        characterId: '11111111-1111-4111-8111-111111111111',
+        role: 'identity' as const,
+        view: 'left' as const,
+      };
+      const created = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'slot-req-1',
+          parameters: {
+            n: 2,
+            imageUrl: 'https://cdn.example/tmp/a.png?sig=one',
+          },
+          characterSlot: slot,
+        }),
+      });
+      expect(created.statusCode).toBe(201);
+      const receipt = created.json() as JobReceipt;
+      expect(receipt.characterSlot).toEqual(slot);
+
+      const again = await postJob(service, token, {
+        draft: imageDraft({
+          clientRequestId: 'slot-req-1',
+          parameters: {
+            n: 2,
+            imageUrl: 'https://cdn.example/tmp/a.png?sig=two',
+          },
+          characterSlot: slot,
+        }),
+      });
+      expect(again.statusCode).toBe(200);
+      expect((again.json() as JobReceipt).id).toBe(receipt.id);
+    } finally {
+      await closeTestService(service);
+    }
+  });
+
   it('rejects the same client_request_id with a changed payload', async () => {
     const { service, token } = await authService(new FakeGenerationProvider());
     try {

@@ -8,6 +8,7 @@ import type {
   ProviderState,
   SaveState,
 } from '@char2vid/domain';
+import { freezeRequest } from '@char2vid/domain/generation/request-snapshot';
 
 import { HttpError } from '../http-error.ts';
 import { sha256Hex } from '../transfers/signed-inputs.ts';
@@ -85,19 +86,8 @@ export interface JobOutputRecord {
 }
 
 function canonicalRequestHash(draft: GenerationDraft): string {
-  return sha256Hex(
-    Buffer.from(
-      JSON.stringify({
-        operation: draft.operation,
-        modelId: draft.modelId,
-        prompt: draft.prompt,
-        references: draft.references,
-        parameters: draft.parameters,
-        projectId: draft.projectId ?? null,
-        shotRevisionId: draft.shotRevisionId ?? null,
-      }),
-    ),
-  );
+  return freezeRequest(draft, { id: draft.modelId }, draft.references)
+    .requestHash;
 }
 
 function parseDraft(raw: string): GenerationDraft {
@@ -215,6 +205,7 @@ export function toReceipt(
       (item) => `${job.id}:${item.ordinal}:${item.sha256}`,
     ),
     errorCode: job.errorCode,
+    characterSlot: job.draft.characterSlot,
     cost: job.cost,
     originalJobId: job.originalJobId,
     outputs,

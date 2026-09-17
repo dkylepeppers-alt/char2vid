@@ -1,0 +1,182 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+import { strToU8, zipSync } from 'fflate';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { verifyApkWebAssets } from '../../scripts/verify-apk-web-assets.mjs';
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function workspaceRoot() {
+  return process.cwd();
+}
+
+function makeTempDir() {
+  const directory = mkdtempSync(join(tmpdir(), 'char2vid-apk-web-'));
+  temporaryDirectories.push(directory);
+  return directory;
+}
+
+function writeTree(root: string, files: Record<string, string>) {
+  for (const [relative, contents] of Object.entries(files)) {
+    const path = join(root, relative);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, contents);
+  }
+}
+
+function writeApk(files: Record<string, string>) {
+  const root = makeTempDir();
+  const apkPath = join(root, 'app-debug.apk');
+  const archive = Object.fromEntries(
+    Object.entries(files).map(([relativePath, contents]) => [
+      relativePath,
+      strToU8(contents),
+    ]),
+  );
+  writeFileSync(apkPath, zipSync(archive, { level: 6 }));
+  return apkPath;
+}
+
+function runVerify(apkPath: string, distDir: string) {
+  return spawnSync(
+    process.execPath,
+    ['scripts/verify-apk-web-assets.mjs', apkPath, distDir],
+    {
+      cwd: workspaceRoot(),
+      encoding: 'utf8',
+    },
+  );
+}
+
+describe('APK web asset packaging', () => {
+  it('exports a verifier that succeeds in-process', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+      'assets/index.js': 'Make character',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>char2vid studio</title>',
+      'assets/public/assets/index.js': 'Make character',
+    });
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
+    try {
+      expect(() => verifyApkWebAssets(apkPath, distDir)).not.toThrow();
+      expect(stderr).toHaveBeenCalledWith(
+        'Verified 2 web assets in the APK.\n',
+      );
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
+  it('accepts an APK whose public assets match the studio dist byte-for-byte', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+      'assets/index.js': 'Make character',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>char2vid studio</title>',
+      'assets/public/assets/index.js': 'Make character',
+      'assets/public/cordova.js': '/* capacitor */',
+    });
+
+    const result = runVerify(apkPath, distDir);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain('Verified 2 web assets in the APK');
+  });
+
+  it('rejects an APK that still packages a previous web bundle', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<script src="/assets/index-new.js"></script>',
+      'assets/index-new.js': 'Make character',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html':
+        '<script src="/assets/index-old.js"></script>',
+      'assets/public/assets/index-old.js': 'legacy shell',
+    });
+
+    const result = runVerify(apkPath, distDir);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('assets/index-new.js');
+    expect(result.stderr).toContain('missing from APK');
+  });
+
+  it('rejects an APK whose copied index.html does not match dist', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>stale studio</title>',
+    });
+
+    const result = runVerify(apkPath, distDir);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('index.html');
+    expect(result.stderr).toContain('hash mismatch');
+  });
+
+  it('exports a verifier that surfaces mismatches in-process', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>stale studio</title>',
+    });
+
+    expect(() => verifyApkWebAssets(apkPath, distDir)).toThrowError(
+      'index.html hash mismatch',
+    );
+  });
+
+  it('compares large bundled assets without truncating unzip output', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    const payload = `Make character\n${'x'.repeat(1.5 * 1024 * 1024)}`;
+    writeTree(distDir, {
+      'index.html': '<title>char2vid studio</title>',
+      'assets/index.js': payload,
+    });
+    const apkPath = writeApk({
+      'assets/public/index.html': '<title>char2vid studio</title>',
+      'assets/public/assets/index.js': payload,
+    });
+
+    const result = runVerify(apkPath, distDir);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain('Verified 2 web assets in the APK');
+  });
+
+  it('fails closed when the studio dist has no index.html', () => {
+    const distDir = join(makeTempDir(), 'dist');
+    mkdirSync(distDir);
+    const apkPath = writeApk({
+      'assets/public/cordova.js': '/* capacitor */',
+    });
+
+    const result = runVerify(apkPath, distDir);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('missing index.html');
+  });
+});

@@ -358,7 +358,13 @@ export function CharacterEditor({
           }}
         />
 
-        <CharacterSheetGenerate revision={revision} />
+        <CharacterSheetGenerate
+          revision={revision}
+          onAttached={() => {
+            void reload();
+            onChanged();
+          }}
+        />
 
         <div className="asset-detail-actions">
           <button

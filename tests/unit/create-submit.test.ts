@@ -80,6 +80,35 @@ describe('create submit idempotency (P4 residual / P5)', () => {
     expect(minted).toBe(2);
   });
 
+  it('treats a character slot intent as a distinct create fingerprint', () => {
+    const storage = memoryStorage();
+    let minted = 0;
+    const mint = () => {
+      minted += 1;
+      return `id-${minted}`;
+    };
+    const first = resolveDraftClientRequestId({
+      storage,
+      fingerprint: draftFingerprint(draft()),
+      mint,
+    });
+    const second = resolveDraftClientRequestId({
+      storage,
+      fingerprint: draftFingerprint(
+        draft({
+          characterSlot: {
+            characterId: 'c1',
+            role: 'identity',
+            view: 'left',
+          },
+        }),
+      ),
+      mint,
+    });
+    expect(first).toBe('id-1');
+    expect(second).toBe('id-2');
+  });
+
   it('clears the stored id after a successful receipt so the next intent is new', () => {
     const storage = memoryStorage();
     let minted = 0;
