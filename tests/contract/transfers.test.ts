@@ -156,7 +156,10 @@ describe('transfers (P2)', () => {
   });
 
   it('survives a service restart mid-upload', async () => {
-    const first = await openTestService();
+    // Keep the same frozen clock across restart so pending TTL is not
+    // evaluated against wall time (openTestService defaults to 2026-09-15).
+    const frozenNow = () => new Date('2026-09-15T12:00:00.000Z');
+    const first = await openTestService({ now: frozenNow });
     await setupOwner(first);
     const { token } = await loginNative(first);
     const payload = new Uint8Array([3, 4, 5, 6]);
@@ -182,7 +185,7 @@ describe('transfers (P2)', () => {
       quotaBytes: 1024 * 1024,
       cookieSecure: false,
       validateProviderKey: async () => ({ ok: true }),
-      now: () => new Date('2026-09-15T12:05:00.000Z'),
+      now: frozenNow,
     });
     try {
       const finalize = await restarted.app.inject({
