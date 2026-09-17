@@ -18,6 +18,7 @@ import {
   SERVICE_ORIGIN_KEY,
 } from '../settings/service-origin';
 import { resolvePlatform } from '../../app/platform';
+import { logStudioError, studioDebugLog } from '../../app/debug-session';
 import { findLibraryAssetByRevisionId } from './find-library-asset';
 
 export interface JobView extends JobReceipt {
@@ -128,6 +129,11 @@ export async function stageLibraryReferences(
       }),
     });
     if (!created.ok) {
+      studioDebugLog().error(
+        'job.transfer.error',
+        { stage: 'create', assetRevisionId: binding.assetRevisionId },
+        { screen: 'create' },
+      );
       throw new Error('transfer_create_failed');
     }
     const { transferId } = (await created.json()) as { transferId: string };
@@ -141,6 +147,11 @@ export async function stageLibraryReferences(
       },
     );
     if (!part.ok) {
+      studioDebugLog().error(
+        'job.transfer.error',
+        { stage: 'part', transferId },
+        { screen: 'create' },
+      );
       throw new Error('transfer_part_failed');
     }
     const finalized = await studioApiFetch(
@@ -149,6 +160,11 @@ export async function stageLibraryReferences(
       { method: 'POST' },
     );
     if (!finalized.ok) {
+      studioDebugLog().error(
+        'job.transfer.error',
+        { stage: 'finalize', transferId },
+        { screen: 'create' },
+      );
       throw new Error('transfer_finalize_failed');
     }
     transferIds.push(transferId);
@@ -173,9 +189,30 @@ export async function submitGenerationJob(
   });
   if (!response.ok) {
     const body = (await response.json()) as { error?: string };
+    studioDebugLog().error(
+      'job.submit.error',
+      {
+        clientRequestId: draft.clientRequestId,
+        modelId: draft.modelId,
+        operation: draft.operation,
+        code: body.error ?? 'job_submit_failed',
+      },
+      { screen: 'create' },
+    );
     throw new Error(body.error ?? 'job_submit_failed');
   }
-  return (await response.json()) as JobView;
+  const receipt = (await response.json()) as JobView;
+  studioDebugLog().info(
+    'job.submit.ok',
+    {
+      clientRequestId: receipt.clientRequestId,
+      jobId: receipt.id,
+      providerState: receipt.providerState,
+      transferCount: transferIds.length,
+    },
+    { screen: 'create' },
+  );
+  return receipt;
 }
 
 export async function listStudioJobs(
@@ -259,6 +296,16 @@ export async function reconcileJobOutputs(
   if (job.providerState !== 'completed' || job.saveState === 'saved') {
     return job;
   }
+  studioDebugLog().info(
+    'job.save.start',
+    {
+      jobId: job.id,
+      clientRequestId: job.clientRequestId,
+      outputCount: job.outputs?.length ?? 0,
+      hasCharacterSlot: Boolean(job.characterSlot),
+    },
+    { screen: 'jobs' },
+  );
   await reportSaveProgress(session, job.id, 'downloading');
   const hashes: string[] = [];
   const importedRevisionIds: string[] = [];
@@ -270,6 +317,16 @@ export async function reconcileJobOutputs(
     }
     await reportSaveProgress(session, job.id, 'verifying');
   } catch (error) {
+    logStudioError(
+      'job.save.error',
+      error,
+      {
+        jobId: job.id,
+        clientRequestId: job.clientRequestId,
+        stage: 'download',
+      },
+      { screen: 'jobs' },
+    );
     await reportSaveProgress(session, job.id, 'failed').catch(() => undefined);
     throw error;
   }
@@ -290,10 +347,31 @@ export async function reconcileJobOutputs(
     },
   );
   if (!ack.ok) {
+    studioDebugLog().error(
+      'job.save.error',
+      {
+        jobId: job.id,
+        clientRequestId: job.clientRequestId,
+        code: 'acknowledge_failed',
+      },
+      { screen: 'jobs' },
+    );
     throw new Error('acknowledge_failed');
   }
   invalidateStudioLibrary();
-  return (await ack.json()) as JobView;
+  const saved = (await ack.json()) as JobView;
+  studioDebugLog().info(
+    'job.save.ok',
+    {
+      jobId: saved.id,
+      clientRequestId: saved.clientRequestId,
+      saveState: saved.saveState,
+      outputCount: hashes.length,
+      attachedSlots: Boolean(job.characterSlot),
+    },
+    { screen: 'jobs' },
+  );
+  return saved;
 }
 
 export async function syncStudioJobs(): Promise<JobView[]> {
@@ -316,7 +394,13 @@ export async function syncStudioJobs(): Promise<JobView[]> {
   for (const job of collected) {
     try {
       reconciled.push(await reconcileJobOutputs(session, library, job));
-    } catch {
+    } catch (error) {
+      logStudioError(
+        'job.sync.reconcile-error',
+        error,
+        { jobId: job.id, clientRequestId: job.clientRequestId },
+        { screen: 'jobs' },
+      );
       reconciled.push(job);
     }
   }

@@ -1,9 +1,17 @@
+import { useMemo } from 'react';
+
+import {
+  compileAcceptChecklist,
+  promptModuleChecklist,
+} from '@char2vid/domain/debug-log';
 import {
   compileModules,
   compilePrompt,
   type PromptModule,
 } from '@char2vid/domain/generation/prompt-compiler';
 import type { ReferenceBinding } from '@char2vid/domain';
+
+import { studioDebugLog, useChecklistLog } from '../../app/debug-session';
 
 export function PromptPreview({
   modules,
@@ -33,6 +41,21 @@ export function PromptPreview({
     identityNotes,
     outfitNotes,
   });
+  const moduleChecklist = useMemo(
+    () => promptModuleChecklist(modules),
+    [modules],
+  );
+  const acceptChecklist = useMemo(
+    () =>
+      compileAcceptChecklist({
+        compiledChars: compiled.length,
+        acceptedChars: acceptedText.trim().length,
+        applyProposal,
+      }),
+    [acceptedText, applyProposal, compiled.length],
+  );
+  useChecklistLog('create-prompt-modules', moduleChecklist, 'create');
+  useChecklistLog('create-compile-accept', acceptChecklist, 'create');
 
   return (
     <section className="prompt-preview" aria-labelledby="prompt-preview-title">
@@ -112,7 +135,17 @@ export function PromptPreview({
         type="button"
         className="secondary-action"
         disabled={compiled.length === 0}
-        onClick={() => onAcceptedText(compiled)}
+        onClick={() => {
+          studioDebugLog().info(
+            'create.prompt.accept-compiled',
+            {
+              compiledChars: compiled.length,
+              acceptedChars: acceptedText.trim().length,
+            },
+            { screen: 'create', route: '/create' },
+          );
+          onAcceptedText(compiled);
+        }}
       >
         Accept compiled prompt
       </button>

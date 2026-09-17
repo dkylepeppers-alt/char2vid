@@ -8,6 +8,8 @@ import {
   type Destination,
   type Sheet,
 } from './navigation';
+import { DebugLogPanel } from './DebugLogPanel';
+import { studioDebugLog } from './debug-session';
 import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
 import { subscribeVisualViewportInset } from './visual-viewport-inset';
@@ -73,7 +75,12 @@ export function App() {
 
   useEffect(() => {
     window.localStorage.setItem(ROUTE_KEY, destination);
-  }, [destination]);
+    studioDebugLog().info(
+      'nav.route',
+      { destination, sheet: sheet ?? null },
+      { screen: destination, route: selectedPath },
+    );
+  }, [destination, selectedPath, sheet]);
 
   const closeSheet = useCallback(() => setSheet(null), []);
 
@@ -91,6 +98,11 @@ export function App() {
   const handleBack = useCallback(
     (canGoBack: boolean) => {
       const action = resolveBack(sheet, canGoBack);
+      studioDebugLog().info(
+        'nav.back',
+        { action, canGoBack, sheet: sheet ?? null },
+        { screen: destination, route: selectedPath },
+      );
       if (action === 'close-sheet') {
         closeSheet();
       } else if (action === 'navigate-back') {
@@ -99,7 +111,7 @@ export function App() {
         void exitAndroidApp();
       }
     },
-    [closeSheet, navigate, sheet],
+    [closeSheet, destination, navigate, selectedPath, sheet],
   );
 
   useEffect(() => {
@@ -113,10 +125,24 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleBack, sheet]);
 
-  useEffect(
-    () => subscribeVisualViewportInset(document.documentElement, window),
-    [],
-  );
+  useEffect(() => {
+    let lastInset = Number.NaN;
+    return subscribeVisualViewportInset(
+      document.documentElement,
+      window,
+      (inset) => {
+        if (inset === lastInset) {
+          return;
+        }
+        lastInset = inset;
+        studioDebugLog().info(
+          'viewport.keyboard-inset',
+          { insetPx: inset },
+          { screen: destination, route: selectedPath },
+        );
+      },
+    );
+  }, [destination, selectedPath]);
 
   useEffect(() => {
     let disposed = false;
@@ -259,6 +285,7 @@ export function App() {
               <>
                 <ServiceSettings />
                 <BackupPage />
+                <DebugLogPanel />
               </>
             )}
           </section>
