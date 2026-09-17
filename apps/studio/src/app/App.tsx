@@ -10,6 +10,7 @@ import {
 } from './navigation';
 import { modalFocusTarget } from './modal-focus';
 import { exitAndroidApp, listenForAndroidBack } from './platform';
+import { subscribeVisualViewportInset } from './visual-viewport-inset';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { CreatePage } from '../features/create/CreatePage';
 import { CharacterList } from '../features/characters/CharacterList';
@@ -111,6 +112,11 @@ export function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleBack, sheet]);
+
+  useEffect(
+    () => subscribeVisualViewportInset(document.documentElement, window),
+    [],
+  );
 
   useEffect(() => {
     let disposed = false;
