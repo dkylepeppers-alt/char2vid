@@ -80,6 +80,29 @@ describe('create submit idempotency (P4 residual / P5)', () => {
     expect(minted).toBe(2);
   });
 
+  it('keeps the pre-C2 fingerprint for an unslotted draft so a lost paid response can retry', () => {
+    const legacy = JSON.stringify({
+      operation: 'image-generate',
+      modelId: 'fixture/image',
+      prompt: 'A quiet portrait',
+      references: [],
+      parameters: { n: 1 },
+      projectId: null,
+      shotRevisionId: null,
+    });
+    expect(draftFingerprint(draft())).toBe(legacy);
+    const storage = memoryStorage({
+      [CLIENT_REQUEST_ID_KEY]: 'id-legacy',
+      [CLIENT_REQUEST_FINGERPRINT_KEY]: legacy,
+    });
+    const reused = resolveDraftClientRequestId({
+      storage,
+      fingerprint: draftFingerprint(draft()),
+      mint: () => 'id-new',
+    });
+    expect(reused).toBe('id-legacy');
+  });
+
   it('treats a character slot intent as a distinct create fingerprint', () => {
     const storage = memoryStorage();
     let minted = 0;

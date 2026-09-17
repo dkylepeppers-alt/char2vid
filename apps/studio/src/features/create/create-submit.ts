@@ -7,7 +7,7 @@ export const CLIENT_REQUEST_FINGERPRINT_KEY =
 export function draftFingerprint(
   draft: Omit<GenerationDraft, 'clientRequestId'>,
 ): string {
-  return JSON.stringify({
+  const payload: Record<string, unknown> = {
     operation: draft.operation,
     modelId: draft.modelId,
     prompt: draft.prompt,
@@ -15,8 +15,11 @@ export function draftFingerprint(
     parameters: draft.parameters,
     projectId: draft.projectId ?? null,
     shotRevisionId: draft.shotRevisionId ?? null,
-    characterSlot: draft.characterSlot ?? null,
-  });
+  };
+  if (draft.characterSlot) {
+    payload.characterSlot = draft.characterSlot;
+  }
+  return JSON.stringify(payload);
 }
 
 export function resolveDraftClientRequestId(options: {
