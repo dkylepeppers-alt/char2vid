@@ -17,6 +17,8 @@ date: 2026-09-15 (UTC).
 | provider URL expired → use service copy; else unrecoverable bytes              | pass (fake) | clearing fake CDN map still serves `/outputs/0`; deleting staging files returns `unrecoverable_bytes`                                                        |
 | app force-stop → service continues; local save reconciles after restart        | partial     | Service restart proven in contract tests. Emulator: `JobOutputReconcileInstrumentedTest` native hash round-trip. **Physical Android force-stop UNVERIFIED.** |
 
+On-device Room jobs are version 2 with `MIGRATION_1_2` for `characterSlotJson`. Do not restore `fallbackToDestructiveMigration()`.
+
 ## Error envelopes (fake provider)
 
 | Case                              | Observed                                                                                 | Notes                                                                                           |
@@ -46,7 +48,7 @@ flight. Duplicate POSTs with that id return the existing receipt.
 
 ## UNVERIFIED
 
-- Physical Android interruption / force-stop / phone-off. On-device worker uses a foreground service + WorkManager so jobs continue after leaving Create while the phone is on.
+- Physical Android interruption / force-stop / phone-off. On-device worker uses a foreground service + WorkManager so jobs continue after leaving Create while the phone is on. WorkManager recovery promotes itself to a dataSync foreground worker before starting that service.
 - Physical-device Keystore round-trip for the on-device Nano-GPT key
 - Live HTTPS service deploy
 - Live Nano-GPT check-balance, paid generation, status, or download

@@ -299,7 +299,22 @@ export async function reconcileJobOutputs(
 
 export async function syncStudioJobs(): Promise<JobView[]> {
   if (await hasOnDeviceProviderKey()) {
-    return listOnDeviceJobs();
+    const jobs = await listOnDeviceJobs();
+    const library = await getStudioLibrary();
+    for (const job of jobs) {
+      if (
+        job.providerState === 'completed' &&
+        job.characterSlot &&
+        job.outputRevisionIds.length > 0
+      ) {
+        await attachImportedCharacterSlots(
+          library,
+          job.characterSlot,
+          job.outputRevisionIds,
+        );
+      }
+    }
+    return jobs;
   }
   const session = await resolveStudioSession();
   if (!session) {

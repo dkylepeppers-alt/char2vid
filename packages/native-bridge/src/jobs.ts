@@ -24,6 +24,7 @@ interface Char2vidJobsPlugin {
     clientRequestId: string;
     operation: string;
     request: NativeFrozenRequest;
+    characterSlot?: JobReceipt['characterSlot'];
   }): Promise<NativeJobView>;
   listJobs(): Promise<{ jobs: NativeJobView[] }>;
   cancelJob(options: { jobId: string }): Promise<NativeJobView>;
@@ -39,6 +40,7 @@ export async function enqueueNativeJob(input: {
   clientRequestId: string;
   operation: string;
   request: NativeFrozenRequest;
+  characterSlot?: JobReceipt['characterSlot'];
 }): Promise<NativeJobView> {
   if (!isAndroidNative()) {
     throw new Error('On-device jobs require Android');

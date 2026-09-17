@@ -86,6 +86,13 @@ export async function preparedInputsFromLibrary(
   return inputs;
 }
 
+export function shouldSkipRemoteSessionProbe(input: {
+  platform: 'android' | 'web';
+  hasProviderKey: boolean;
+}): boolean {
+  return input.platform === 'android' && input.hasProviderKey;
+}
+
 export async function enqueueOnDeviceJob(
   draft: GenerationDraft,
   model: NanoGptModelDescriptor,
@@ -102,6 +109,7 @@ export async function enqueueOnDeviceJob(
     clientRequestId: draft.clientRequestId,
     operation: draft.operation,
     request: built.request,
+    ...(draft.characterSlot ? { characterSlot: draft.characterSlot } : {}),
   });
 }
 
@@ -122,8 +130,26 @@ export async function submitDraftJob(input: {
 }): Promise<JobView> {
   const { resolveStudioSession, stageLibraryReferences, submitGenerationJob } =
     await import('./job-sync');
-  const session = await resolveStudioSession();
-  const backend = await resolveGenerationBackend(session !== null);
+  const hasProviderKey = await hasOnDeviceProviderKey();
+  if (
+    shouldSkipRemoteSessionProbe({
+      platform: resolvePlatform(),
+      hasProviderKey,
+    })
+  ) {
+    return enqueueOnDeviceJob(input.draft, input.model);
+  }
+  let session;
+  try {
+    session = await resolveStudioSession();
+  } catch {
+    session = null;
+  }
+  const backend = selectGenerationBackend({
+    platform: resolvePlatform(),
+    hasProviderKey,
+    hasServiceSession: session !== null,
+  });
   if (backend === 'on-device') {
     return enqueueOnDeviceJob(input.draft, input.model);
   }

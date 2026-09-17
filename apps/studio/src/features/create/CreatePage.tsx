@@ -105,7 +105,8 @@ export function CreatePage() {
     () => window.localStorage.getItem(APPLY_PROPOSAL_KEY) === '1',
   );
   const [libraryAssets, setLibraryAssets] = useState<AssetRecord[]>([]);
-  const [serviceReady, setServiceReady] = useState(false);
+  const [deviceKeyReady, setDeviceKeyReady] = useState(false);
+  const [serviceSessionReady, setServiceSessionReady] = useState(false);
   const [submitState, setSubmitState] = useState<string | null>(null);
   const submitGate = useRef(createSubmitGate());
 
@@ -150,14 +151,18 @@ export function CreatePage() {
     void resolveStudioSession()
       .then((session) => {
         if (!cancelled) {
-          setServiceReady(session !== null);
+          setServiceSessionReady(session !== null);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          setServiceSessionReady(false);
+        }
+      });
     void hasOnDeviceProviderKey()
       .then((ready) => {
-        if (!cancelled && ready) {
-          setServiceReady(true);
+        if (!cancelled) {
+          setDeviceKeyReady(ready);
         }
       })
       .catch(() => undefined);
@@ -279,7 +284,7 @@ export function CreatePage() {
   );
 
   const canGenerate =
-    serviceReady &&
+    (deviceKeyReady || serviceSessionReady) &&
     selected !== null &&
     acceptedGenerateText.trim().length > 0 &&
     !blockingPlan;

@@ -377,7 +377,7 @@ export function ServiceSettings() {
             type="button"
             className="secondary-action"
             onClick={() => void onSaveKey()}
-            disabled={status.kind === 'working'}
+            disabled={status.kind === 'working' || apiKey.trim().length === 0}
           >
             Also store key on remote service
           </button>

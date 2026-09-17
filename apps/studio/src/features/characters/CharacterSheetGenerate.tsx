@@ -50,7 +50,8 @@ export function CharacterSheetGenerate({
   const [mode, setMode] = useState<'one-slot' | 'sheet'>('one-slot');
   const [view, setView] = useState('front');
   const [submitState, setSubmitState] = useState<string | null>(null);
-  const [serviceReady, setServiceReady] = useState(false);
+  const [deviceKeyReady, setDeviceKeyReady] = useState(false);
+  const [serviceSessionReady, setServiceSessionReady] = useState(false);
   const submitGate = useRef(createSubmitGate());
 
   useEffect(() => {
@@ -85,18 +86,18 @@ export function CharacterSheetGenerate({
     void resolveStudioSession()
       .then((session) => {
         if (!cancelled) {
-          setServiceReady(session !== null);
+          setServiceSessionReady(session !== null);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setServiceReady(false);
+          setServiceSessionReady(false);
         }
       });
     void hasOnDeviceProviderKey()
       .then((ready) => {
-        if (!cancelled && ready) {
-          setServiceReady(true);
+        if (!cancelled) {
+          setDeviceKeyReady(ready);
         }
       })
       .catch(() => undefined);
@@ -281,7 +282,7 @@ export function CharacterSheetGenerate({
         type="button"
         className="primary-action"
         disabled={
-          !serviceReady ||
+          !(deviceKeyReady || serviceSessionReady) ||
           !selected ||
           plan.selected.length === 0 ||
           plan.issues.some((issue) => issue.severity === 'blocking') ||
@@ -353,7 +354,7 @@ export function CharacterSheetGenerate({
             });
         }}
       >
-        {serviceReady &&
+        {(deviceKeyReady || serviceSessionReady) &&
         selected &&
         plan.selected.length > 0 &&
         !plan.issues.some((issue) => issue.severity === 'blocking')

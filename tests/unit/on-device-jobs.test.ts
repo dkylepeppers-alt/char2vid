@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bytesToDataUrl,
   selectGenerationBackend,
+  shouldSkipRemoteSessionProbe,
 } from '../../apps/studio/src/features/jobs/on-device-jobs';
 
 describe('on-device generation backend', () => {
@@ -34,6 +35,27 @@ describe('on-device generation backend', () => {
         hasServiceSession: true,
       }),
     ).toBe('on-device');
+  });
+
+  it('skips the remote service probe when an Android Keystore key is present', () => {
+    expect(
+      shouldSkipRemoteSessionProbe({
+        platform: 'android',
+        hasProviderKey: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipRemoteSessionProbe({
+        platform: 'android',
+        hasProviderKey: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSkipRemoteSessionProbe({
+        platform: 'web',
+        hasProviderKey: true,
+      }),
+    ).toBe(false);
   });
 
   it('cannot submit without a key or service session', () => {
