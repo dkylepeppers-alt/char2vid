@@ -19,7 +19,7 @@ import {
   type CharacterRevision,
   type LookRevision,
 } from '@char2vid/domain/characters/schema';
-import { resolveNativeImportRequest } from './import-bytes';
+import { importSourceViaNative } from './import-bytes';
 
 interface Char2vidLibraryPlugin {
   importFromNativeUri(options: {
@@ -27,11 +27,12 @@ interface Char2vidLibraryPlugin {
     name: string;
     mime: string;
   }): Promise<AssetRecord>;
-  importFromBytes(options: {
+  beginByteImport(): Promise<{ writeId: string; uri: string }>;
+  appendByteImportChunk(options: {
+    writeId: string;
     data: string;
-    name: string;
-    mime: string;
-  }): Promise<AssetRecord>;
+  }): Promise<void>;
+  abandonByteImport(options: { writeId: string }): Promise<void>;
   getAsset(options: { id: string }): Promise<{ asset: AssetRecord | null }>;
   openRevisionRead(options: {
     revisionId: string;
@@ -120,19 +121,15 @@ export class NativeLibraryPort implements LibraryPort {
     if (!isAndroidNative()) {
       throw new Error('NativeLibraryPort requires Android');
     }
-    const request = await resolveNativeImportRequest(source);
-    const record =
-      request.method === 'importFromNativeUri'
-        ? await Char2vidLibrary.importFromNativeUri({
-            uri: request.uri,
-            name: request.name,
-            mime: request.mime,
-          })
-        : await Char2vidLibrary.importFromBytes({
-            data: request.data,
-            name: request.name,
-            mime: request.mime,
-          });
+    const record = await importSourceViaNative(source, {
+      beginByteImport: () => Char2vidLibrary.beginByteImport(),
+      appendByteImportChunk: (options) =>
+        Char2vidLibrary.appendByteImportChunk(options),
+      abandonByteImport: (options) =>
+        Char2vidLibrary.abandonByteImport(options),
+      importFromNativeUri: (options) =>
+        Char2vidLibrary.importFromNativeUri(options),
+    });
     return parseAssetRecord(record);
   }
 

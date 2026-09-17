@@ -103,4 +103,44 @@ class JobOutputReconcileInstrumentedTest {
         assertEquals("available", imported.state)
         assertEquals(expectedSha, imported.sha256)
     }
+
+    @Test
+    fun chunkedTempFileImportMatchesNativeUriImport() {
+        val png =
+            byteArrayOf(
+                0x89.toByte(),
+                0x50,
+                0x4e,
+                0x47,
+                0x0d,
+                0x0a,
+                0x1a,
+                0x0a,
+                0x21,
+                0x22,
+                0x23,
+            )
+        val expectedSha =
+            MessageDigest.getInstance("SHA-256")
+                .digest(png)
+                .joinToString("") { "%02x".format(it) }
+        val begun = repo.beginByteImport()
+        val writeId = begun.getString("writeId")
+        val uri = begun.getString("uri")
+        val first = png.copyOfRange(0, 4)
+        val second = png.copyOfRange(4, png.size)
+        repo.appendByteImportChunk(
+            writeId,
+            android.util.Base64.encodeToString(first, android.util.Base64.NO_WRAP),
+        )
+        repo.appendByteImportChunk(
+            writeId,
+            android.util.Base64.encodeToString(second, android.util.Base64.NO_WRAP),
+        )
+        val imported = repo.importFromNativeUri(uri, "job-output-chunks.png", "image/png")
+        repo.abandonByteImport(writeId)
+        assertEquals("available", imported.state)
+        assertEquals(expectedSha, imported.sha256)
+        assertEquals(false, java.io.File(java.net.URI(uri)).exists())
+    }
 }
