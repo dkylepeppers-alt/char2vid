@@ -1036,3 +1036,25 @@ textarea {
 .plan-issues.advisory {
   color: #d6c07a;
 }
+
+.debug-log-list {
+  max-height: 40vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px 14px;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  border: 1px solid #30342e;
+  border-radius: 16px;
+  background: #0c0e0c;
+}
+
+.debug-log-list code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #c5c8bc;
+}

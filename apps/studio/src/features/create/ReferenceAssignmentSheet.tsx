@@ -1,8 +1,13 @@
+import { useMemo } from 'react';
+
 import type {
   CapabilityIssue,
   ReferenceBinding,
   ReferenceRole,
 } from '@char2vid/domain';
+import { referenceIssueChecklist } from '@char2vid/domain/debug-log';
+
+import { studioDebugLog, useChecklistLog } from '../../app/debug-session';
 
 const ROLES: ReferenceRole[] = [
   'identity',
@@ -28,15 +33,22 @@ export function ReferenceAssignmentSheet({
   issues,
   onRoleChange,
   onOmit,
+  screen = 'create',
 }: {
   selected: ReferenceBinding[];
   omitted: ReferenceBinding[];
   issues: CapabilityIssue[];
   onRoleChange?: (assetRevisionId: string, role: ReferenceRole) => void;
   onOmit?: (assetRevisionId: string) => void;
+  screen?: string;
 }) {
   const blocking = issues.filter((issue) => issue.severity === 'blocking');
   const advisory = issues.filter((issue) => issue.severity === 'advisory');
+  const issueChecklist = useMemo(
+    () => referenceIssueChecklist(issues),
+    [issues],
+  );
+  useChecklistLog('create-references', issueChecklist, screen);
 
   return (
     <section
@@ -106,7 +118,21 @@ export function ReferenceAssignmentSheet({
                 <button
                   type="button"
                   className="secondary-action"
-                  onClick={() => onOmit(item.assetRevisionId)}
+                  onClick={() => {
+                    studioDebugLog().info(
+                      'create.reference.omit',
+                      {
+                        assetRevisionId: item.assetRevisionId,
+                        role: item.role,
+                        ordinal: item.ordinal,
+                      },
+                      {
+                        screen,
+                        route: screen === 'create' ? '/create' : '/characters',
+                      },
+                    );
+                    onOmit(item.assetRevisionId);
+                  }}
                 >
                   Omit
                 </button>

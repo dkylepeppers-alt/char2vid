@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { JobView } from './job-sync';
 import {
@@ -6,6 +6,7 @@ import {
   resolveStudioSession,
   syncStudioJobs,
 } from './job-sync';
+import { logStudioError, studioDebugLog } from '../../app/debug-session';
 
 function costLabel(job: JobView): string {
   const cost = job.cost;
@@ -28,6 +29,7 @@ export function QueueSheet() {
   const [jobs, setJobs] = useState<JobView[]>([]);
   const [status, setStatus] = useState('Checking the generation service…');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const lastSync = useRef<string>('');
 
   const refresh = useCallback(async () => {
     const session = await resolveStudioSession();
@@ -41,12 +43,26 @@ export function QueueSheet() {
     try {
       const next = await syncStudioJobs();
       setJobs(next);
+      const byProvider = next.reduce<Record<string, number>>((counts, job) => {
+        counts[job.providerState] = (counts[job.providerState] ?? 0) + 1;
+        return counts;
+      }, {});
+      const signature = `${next.length}:${JSON.stringify(byProvider)}`;
+      if (signature !== lastSync.current) {
+        lastSync.current = signature;
+        studioDebugLog().info(
+          'job.sync',
+          { jobCount: next.length, byProvider },
+          { screen: 'jobs' },
+        );
+      }
       setStatus(
         next.length === 0
           ? 'No jobs yet. Submit an image from Create after attaching any library references.'
           : `${next.length} job${next.length === 1 ? '' : 's'} on the service.`,
       );
-    } catch {
+    } catch (error) {
+      logStudioError('job.sync.error', error, {}, { screen: 'jobs' });
       setStatus('Could not refresh jobs from the generation service.');
     }
   }, []);
@@ -87,8 +103,29 @@ export function QueueSheet() {
                     void resolveStudioSession()
                       .then(async (session) => {
                         if (!session) return;
+                        studioDebugLog().info(
+                          'job.cancel.start',
+                          {
+                            jobId: job.id,
+                            clientRequestId: job.clientRequestId,
+                          },
+                          { screen: 'jobs' },
+                        );
                         await cancelStudioJob(session, job.id);
+                        studioDebugLog().info(
+                          'job.cancel.ok',
+                          { jobId: job.id },
+                          { screen: 'jobs' },
+                        );
                         await refresh();
+                      })
+                      .catch((error: unknown) => {
+                        logStudioError(
+                          'job.cancel.error',
+                          error,
+                          { jobId: job.id },
+                          { screen: 'jobs' },
+                        );
                       })
                       .finally(() => setBusyId(null));
                   }}

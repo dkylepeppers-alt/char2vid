@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { serviceOnboardingChecklist } from '@char2vid/domain/debug-log';
+
+import {
+  logStudioError,
+  studioDebugLog,
+  useChecklistLog,
+} from '../../app/debug-session';
 import { resolvePlatform } from '../../app/platform';
 import {
   nativeTokenForOrigin,
@@ -79,6 +86,16 @@ export function ServiceSettings() {
   }, [native]);
 
   const boundToken = nativeTokenForOrigin(nativeToken, tokenOrigin, origin);
+  const onboarding = useMemo(
+    () =>
+      serviceOnboardingChecklist({
+        originSet: origin.trim().length > 0,
+        sessionReady: session !== null,
+        providerKeyStored: session?.providerKey != null,
+      }),
+    [origin, session],
+  );
+  useChecklistLog('service-onboarding', onboarding, 'settings');
 
   const refreshSession = useCallback(
     async (token = boundToken) => {
@@ -121,12 +138,23 @@ export function ServiceSettings() {
         throw new Error(body.error ?? 'Setup failed');
       }
       setSetupToken('');
+      studioDebugLog().info(
+        'service.setup.ok',
+        { host: new URL(base).host },
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'ok',
         message:
           'Owner login created. Sign in to continue. HTTPS deploy is UNVERIFIED.',
       });
     } catch (error) {
+      logStudioError(
+        'service.setup.error',
+        error,
+        {},
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'error',
         message: serviceOriginMessage(error, 'Setup failed'),
@@ -170,6 +198,11 @@ export function ServiceSettings() {
       }
       setPassword('');
       await refreshSession(token);
+      studioDebugLog().info(
+        'service.session.ok',
+        { host: new URL(base).host, native },
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'ok',
         message: native
@@ -177,6 +210,12 @@ export function ServiceSettings() {
           : 'Browser session cookie set.',
       });
     } catch (error) {
+      logStudioError(
+        'service.session.error',
+        error,
+        {},
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'error',
         message: serviceOriginMessage(error, 'Sign-in failed'),
@@ -211,11 +250,22 @@ export function ServiceSettings() {
       }
       setApiKey('');
       await refreshSession();
+      studioDebugLog().info(
+        'service.provider-key.ok',
+        { last4: body.last4 ?? null },
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'ok',
         message: `Key stored on the service (…${body.last4 ?? ''}). Live check-balance validation is UNVERIFIED in this environment.`,
       });
     } catch (error) {
+      logStudioError(
+        'service.provider-key.error',
+        error,
+        {},
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'error',
         message: serviceOriginMessage(error, 'Provider key failed'),
@@ -247,11 +297,22 @@ export function ServiceSettings() {
       setNativeToken(undefined);
       setTokenOrigin(undefined);
       setSession(null);
+      studioDebugLog().info(
+        'service.session.revoked',
+        { native },
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'ok',
         message: 'Session revoked. Offline library is unchanged.',
       });
     } catch (error) {
+      logStudioError(
+        'service.session.revoke-error',
+        error,
+        {},
+        { screen: 'settings', route: '/settings' },
+      );
       setStatus({
         kind: 'error',
         message: serviceOriginMessage(error, 'Revoke failed'),

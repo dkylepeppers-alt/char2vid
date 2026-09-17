@@ -3,11 +3,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Operation, ReferenceBinding } from '@char2vid/domain';
 import type { CharacterRevision } from '@char2vid/domain/characters/schema';
 import { freezeRequest } from '@char2vid/domain/generation/request-snapshot';
+import { characterSheetGenerateChecklist } from '@char2vid/domain/debug-log';
 import {
   buildRequest,
   refreshCatalogs,
   type NanoGptModelDescriptor,
 } from '@char2vid/nanogpt';
+
+import {
+  logStudioError,
+  studioDebugLog,
+  useChecklistLog,
+} from '../../app/debug-session';
 
 import {
   resolveStudioSession,
@@ -177,6 +184,53 @@ export function CharacterSheetGenerate({
 
   const estimate =
     'Cost is estimated by the generation service when the job is queued; this screen does not invent a price.';
+  const generateChecklist = useMemo(
+    () =>
+      characterSheetGenerateChecklist({
+        serviceReady,
+        modelSelected: selected !== null,
+        selectedReferenceCount: plan.selected.length,
+        blockingIssueCount: plan.issues.filter(
+          (issue) => issue.severity === 'blocking',
+        ).length,
+      }),
+    [plan.issues, plan.selected.length, selected, serviceReady],
+  );
+  useChecklistLog('character-sheet-generate', generateChecklist, 'characters');
+
+  const canGenerateView =
+    serviceReady &&
+    selected !== null &&
+    plan.selected.length > 0 &&
+    !plan.issues.some((issue) => issue.severity === 'blocking');
+  const blockedGateIds = generateChecklist
+    .filter((item) => item.state === 'blocked')
+    .map((item) => item.id)
+    .join(',');
+
+  useEffect(() => {
+    studioDebugLog().info(
+      canGenerateView
+        ? 'character.generate-gate.open'
+        : 'character.generate-gate.blocked',
+      {
+        canGenerate: canGenerateView,
+        blocked: blockedGateIds.length > 0 ? blockedGateIds.split(',') : [],
+        modelId: selectedId,
+        mode,
+        view,
+        referenceCount: plan.selected.length,
+      },
+      { screen: 'characters', route: '/characters' },
+    );
+  }, [
+    blockedGateIds,
+    canGenerateView,
+    mode,
+    plan.selected.length,
+    selectedId,
+    view,
+  ]);
 
   return (
     <section
@@ -227,6 +281,7 @@ export function CharacterSheetGenerate({
         selected={plan.selected}
         omitted={plan.omitted}
         issues={plan.issues}
+        screen="characters"
       />
       <ModelPicker
         models={models}
@@ -276,16 +331,18 @@ export function CharacterSheetGenerate({
       <button
         type="button"
         className="primary-action"
-        disabled={
-          !serviceReady ||
-          !selected ||
-          plan.selected.length === 0 ||
-          plan.issues.some((issue) => issue.severity === 'blocking') ||
-          submitState === 'working'
-        }
+        disabled={!canGenerateView || submitState === 'working'}
         aria-busy={submitState === 'working'}
         onClick={() => {
-          if (!selected || !submitGate.current.tryEnter()) return;
+          if (!selected) return;
+          if (!submitGate.current.tryEnter()) {
+            studioDebugLog().warn(
+              'character.submit.busy',
+              { modelId: selected.id, mode },
+              { screen: 'characters', route: '/characters' },
+            );
+            return;
+          }
           setSubmitState('working');
           const draft = {
             operation: OPERATION,
@@ -300,11 +357,29 @@ export function CharacterSheetGenerate({
             fingerprint: draftFingerprint(draft),
             mint: () => crypto.randomUUID(),
           });
+          studioDebugLog().info(
+            'character.submit.start',
+            {
+              clientRequestId,
+              modelId: selected.id,
+              operation: OPERATION,
+              referenceCount: plan.selected.length,
+              promptChars: prompt.trim().length,
+              mode,
+              view: mode === 'one-slot' ? view : 'sheet',
+            },
+            { screen: 'characters', route: '/characters' },
+          );
           void (async () => {
             const session = await resolveStudioSession();
             if (!session) {
               setServiceReady(false);
               setSubmitState('Connect the generation service to submit');
+              studioDebugLog().warn(
+                'character.submit.blocked',
+                { reason: 'service-not-ready', clientRequestId },
+                { screen: 'characters', route: '/characters' },
+              );
               return;
             }
             const library = await getStudioLibrary();
@@ -327,6 +402,17 @@ export function CharacterSheetGenerate({
             setSubmitState(
               `Queued ${receipt.clientRequestId} (${receipt.providerState}). Cost ${costLabel}. Candidate slot attach waits for the local save.`,
             );
+            studioDebugLog().info(
+              'character.submit.ok',
+              {
+                clientRequestId: receipt.clientRequestId,
+                jobId: receipt.id,
+                providerState: receipt.providerState,
+                transferCount: transferIds.length,
+                costState: cost?.state ?? null,
+              },
+              { screen: 'characters', route: '/characters' },
+            );
             for (let attempt = 0; attempt < 8; attempt += 1) {
               const jobs = await syncStudioJobs();
               const current = jobs.find(
@@ -337,6 +423,15 @@ export function CharacterSheetGenerate({
                 setSubmitState(
                   `Saved ${receipt.clientRequestId} and attached a candidate slot.`,
                 );
+                studioDebugLog().info(
+                  'character.slot.attached',
+                  {
+                    clientRequestId,
+                    jobId: current.id,
+                    saveState: current.saveState,
+                  },
+                  { screen: 'characters', route: '/characters' },
+                );
                 break;
               }
               await new Promise((resolve) => {
@@ -345,6 +440,12 @@ export function CharacterSheetGenerate({
             }
           })()
             .catch((error: unknown) => {
+              logStudioError(
+                'character.submit.error',
+                error,
+                { clientRequestId },
+                { screen: 'characters', route: '/characters' },
+              );
               setSubmitState(
                 error instanceof Error ? error.message : 'job_submit_failed',
               );
@@ -354,10 +455,7 @@ export function CharacterSheetGenerate({
             });
         }}
       >
-        {serviceReady &&
-        selected &&
-        plan.selected.length > 0 &&
-        !plan.issues.some((issue) => issue.severity === 'blocking')
+        {canGenerateView
           ? 'Generate view'
           : 'Connect the generation service to submit'}
       </button>

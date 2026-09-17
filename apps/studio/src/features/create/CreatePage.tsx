@@ -12,6 +12,7 @@ import {
   type PromptModule,
 } from '@char2vid/domain/generation/prompt-compiler';
 import { freezeRequest } from '@char2vid/domain/generation/request-snapshot';
+import { createGenerateChecklist } from '@char2vid/domain/debug-log';
 import type { AssetRecord } from '@char2vid/domain/storage';
 import {
   buildRequest,
@@ -20,6 +21,11 @@ import {
 } from '@char2vid/nanogpt';
 
 import { getStudioLibrary } from '../library/library-session';
+import {
+  logStudioError,
+  studioDebugLog,
+  useChecklistLog,
+} from '../../app/debug-session';
 import {
   resolveStudioSession,
   stageLibraryReferences,
@@ -123,6 +129,15 @@ export function CreatePage() {
       );
       setModels(next);
       const image = result.image;
+      studioDebugLog().info(
+        'create.catalog',
+        {
+          modelCount: next.length,
+          imageState: image.state,
+          fetchedAt: image.fetchedAt ?? null,
+        },
+        { screen: 'create', route: '/create' },
+      );
       if (image.state === 'stale' && image.fetchedAt) {
         setStaleLabel(`Showing catalog from ${image.fetchedAt}`);
       } else if (image.state === 'unavailable') {
@@ -190,6 +205,19 @@ export function CreatePage() {
   const blockingPlan = plan.issues.some(
     (issue) => issue.severity === 'blocking',
   );
+  const generateChecklist = useMemo(
+    () =>
+      createGenerateChecklist({
+        serviceReady,
+        modelSelected: selected !== null,
+        acceptedTextChars: acceptedGenerateText.trim().length,
+        blockingIssueCount: plan.issues.filter(
+          (issue) => issue.severity === 'blocking',
+        ).length,
+      }),
+    [acceptedGenerateText, plan.issues, selected, serviceReady],
+  );
+  useChecklistLog('create-generate', generateChecklist, 'create');
 
   const preview = useMemo(() => {
     if (!selected) return null;
@@ -279,6 +307,32 @@ export function CreatePage() {
     selected !== null &&
     acceptedGenerateText.trim().length > 0 &&
     !blockingPlan;
+  const blockedGateIds = generateChecklist
+    .filter((item) => item.state === 'blocked')
+    .map((item) => item.id)
+    .join(',');
+
+  useEffect(() => {
+    studioDebugLog().info(
+      canGenerate
+        ? 'create.generate-gate.open'
+        : 'create.generate-gate.blocked',
+      {
+        canGenerate,
+        blocked: blockedGateIds.length > 0 ? blockedGateIds.split(',') : [],
+        modelId: selectedId,
+        referenceCount: plan.selected.length,
+        omittedCount: plan.omitted.length,
+      },
+      { screen: 'create', route: '/create' },
+    );
+  }, [
+    blockedGateIds,
+    canGenerate,
+    plan.omitted.length,
+    plan.selected.length,
+    selectedId,
+  ]);
 
   return (
     <section className="draft-card create-page" aria-labelledby="draft-title">
@@ -417,7 +471,14 @@ export function CreatePage() {
         aria-busy={submitState === 'working'}
         onClick={() => {
           if (!selected) return;
-          if (!submitGate.current.tryEnter()) return;
+          if (!submitGate.current.tryEnter()) {
+            studioDebugLog().warn(
+              'create.submit.busy',
+              { modelId: selected.id },
+              { screen: 'create', route: '/create' },
+            );
+            return;
+          }
           setSubmitState('working');
           const draft = {
             operation: OPERATION,
@@ -431,11 +492,27 @@ export function CreatePage() {
             fingerprint: draftFingerprint(draft),
             mint: () => crypto.randomUUID(),
           });
+          studioDebugLog().info(
+            'create.submit.start',
+            {
+              clientRequestId,
+              modelId: selected.id,
+              operation: OPERATION,
+              referenceCount: plan.selected.length,
+              promptChars: acceptedGenerateText.trim().length,
+            },
+            { screen: 'create', route: '/create' },
+          );
           void (async () => {
             const session = await resolveStudioSession();
             if (!session) {
               setServiceReady(false);
               setSubmitState('Connect the generation service to submit');
+              studioDebugLog().warn(
+                'create.submit.blocked',
+                { reason: 'service-not-ready', clientRequestId },
+                { screen: 'create', route: '/create' },
+              );
               return;
             }
             const library = await getStudioLibrary();
@@ -456,8 +533,24 @@ export function CreatePage() {
             setSubmitState(
               `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
             );
+            studioDebugLog().info(
+              'create.submit.ok',
+              {
+                clientRequestId: receipt.clientRequestId,
+                jobId: receipt.id,
+                providerState: receipt.providerState,
+                transferCount: transferIds.length,
+              },
+              { screen: 'create', route: '/create' },
+            );
           })()
             .catch((error: unknown) => {
+              logStudioError(
+                'create.submit.error',
+                error,
+                { clientRequestId },
+                { screen: 'create', route: '/create' },
+              );
               setSubmitState(
                 error instanceof Error ? error.message : 'job_submit_failed',
               );

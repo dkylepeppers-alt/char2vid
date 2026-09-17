@@ -9,6 +9,7 @@ export function visualViewportBottomInset(
 export function subscribeVisualViewportInset(
   root: HTMLElement,
   view: Window,
+  onInset?: (inset: number) => void,
 ): () => void {
   const sync = () => {
     const inset = visualViewportBottomInset(
@@ -16,6 +17,7 @@ export function subscribeVisualViewportInset(
       view.visualViewport,
     );
     root.style.setProperty('--keyboard-inset', `${inset}px`);
+    onInset?.(inset);
   };
   sync();
   const viewport = view.visualViewport;

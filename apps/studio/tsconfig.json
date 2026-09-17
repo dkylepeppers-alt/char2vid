@@ -3,6 +3,9 @@
   "compilerOptions": {
     "paths": {
       "@char2vid/domain": ["../../packages/domain/src/contracts.ts"],
+      "@char2vid/domain/debug-log": [
+        "../../packages/domain/src/debug-log/index.ts"
+      ],
       "@char2vid/native-bridge": ["../../packages/native-bridge/src/index.ts"],
       "@char2vid/domain/*": ["../../packages/domain/src/*"],
       "@char2vid/storage-web": ["../../packages/storage-web/src/index.ts"],

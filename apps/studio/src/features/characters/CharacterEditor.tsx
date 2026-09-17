@@ -16,6 +16,7 @@ import type { ReferenceAvailability } from '@char2vid/domain/characters/port';
 import { exportArchive, importArchive } from '@char2vid/storage-web/archive';
 
 import { resolvePlatform } from '../../app/platform';
+import { logStudioError, studioDebugLog } from '../../app/debug-session';
 import {
   invalidateStudioLibrary,
   type StudioLibrary,
@@ -109,6 +110,12 @@ export function CharacterEditor({
         onChanged();
       })
       .catch((err: unknown) => {
+        logStudioError(
+          'character.save.error',
+          err,
+          { characterId },
+          { screen: 'characters', route: '/characters' },
+        );
         setStatus(err instanceof Error ? err.message : 'Save failed');
       })
       .finally(() => {
@@ -141,6 +148,11 @@ export function CharacterEditor({
               ? 'Export cancelled.'
               : (result.detail ?? 'Export did not complete'),
         );
+        studioDebugLog().info(
+          'character.export',
+          { status: result.status, native: true },
+          { screen: 'characters', route: '/characters' },
+        );
         return;
       }
       if (!library.getArchiveHost) {
@@ -168,6 +180,12 @@ export function CharacterEditor({
       }
       setStatus(`Exported ${result.fileName}`);
     } catch (err) {
+      logStudioError(
+        'character.export.error',
+        err,
+        { characterId },
+        { screen: 'characters', route: '/characters' },
+      );
       setStatus(err instanceof Error ? err.message : 'Export failed');
     }
   }
@@ -188,8 +206,19 @@ export function CharacterEditor({
       );
       invalidateStudioLibrary();
       setStatus(`Imported ${result.importedAssets} asset(s) with ID remap`);
+      studioDebugLog().info(
+        'character.import.ok',
+        { importedAssets: result.importedAssets },
+        { screen: 'characters', route: '/characters' },
+      );
       onChanged();
     } catch (err) {
+      logStudioError(
+        'character.import.error',
+        err,
+        { characterId },
+        { screen: 'characters', route: '/characters' },
+      );
       setStatus(err instanceof Error ? err.message : 'Import failed');
     }
   }

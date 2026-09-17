@@ -91,6 +91,10 @@ export default defineConfig({
         replacement: path.join(packagesDir, 'domain/src/characters/index.ts'),
       },
       {
+        find: '@char2vid/domain/debug-log',
+        replacement: path.join(packagesDir, 'domain/src/debug-log/index.ts'),
+      },
+      {
         find: '@char2vid/domain',
         replacement: path.join(packagesDir, 'domain/src/contracts.ts'),
       },
