@@ -15,6 +15,8 @@ The initial scaffold implements navigation and a recoverable text draft. Native 
 
 `AGENTS.md` lists commands and architecture boundaries. `docs/validation/android-foundation.md` records the native toolchain and actual verification evidence.
 
+TypeScript 7.0.2 is the `tsc` compiler (`@typescript/native`). The `typescript` package name is the TypeScript 6 compatibility API (`@typescript/typescript6`) required by `typescript-eslint` until a release peers TypeScript 7. Keep both aliases; a single `typescript@7` install fails `npm ci` peer resolution and crashes eslint.
+
 ## Validation and APK downloads
 
 Pull requests run **Checks**, which validates the web application and calls the reusable Android workflow. The **ci-gate** job runs even after an upstream failure and succeeds only when both web and Android checks succeed. It has no path filter that could leave a required check permanently pending.
@@ -85,7 +87,7 @@ The workflow does not generate signing credentials or publish a release automati
 - Add TanStack Query for remote state, Zustand when transient state warrants it, and TanStack Virtual for the gallery. These never replace durable asset/job storage.
 - Add React Flow with S1, Media3 with native editing, and a pinned FFmpeg service image with browser rendering.
 - Update Capacitor core/Android/CLI together. Official plugins can have different patch versions; follow their declared compatibility. Review Android Gradle/SDK upgrades as a coordinated toolchain change.
-- Dependabot groups routine npm, Actions, and AndroidX changes weekly; major changes remain separate. CI validates updates before landing.
+- Dependabot groups routine npm, Actions, and AndroidX changes weekly; major changes remain separate. CI validates updates before landing. Do not ignore TypeScript 7; do not replace `@typescript/native` / `@typescript/typescript6` with a single `typescript@7` while `typescript-eslint` still peers `<6.1.0`.
 - Keep small authored media fixtures in Git when needed. Real galleries, generated outputs, database files, APKs, and signing material belong outside source control.
 
 CodeQL currently analyzes JavaScript/TypeScript. Extend coverage to native Java/Kotlin when application-specific native behavior is implemented.
