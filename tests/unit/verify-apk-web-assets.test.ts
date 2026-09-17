@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+import { strToU8, zipSync } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const temporaryDirectories: string[] = [];
@@ -33,20 +34,14 @@ function writeTree(root: string, files: Record<string, string>) {
 
 function writeApk(files: Record<string, string>) {
   const root = makeTempDir();
-  const staging = join(root, 'apk-tree');
   const apkPath = join(root, 'app-debug.apk');
-  writeTree(staging, files);
-  const zipped = spawnSync(
-    'python3',
-    [
-      '-c',
-      'import os, sys, zipfile\nroot, out = sys.argv[1], sys.argv[2]\nwith zipfile.ZipFile(out, "w") as archive:\n    for dirpath, _, names in os.walk(root):\n        for name in names:\n            full = os.path.join(dirpath, name)\n            archive.write(full, os.path.relpath(full, root).replace(os.sep, "/"))\n',
-      staging,
-      apkPath,
-    ],
-    { encoding: 'utf8' },
+  const archive = Object.fromEntries(
+    Object.entries(files).map(([relativePath, contents]) => [
+      relativePath,
+      strToU8(contents),
+    ]),
   );
-  expect(zipped.status, zipped.stderr).toBe(0);
+  writeFileSync(apkPath, zipSync(archive, { level: 6 }));
   return apkPath;
 }
 

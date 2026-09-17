@@ -1,16 +1,14 @@
 import { createHash } from 'node:crypto';
 import {
   existsSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   statSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, relative, sep } from 'node:path';
+import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+
+import { unzipSync } from 'fflate';
 
 function listDistFiles(distDir) {
   const files = [];
@@ -36,30 +34,21 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function extractApkPublicTree(apkPath) {
-  const extractRoot = mkdtempSync(join(tmpdir(), 'char2vid-apk-public-'));
-  const result = spawnSync('unzip', ['-qq', '-o', apkPath, '-d', extractRoot], {
-    encoding: 'utf8',
-  });
-  if (result.error) {
-    rmSync(extractRoot, { recursive: true, force: true });
-    throw new Error(`Could not run unzip: ${result.error.message}`);
+function readApkPublicEntries(apkPath) {
+  const entries = unzipSync(readFileSync(apkPath));
+  const publicEntries = new Map();
+  for (const [entryPath, bytes] of Object.entries(entries)) {
+    const normalized = entryPath.replaceAll('\\', '/');
+    if (!normalized.startsWith('assets/public/')) {
+      continue;
+    }
+    const relativePath = normalized.slice('assets/public/'.length);
+    if (relativePath.length === 0) {
+      continue;
+    }
+    publicEntries.set(relativePath, bytes);
   }
-  if (result.status !== 0) {
-    rmSync(extractRoot, { recursive: true, force: true });
-    const detail = String(result.stderr ?? result.stdout ?? '').trim();
-    throw new Error(detail || 'unzip failed to extract APK web assets.');
-  }
-  return extractRoot;
-}
-
-function resolvePackagedFile(publicRoot, relativePath) {
-  const packaged = join(publicRoot, relativePath);
-  const prefix = publicRoot.endsWith(sep) ? publicRoot : `${publicRoot}${sep}`;
-  if (packaged !== publicRoot && !packaged.startsWith(prefix)) {
-    throw new Error(`${relativePath} escapes the APK public tree.`);
-  }
-  return packaged;
+  return publicEntries;
 }
 
 export function verifyApkWebAssets(apkPath, distDir) {
@@ -75,30 +64,25 @@ export function verifyApkWebAssets(apkPath, distDir) {
     throw new Error('Studio dist is missing index.html.');
   }
 
-  const extractRoot = extractApkPublicTree(apkPath);
-  try {
-    const publicRoot = join(extractRoot, 'assets', 'public');
-    const problems = [];
+  const publicEntries = readApkPublicEntries(apkPath);
+  const problems = [];
 
-    for (const relativePath of distFiles) {
-      const packaged = resolvePackagedFile(publicRoot, relativePath);
-      if (!existsSync(packaged) || !statSync(packaged).isFile()) {
-        problems.push(`${relativePath} missing from APK`);
-        continue;
-      }
-
-      const distHash = sha256(readFileSync(join(distDir, relativePath)));
-      const apkHash = sha256(readFileSync(packaged));
-      if (distHash !== apkHash) {
-        problems.push(`${relativePath} hash mismatch`);
-      }
+  for (const relativePath of distFiles) {
+    const packaged = publicEntries.get(relativePath);
+    if (packaged === undefined) {
+      problems.push(`${relativePath} missing from APK`);
+      continue;
     }
 
-    if (problems.length > 0) {
-      throw new Error(problems.join('\n'));
+    const distHash = sha256(readFileSync(join(distDir, relativePath)));
+    const apkHash = sha256(packaged);
+    if (distHash !== apkHash) {
+      problems.push(`${relativePath} hash mismatch`);
     }
-  } finally {
-    rmSync(extractRoot, { recursive: true, force: true });
+  }
+
+  if (problems.length > 0) {
+    throw new Error(problems.join('\n'));
   }
 
   process.stderr.write(`Verified ${distFiles.length} web assets in the APK.\n`);
