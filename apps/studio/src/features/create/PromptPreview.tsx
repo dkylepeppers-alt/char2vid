@@ -1,9 +1,10 @@
 import {
   compileModules,
-  compilePrompt,
   type PromptModule,
 } from '@char2vid/domain/generation/prompt-compiler';
 import type { ReferenceBinding } from '@char2vid/domain';
+
+import { generatePreviewText } from './generate-preview-text';
 
 export function PromptPreview({
   modules,
@@ -26,12 +27,14 @@ export function PromptPreview({
   onModules: (modules: PromptModule[]) => void;
   onApplyProposal: (value: boolean) => void;
 }) {
+  void bindings;
+  void identityNotes;
+  void outfitNotes;
   const compiled = compileModules(modules);
-  const preview = compilePrompt({
+  const generateText = generatePreviewText({
     acceptedText,
-    bindings,
-    identityNotes,
-    outfitNotes,
+    modules,
+    applyProposal,
   });
 
   return (
@@ -99,7 +102,7 @@ export function PromptPreview({
         placeholder="Describe the image or scene you want to make…"
         onChange={(event) => onAcceptedText(event.target.value)}
       />
-      <p className="library-card-meta">Generate text: {preview.finalText}</p>
+      <p className="library-card-meta">Generate text: {generateText}</p>
       <label>
         <input
           type="checkbox"

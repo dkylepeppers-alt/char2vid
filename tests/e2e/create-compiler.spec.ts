@@ -53,6 +53,17 @@ test('create preserves accepted prompt text and blocks silent reference drops', 
     page.getByRole('heading', { name: 'Generation text' }),
   ).toBeVisible();
   await page.getByLabel('change module text').fill('wave from the doorway');
+  await expect(
+    page.getByText('Compiled proposal: wave from the doorway'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Generate text: wave from the doorway'),
+  ).toHaveCount(0);
+  await page.getByLabel('Use compiled proposal at Generate').check();
+  await expect(
+    page.getByText('Generate text: wave from the doorway'),
+  ).toBeVisible();
+  await page.getByLabel('Use compiled proposal at Generate').uncheck();
   await page.getByRole('button', { name: 'Accept compiled prompt' }).click();
   await expect(page.getByLabel('Prompt')).toHaveValue('wave from the doorway');
 
@@ -73,6 +84,9 @@ test('create preserves accepted prompt text and blocks silent reference drops', 
       name: 'Resolve reference issues to generate',
     }),
   ).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Omit' }).first().click();
+  await expect(page.getByText(/ordinal 1/)).toBeVisible();
 
   await page.getByRole('link', { name: 'Projects', exact: true }).click();
   await page.getByRole('link', { name: 'Create', exact: true }).click();

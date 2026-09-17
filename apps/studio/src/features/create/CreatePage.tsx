@@ -35,6 +35,10 @@ import { ModelControls } from './ModelControls';
 import { MODEL_PAGE_SIZE, ModelPicker, type ModelFilter } from './ModelPicker';
 import { planStudioReferences } from './plan-create-references';
 import { PromptPreview } from './PromptPreview';
+import {
+  nextReferenceOrdinal,
+  omitReferenceBinding,
+} from './reference-bindings';
 import { ReferenceAssignmentSheet } from './ReferenceAssignmentSheet';
 import { ReferenceTray } from './ReferenceTray';
 
@@ -311,16 +315,12 @@ export function CreatePage() {
             {
               assetRevisionId: asset.revisionId,
               role: 'identity',
-              ordinal: references.length,
+              ordinal: nextReferenceOrdinal(references),
             },
           ]);
         }}
         onRemove={(assetRevisionId) => {
-          persistReferences(
-            references
-              .filter((item) => item.assetRevisionId !== assetRevisionId)
-              .map((item, ordinal) => ({ ...item, ordinal })),
-          );
+          persistReferences(omitReferenceBinding(references, assetRevisionId));
         }}
       />
       <ReferenceAssignmentSheet
@@ -337,11 +337,7 @@ export function CreatePage() {
           );
         }}
         onOmit={(assetRevisionId) => {
-          persistReferences(
-            references
-              .filter((item) => item.assetRevisionId !== assetRevisionId)
-              .map((item, ordinal) => ({ ...item, ordinal })),
-          );
+          persistReferences(omitReferenceBinding(references, assetRevisionId));
         }}
       />
       <ModelPicker
