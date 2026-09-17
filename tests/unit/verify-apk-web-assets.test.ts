@@ -69,10 +69,14 @@ describe('APK web asset packaging', () => {
       'assets/public/index.html': '<title>char2vid studio</title>',
       'assets/public/assets/index.js': 'Make character',
     });
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
     try {
       expect(() => verifyApkWebAssets(apkPath, distDir)).not.toThrow();
-      expect(stderr).toHaveBeenCalledWith('Verified 2 web assets in the APK.\n');
+      expect(stderr).toHaveBeenCalledWith(
+        'Verified 2 web assets in the APK.\n',
+      );
     } finally {
       stderr.mockRestore();
     }

@@ -1,10 +1,5 @@
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-} from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -101,7 +96,9 @@ if (
     verifyApkWebAssets(apkPath, distDir);
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'APK web asset verification failed.';
+      error instanceof Error
+        ? error.message
+        : 'APK web asset verification failed.';
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
   }
