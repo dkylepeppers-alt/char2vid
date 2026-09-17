@@ -93,9 +93,16 @@ if (
   invokedPath !== undefined &&
   import.meta.url === pathToFileURL(invokedPath).href
 ) {
-  const [apkPath, distDir] = process.argv.slice(2);
-  if (apkPath === undefined || distDir === undefined) {
-    throw new Error('Use verify-apk-web-assets <apk> <dist>.');
+  try {
+    const [apkPath, distDir] = process.argv.slice(2);
+    if (apkPath === undefined || distDir === undefined) {
+      throw new Error('Use verify-apk-web-assets <apk> <dist>.');
+    }
+    verifyApkWebAssets(apkPath, distDir);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'APK web asset verification failed.';
+    process.stderr.write(`${message}\n`);
+    process.exitCode = 1;
   }
-  verifyApkWebAssets(apkPath, distDir);
 }
