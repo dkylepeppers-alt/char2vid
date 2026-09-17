@@ -34,4 +34,19 @@ describe('native import routing', () => {
     expect(request.mime).toBe('image/png');
     expect(Buffer.from(request.data, 'base64')).toEqual(Buffer.from(bytes));
   });
+
+  it('reads ReadableStream handles used by fetch job downloads', async () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const request = await resolveNativeImportRequest({
+      kind: 'stream',
+      handle: new Blob([bytes]).stream(),
+      name: 'job-stream-0',
+      mime: 'image/png',
+    });
+    expect(request.method).toBe('importFromBytes');
+    if (request.method !== 'importFromBytes') {
+      throw new Error('expected importFromBytes');
+    }
+    expect(Buffer.from(request.data, 'base64')).toEqual(Buffer.from(bytes));
+  });
 });

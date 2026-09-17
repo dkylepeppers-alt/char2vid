@@ -58,6 +58,7 @@ export function CharacterSheetGenerate({
   const [mimeByRevisionId, setMimeByRevisionId] = useState<
     Readonly<Record<string, string>>
   >({});
+  const [identityMimeReady, setIdentityMimeReady] = useState(!identity);
   const submitGate = useRef(createSubmitGate());
 
   useEffect(() => {
@@ -108,19 +109,30 @@ export function CharacterSheetGenerate({
   useEffect(() => {
     if (!identity) {
       setMimeByRevisionId({});
+      setIdentityMimeReady(true);
       return;
     }
     let cancelled = false;
+    setIdentityMimeReady(false);
     void getStudioLibrary()
       .then((library) =>
         findLibraryAssetByRevisionId(library, identity.assetRevisionId),
       )
       .then((asset) => {
-        if (!cancelled && asset) {
-          setMimeByRevisionId({ [identity.assetRevisionId]: asset.mime });
+        if (cancelled) {
+          return;
         }
+        setMimeByRevisionId(
+          asset ? { [identity.assetRevisionId]: asset.mime } : {},
+        );
+        setIdentityMimeReady(true);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          setMimeByRevisionId({});
+          setIdentityMimeReady(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -305,6 +317,7 @@ export function CharacterSheetGenerate({
         disabled={
           !serviceReady ||
           !selected ||
+          !identityMimeReady ||
           plan.selected.length === 0 ||
           plan.issues.some((issue) => issue.severity === 'blocking') ||
           submitState === 'working'

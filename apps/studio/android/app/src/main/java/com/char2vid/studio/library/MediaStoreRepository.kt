@@ -215,8 +215,8 @@ class MediaStoreRepository(
         require(mime.isNotBlank()) { "mime required" }
         val bytes = android.util.Base64.decode(dataBase64, android.util.Base64.NO_WRAP)
         val source = File(context.cacheDir, "import-${UUID.randomUUID()}")
-        source.writeBytes(bytes)
         try {
+            source.writeBytes(bytes)
             return importFromNativeUri(source.toURI().toString(), name, mime)
         } finally {
             source.delete()

@@ -208,6 +208,28 @@ describe('reference plan', () => {
     ).toBe(true);
   });
 
+  it('matches catalog extension tokens such as png against image/png MIME values', () => {
+    const result = planReferences({
+      requested: [
+        binding({ assetRevisionId: 'png', ordinal: 0 }),
+        binding({ assetRevisionId: 'webp', ordinal: 1 }),
+      ],
+      maxItems: 2,
+      supportedRoles: ['identity'],
+      inputFormats: ['png', 'jpeg'],
+      mimeByRevisionId: {
+        png: 'image/png',
+        webp: 'image/webp',
+      },
+    });
+    expect(result.selected.map((item) => item.assetRevisionId)).toEqual([
+      'png',
+    ]);
+    expect(result.omitted.map((item) => item.assetRevisionId)).toEqual([
+      'webp',
+    ]);
+  });
+
   it('treats a missing input limit as unknown rather than unlimited', () => {
     const result = planReferences({
       requested: [

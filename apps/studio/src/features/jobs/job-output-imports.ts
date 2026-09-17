@@ -83,5 +83,14 @@ export async function resolveImportedOutput(
       return byRevision;
     }
   }
-  return findLibraryAssetBySha256(library, sha256);
+  const byHash = await findLibraryAssetBySha256(library, sha256);
+  const jobPrefix = `job-${jobId.slice(0, 8)}-`;
+  if (
+    byHash?.state === 'available' &&
+    byHash.sha256 === sha256 &&
+    byHash.name.startsWith(jobPrefix)
+  ) {
+    return byHash;
+  }
+  return undefined;
 }

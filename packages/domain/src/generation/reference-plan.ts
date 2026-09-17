@@ -43,6 +43,32 @@ function byStableOrder(a: ReferenceBinding, b: ReferenceBinding): number {
   return a.assetRevisionId.localeCompare(b.assetRevisionId);
 }
 
+function formatToken(value: string): string {
+  const lower = value.trim().toLowerCase();
+  const subtype = lower.includes('/')
+    ? (lower.slice(lower.indexOf('/') + 1) ?? lower)
+    : lower;
+  const leaf = (subtype.split(';')[0] ?? subtype).trim();
+  if (leaf === 'jpg') {
+    return 'jpeg';
+  }
+  return leaf;
+}
+
+function mimeMatchesInputFormats(
+  mime: string,
+  formats: ReadonlySet<string>,
+): boolean {
+  const mimeLower = mime.trim().toLowerCase();
+  const mimeToken = formatToken(mime);
+  for (const allowed of formats) {
+    if (allowed === mimeLower || formatToken(allowed) === mimeToken) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function isVideoOperation(operation: Operation | undefined): boolean {
   return (
     operation === 'video-generate' ||
@@ -109,7 +135,7 @@ export function planReferences(input: PlanReferencesInput): ReferencePlan {
       continue;
     }
     const mime = input.mimeByRevisionId?.[binding.assetRevisionId];
-    if (formats && mime && !formats.has(mime.toLowerCase())) {
+    if (formats && mime && !mimeMatchesInputFormats(mime, formats)) {
       omitted.push(binding);
       issues.push(
         issue(

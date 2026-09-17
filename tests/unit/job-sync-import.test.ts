@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { resolveImportedOutput } from '../../apps/studio/src/features/jobs/job-output-imports';
 import { reviseCharacter } from '../../packages/domain/src/characters/revisions';
 import {
   JOB_OUTPUT_IMPORT_MAP_KEY,
@@ -137,6 +138,29 @@ describe('job output reconcile', () => {
         (item) => item.approval === 'candidate',
       );
       expect(generatedSlots).toHaveLength(1);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('does not treat an unrelated same-hash library import as this job output', async () => {
+    const png = new Uint8Array(await readFile(redFixturePath));
+    const handle = await openTestLibrary();
+    try {
+      await handle.library.importMedia({
+        kind: 'stream',
+        handle: png,
+        name: 'user-photo.png',
+        mime: 'image/png',
+      });
+      const reused = await resolveImportedOutput(
+        handle.library,
+        memoryStorage(),
+        '11111111-1111-4111-8111-111111111111',
+        0,
+        digest(png),
+      );
+      expect(reused).toBeUndefined();
     } finally {
       await handle.close();
     }
