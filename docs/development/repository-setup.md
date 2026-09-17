@@ -21,7 +21,7 @@ TypeScript 7.0.2 is the `tsc` compiler (`@typescript/native`). The `typescript` 
 
 Pull requests run **Checks**, which validates the web application and calls the reusable Android workflow. The **ci-gate** job runs even after an upstream failure and succeeds only when both web and Android checks succeed. It has no path filter that could leave a required check permanently pending.
 
-The Android build uploads a ZIP artifact containing `char2vid-debug.apk` and `SHA256SUMS.txt`; download it from the workflow run's Artifacts section and extract it on Android. GitHub may require signing in to download artifacts. The standalone **Android** workflow can also be dispatched manually after it exists on the default branch.
+The Android build uploads a ZIP artifact containing `char2vid-debug.apk` and `SHA256SUMS.txt`; download it from the workflow run's Artifacts section and extract it on Android. GitHub may require signing in to download artifacts. After `assembleDebug`, CI compares every file in `apps/studio/dist` to `assets/public/` inside the APK so a skipped or stale Capacitor sync cannot ship an older web UI. The standalone **Android** workflow can also be dispatched manually after it exists on the default branch.
 
 Debug APKs use a disposable debug signing key and application data must not be treated as release data. Different hosted runners may produce different debug keys: installing a later debug APK over an earlier one can fail. Stable upgrades require the signed-release path below. Do not uninstall an app containing needed media without first backing it up once storage exists.
 
