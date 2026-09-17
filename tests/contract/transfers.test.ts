@@ -182,6 +182,7 @@ describe('transfers (P2)', () => {
       quotaBytes: 1024 * 1024,
       cookieSecure: false,
       validateProviderKey: async () => ({ ok: true }),
+      now: () => new Date('2026-09-15T12:05:00.000Z'),
     });
     try {
       const finalize = await restarted.app.inject({
