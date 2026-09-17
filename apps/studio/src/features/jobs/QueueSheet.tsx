@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { JobView } from './job-sync';
 import {
+  cancelOnDeviceJob,
+  hasOnDeviceProviderKey,
+  listOnDeviceJobs,
+} from './on-device-jobs';
+import {
   cancelStudioJob,
   resolveStudioSession,
   syncStudioJobs,
@@ -30,11 +35,25 @@ export function QueueSheet() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (await hasOnDeviceProviderKey()) {
+      try {
+        const next = await listOnDeviceJobs();
+        setJobs(next);
+        setStatus(
+          next.length === 0
+            ? 'No jobs yet. Submit from Create; this phone keeps polling after you leave the screen.'
+            : `${next.length} job${next.length === 1 ? '' : 's'} on this phone.`,
+        );
+      } catch {
+        setStatus('Could not refresh on-device jobs.');
+      }
+      return;
+    }
     const session = await resolveStudioSession();
     if (!session) {
       setJobs([]);
       setStatus(
-        'Connect the generation service in Settings to see durable jobs. Paid Nano-GPT calls are not made from this UI in CI.',
+        'Save a Nano-GPT API key in Settings to run jobs on this phone. A remote service is optional.',
       );
       return;
     }
@@ -84,13 +103,16 @@ export function QueueSheet() {
                   disabled={busyId === job.id}
                   onClick={() => {
                     setBusyId(job.id);
-                    void resolveStudioSession()
-                      .then(async (session) => {
+                    void (async () => {
+                      if (await hasOnDeviceProviderKey()) {
+                        await cancelOnDeviceJob(job.id);
+                      } else {
+                        const session = await resolveStudioSession();
                         if (!session) return;
                         await cancelStudioJob(session, job.id);
-                        await refresh();
-                      })
-                      .finally(() => setBusyId(null));
+                      }
+                      await refresh();
+                    })().finally(() => setBusyId(null));
                   }}
                 >
                   Cancel queued job

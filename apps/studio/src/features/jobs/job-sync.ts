@@ -19,6 +19,7 @@ import {
 } from '../settings/service-origin';
 import { resolvePlatform } from '../../app/platform';
 import { findLibraryAssetByRevisionId } from './find-library-asset';
+import { hasOnDeviceProviderKey, listOnDeviceJobs } from './on-device-jobs';
 
 export interface JobView extends JobReceipt {
   cost?: {
@@ -297,6 +298,24 @@ export async function reconcileJobOutputs(
 }
 
 export async function syncStudioJobs(): Promise<JobView[]> {
+  if (await hasOnDeviceProviderKey()) {
+    const jobs = await listOnDeviceJobs();
+    const library = await getStudioLibrary();
+    for (const job of jobs) {
+      if (
+        job.providerState === 'completed' &&
+        job.characterSlot &&
+        job.outputRevisionIds.length > 0
+      ) {
+        await attachImportedCharacterSlots(
+          library,
+          job.characterSlot,
+          job.outputRevisionIds,
+        );
+      }
+    }
+    return jobs;
+  }
   const session = await resolveStudioSession();
   if (!session) {
     return [];

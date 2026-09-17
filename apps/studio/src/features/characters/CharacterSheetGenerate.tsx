@@ -9,12 +9,9 @@ import {
   type NanoGptModelDescriptor,
 } from '@char2vid/nanogpt';
 
-import {
-  resolveStudioSession,
-  stageLibraryReferences,
-  submitGenerationJob,
-  syncStudioJobs,
-} from '../jobs/job-sync';
+import { resolveStudioSession, syncStudioJobs } from '../jobs/job-sync';
+import { attachImportedCharacterSlots } from '../jobs/attach-generated-slot';
+import { hasOnDeviceProviderKey, submitDraftJob } from '../jobs/on-device-jobs';
 import { getStudioLibrary } from '../library/library-session';
 import {
   clearDraftClientRequestId,
@@ -53,7 +50,8 @@ export function CharacterSheetGenerate({
   const [mode, setMode] = useState<'one-slot' | 'sheet'>('one-slot');
   const [view, setView] = useState('front');
   const [submitState, setSubmitState] = useState<string | null>(null);
-  const [serviceReady, setServiceReady] = useState(false);
+  const [deviceKeyReady, setDeviceKeyReady] = useState(false);
+  const [serviceSessionReady, setServiceSessionReady] = useState(false);
   const submitGate = useRef(createSubmitGate());
 
   useEffect(() => {
@@ -88,14 +86,21 @@ export function CharacterSheetGenerate({
     void resolveStudioSession()
       .then((session) => {
         if (!cancelled) {
-          setServiceReady(session !== null);
+          setServiceSessionReady(session !== null);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setServiceReady(false);
+          setServiceSessionReady(false);
         }
       });
+    void hasOnDeviceProviderKey()
+      .then((ready) => {
+        if (!cancelled) {
+          setDeviceKeyReady(ready);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -277,7 +282,7 @@ export function CharacterSheetGenerate({
         type="button"
         className="primary-action"
         disabled={
-          !serviceReady ||
+          !(deviceKeyReady || serviceSessionReady) ||
           !selected ||
           plan.selected.length === 0 ||
           plan.issues.some((issue) => issue.severity === 'blocking') ||
@@ -301,23 +306,10 @@ export function CharacterSheetGenerate({
             mint: () => crypto.randomUUID(),
           });
           void (async () => {
-            const session = await resolveStudioSession();
-            if (!session) {
-              setServiceReady(false);
-              setSubmitState('Connect the generation service to submit');
-              return;
-            }
-            const library = await getStudioLibrary();
-            const transferIds = await stageLibraryReferences(
-              session,
-              library,
-              plan.selected,
-            );
-            const receipt = await submitGenerationJob(
-              session,
-              { clientRequestId, ...draft },
-              transferIds,
-            );
+            const receipt = await submitDraftJob({
+              draft: { clientRequestId, ...draft },
+              model: selected,
+            });
             clearDraftClientRequestId(window.localStorage);
             const cost = receipt.cost;
             const costLabel =
@@ -333,6 +325,14 @@ export function CharacterSheetGenerate({
                 (job) => job.clientRequestId === clientRequestId,
               );
               if (current?.saveState === 'saved') {
+                if (characterSlot && current.outputRevisionIds.length > 0) {
+                  const library = await getStudioLibrary();
+                  await attachImportedCharacterSlots(
+                    library,
+                    characterSlot,
+                    current.outputRevisionIds,
+                  );
+                }
                 onAttached?.();
                 setSubmitState(
                   `Saved ${receipt.clientRequestId} and attached a candidate slot.`,
@@ -354,12 +354,12 @@ export function CharacterSheetGenerate({
             });
         }}
       >
-        {serviceReady &&
+        {(deviceKeyReady || serviceSessionReady) &&
         selected &&
         plan.selected.length > 0 &&
         !plan.issues.some((issue) => issue.severity === 'blocking')
           ? 'Generate view'
-          : 'Connect the generation service to submit'}
+          : 'Save a Nano-GPT key in Settings to submit'}
       </button>
       {submitState && submitState !== 'working' ? (
         <p className="backup-status" role="status">

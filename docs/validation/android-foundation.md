@@ -44,6 +44,7 @@ AGP 9.4.0 + Gradle 9.7.1 landed in PR [#53](https://github.com/dkylepeppers-alt/
 ### UNVERIFIED (not done — do not check off without evidence)
 
 - Manual download/install of the debug APK onto a physical Android device
+- On-device Nano-GPT key + foreground job polling (Keystore / paid generation UNVERIFIED)
 - System back: sheet closes before navigate / exit
 - Rotation preserves the selected destination
 - Keyboard does not hide primary input controls

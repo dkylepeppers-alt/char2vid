@@ -70,7 +70,7 @@ test('create picker lists a new catalog model and preserves the draft', async ({
   ).toBeVisible();
   await expect(
     page.getByRole('button', {
-      name: 'Connect the generation service to submit',
+      name: 'Save a Nano-GPT key in Settings to submit',
     }),
   ).toBeVisible();
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { resolvePlatform } from '../../app/platform';
+import { collapseOptionalRemoteService } from '../library/media-import';
 import {
   nativeTokenForOrigin,
   normalizeServiceOrigin,
@@ -55,6 +56,7 @@ export function ServiceSettings() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [deviceKeyLast4, setDeviceKeyLast4] = useState<string | undefined>();
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [nativeToken, setNativeToken] = useState<string | undefined>();
   const [tokenOrigin, setTokenOrigin] = useState<string | undefined>();
@@ -74,6 +76,10 @@ export function ServiceSettings() {
         setOrigin(stored.serviceOrigin);
         setNativeToken(stored.deviceToken);
         setTokenOrigin(stored.serviceOrigin);
+      }
+      const last4 = await mod.nativeProviderKeyLast4();
+      if (last4) {
+        setDeviceKeyLast4(last4);
       }
     });
   }, [native]);
@@ -184,6 +190,34 @@ export function ServiceSettings() {
     }
   }, [boundToken, login, native, origin, password, refreshSession]);
 
+  const onSaveKeyOnDevice = useCallback(async () => {
+    setStatus({
+      kind: 'working',
+      message: 'Saving provider key on this phone…',
+    });
+    try {
+      const { saveNativeProviderKey } =
+        await import('@char2vid/native-bridge/credentials');
+      const last4 = await saveNativeProviderKey(apiKey);
+      setApiKey('');
+      setDeviceKeyLast4(last4);
+      setStatus({
+        kind: 'ok',
+        message: last4
+          ? `Key stored in Keystore (…${last4}). This phone will poll Nano-GPT after you leave Create. Paid calls remain UNVERIFIED until you generate.`
+          : 'Key stored in Keystore. This phone will poll Nano-GPT after you leave Create.',
+      });
+    } catch (error) {
+      setStatus({
+        kind: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Could not store the key on this phone',
+      });
+    }
+  }, [apiKey]);
+
   const onSaveKey = useCallback(async () => {
     setStatus({
       kind: 'working',
@@ -259,17 +293,8 @@ export function ServiceSettings() {
     }
   }, [boundToken, native, origin]);
 
-  return (
-    <section className="backup-panel" aria-labelledby="service-title">
-      <div>
-        <p className="section-kicker">Generation service</p>
-        <h3 id="service-title">Service connection</h3>
-        <p>
-          The personal service holds the Nano-GPT key and temporary media. This
-          app only keeps a session cookie or a Keystore-backed device token.
-        </p>
-      </div>
-
+  const remoteFields = (
+    <>
       <label htmlFor="service-origin">Service origin</label>
       <input
         id="service-origin"
@@ -325,23 +350,38 @@ export function ServiceSettings() {
         </button>
       </div>
 
-      <label htmlFor="service-api-key">Nano-GPT API key</label>
-      <input
-        id="service-api-key"
-        type="password"
-        autoComplete="off"
-        value={apiKey}
-        onChange={(event) => setApiKey(event.target.value)}
-      />
+      {!native ? (
+        <>
+          <label htmlFor="service-api-key">Nano-GPT API key</label>
+          <input
+            id="service-api-key"
+            type="password"
+            autoComplete="off"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+          />
+        </>
+      ) : null}
       <div className="backup-actions">
-        <button
-          type="button"
-          className="primary-action"
-          onClick={() => void onSaveKey()}
-          disabled={status.kind === 'working'}
-        >
-          Store key on service
-        </button>
+        {!native ? (
+          <button
+            type="button"
+            className="primary-action"
+            onClick={() => void onSaveKey()}
+            disabled={status.kind === 'working'}
+          >
+            Store key on service
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="secondary-action"
+            onClick={() => void onSaveKey()}
+            disabled={status.kind === 'working' || apiKey.trim().length === 0}
+          >
+            Also store key on remote service
+          </button>
+        )}
         <button
           type="button"
           className="secondary-action"
@@ -358,6 +398,49 @@ export function ServiceSettings() {
           {session.providerKey.fingerprint})
         </p>
       ) : null}
+    </>
+  );
+
+  return (
+    <section className="backup-panel" aria-labelledby="service-title">
+      <div>
+        <p className="section-kicker">Generation service</p>
+        <h3 id="service-title">Service connection</h3>
+        <p>
+          {native
+            ? 'Paste your Nano-GPT key and save it on this phone. Generation keeps polling after you leave the app. A remote service is optional.'
+            : 'The personal service holds the Nano-GPT key and temporary media. This app only keeps a session cookie.'}
+        </p>
+      </div>
+
+      {native ? (
+        <>
+          <label htmlFor="service-api-key">Nano-GPT API key</label>
+          <input
+            id="service-api-key"
+            type="password"
+            autoComplete="off"
+            enterKeyHint="done"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+          />
+          <div className="backup-actions">
+            <button
+              type="button"
+              className="primary-action"
+              onClick={() => void onSaveKeyOnDevice()}
+              disabled={status.kind === 'working' || apiKey.trim().length === 0}
+            >
+              Save key on this phone
+            </button>
+          </div>
+          {deviceKeyLast4 ? (
+            <p className="backup-status" role="status">
+              Key on this phone: …{deviceKeyLast4}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
       {status.kind !== 'idle' && (
         <p
@@ -370,6 +453,15 @@ export function ServiceSettings() {
         >
           {status.message}
         </p>
+      )}
+
+      {collapseOptionalRemoteService(native ? 'android' : 'web') ? (
+        <details className="backup-details">
+          <summary>Optional remote service</summary>
+          {remoteFields}
+        </details>
+      ) : (
+        remoteFields
       )}
     </section>
   );

@@ -20,11 +20,8 @@ import {
 } from '@char2vid/nanogpt';
 
 import { getStudioLibrary } from '../library/library-session';
-import {
-  resolveStudioSession,
-  stageLibraryReferences,
-  submitGenerationJob,
-} from '../jobs/job-sync';
+import { resolveStudioSession } from '../jobs/job-sync';
+import { hasOnDeviceProviderKey, submitDraftJob } from '../jobs/on-device-jobs';
 import {
   clearDraftClientRequestId,
   createSubmitGate,
@@ -108,7 +105,8 @@ export function CreatePage() {
     () => window.localStorage.getItem(APPLY_PROPOSAL_KEY) === '1',
   );
   const [libraryAssets, setLibraryAssets] = useState<AssetRecord[]>([]);
-  const [serviceReady, setServiceReady] = useState(false);
+  const [deviceKeyReady, setDeviceKeyReady] = useState(false);
+  const [serviceSessionReady, setServiceSessionReady] = useState(false);
   const [submitState, setSubmitState] = useState<string | null>(null);
   const submitGate = useRef(createSubmitGate());
 
@@ -153,7 +151,18 @@ export function CreatePage() {
     void resolveStudioSession()
       .then((session) => {
         if (!cancelled) {
-          setServiceReady(session !== null);
+          setServiceSessionReady(session !== null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setServiceSessionReady(false);
+        }
+      });
+    void hasOnDeviceProviderKey()
+      .then((ready) => {
+        if (!cancelled) {
+          setDeviceKeyReady(ready);
         }
       })
       .catch(() => undefined);
@@ -275,7 +284,7 @@ export function CreatePage() {
   );
 
   const canGenerate =
-    serviceReady &&
+    (deviceKeyReady || serviceSessionReady) &&
     selected !== null &&
     acceptedGenerateText.trim().length > 0 &&
     !blockingPlan;
@@ -287,7 +296,8 @@ export function CreatePage() {
         <h2 id="draft-title">Shape your next shot</h2>
         <p>
           Image-first create: pick a catalog model, attach library references,
-          and submit a durable job. This UI never calls Nano-GPT directly.
+          and submit a durable job. On Android, this phone polls Nano-GPT after
+          you leave the screen.
         </p>
       </div>
       <PromptPreview
@@ -432,26 +442,10 @@ export function CreatePage() {
             mint: () => crypto.randomUUID(),
           });
           void (async () => {
-            const session = await resolveStudioSession();
-            if (!session) {
-              setServiceReady(false);
-              setSubmitState('Connect the generation service to submit');
-              return;
-            }
-            const library = await getStudioLibrary();
-            const transferIds = await stageLibraryReferences(
-              session,
-              library,
-              plan.selected,
-            );
-            const receipt = await submitGenerationJob(
-              session,
-              {
-                clientRequestId,
-                ...draft,
-              },
-              transferIds,
-            );
+            const receipt = await submitDraftJob({
+              draft: { clientRequestId, ...draft },
+              model: selected,
+            });
             clearDraftClientRequestId(window.localStorage);
             setSubmitState(
               `Queued ${receipt.clientRequestId} (${receipt.providerState})`,
@@ -471,7 +465,7 @@ export function CreatePage() {
           ? 'Generate'
           : blockingPlan
             ? 'Resolve reference issues to generate'
-            : 'Connect the generation service to submit'}
+            : 'Save a Nano-GPT key in Settings to submit'}
       </button>
       {submitState && submitState !== 'working' ? (
         <p className="backup-status" role="status">
