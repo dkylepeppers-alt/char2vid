@@ -15,11 +15,13 @@ The initial scaffold implements navigation and a recoverable text draft. Native 
 
 `AGENTS.md` lists commands and architecture boundaries. `docs/validation/android-foundation.md` records the native toolchain and actual verification evidence.
 
+TypeScript 7.0.2 is the `tsc` compiler (`@typescript/native`). The `typescript` package name is the TypeScript 6 compatibility API (`@typescript/typescript6`) required by `typescript-eslint` until a release peers TypeScript 7. Keep both aliases; a single `typescript@7` install fails `npm ci` peer resolution and crashes eslint.
+
 ## Validation and APK downloads
 
 Pull requests run **Checks**, which validates the web application and calls the reusable Android workflow. The **ci-gate** job runs even after an upstream failure and succeeds only when both web and Android checks succeed. It has no path filter that could leave a required check permanently pending.
 
-The Android build uploads a ZIP artifact containing `char2vid-debug.apk` and `SHA256SUMS.txt`; download it from the workflow run's Artifacts section and extract it on Android. GitHub may require signing in to download artifacts. The standalone **Android** workflow can also be dispatched manually after it exists on the default branch.
+The Android build uploads a ZIP artifact containing `char2vid-debug.apk` and `SHA256SUMS.txt`; download it from the workflow run's Artifacts section and extract it on Android. GitHub may require signing in to download artifacts. After `assembleDebug`, CI compares every file in `apps/studio/dist` to `assets/public/` inside the APK so a skipped or stale Capacitor sync cannot ship an older web UI. The standalone **Android** workflow can also be dispatched manually after it exists on the default branch.
 
 Debug APKs use a disposable debug signing key and application data must not be treated as release data. Different hosted runners may produce different debug keys: installing a later debug APK over an earlier one can fail. Stable upgrades require the signed-release path below. Do not uninstall an app containing needed media without first backing it up once storage exists.
 
@@ -84,8 +86,8 @@ The workflow does not generate signing credentials or publish a release automati
 - Add Fastify and `better-sqlite3` in the service task. Add Zod/provider adapters with their runtime validation contracts.
 - Add TanStack Query for remote state, Zustand when transient state warrants it, and TanStack Virtual for the gallery. These never replace durable asset/job storage.
 - Add React Flow with S1, Media3 with native editing, and a pinned FFmpeg service image with browser rendering.
-- Update Capacitor core/Android/CLI together. Official plugins can have different patch versions; follow their declared compatibility. Review Android Gradle/SDK upgrades as a coordinated toolchain change.
-- Dependabot groups routine npm, Actions, and AndroidX changes weekly; major changes remain separate. CI validates updates before landing.
+- Update Capacitor core/Android/CLI together. Official plugins can have different patch versions; follow their declared compatibility. Review Android Gradle/SDK upgrades as a coordinated toolchain change. Gradle 9.x requires AGP 9.x; do not land a wrapper-only 9.x bump. Keep Capacitor 8 until Capacitor 9 is generally available.
+- Dependabot groups routine npm, Actions, and AndroidX changes weekly; major changes remain separate. CI validates updates before landing. Do not ignore TypeScript 7; do not replace `@typescript/native` / `@typescript/typescript6` with a single `typescript@7` while `typescript-eslint` still peers `<6.1.0`.
 - Keep small authored media fixtures in Git when needed. Real galleries, generated outputs, database files, APKs, and signing material belong outside source control.
 
 CodeQL currently analyzes JavaScript/TypeScript. Extend coverage to native Java/Kotlin when application-specific native behavior is implemented.

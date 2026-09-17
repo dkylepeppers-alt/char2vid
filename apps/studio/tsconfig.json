@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@char2vid/domain": ["../../packages/domain/src/contracts.ts"],
       "@char2vid/native-bridge": ["../../packages/native-bridge/src/index.ts"],
