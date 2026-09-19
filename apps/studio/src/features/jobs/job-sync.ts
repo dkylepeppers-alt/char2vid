@@ -7,6 +7,7 @@ import type { AssetRecord, LibraryPort } from '@char2vid/domain/storage';
 
 import { attachImportedCharacterSlots } from './attach-generated-slot';
 import {
+  forgetJobOutputImports,
   rememberJobOutputImport,
   resolveImportedOutput,
 } from './job-output-imports';
@@ -380,6 +381,7 @@ async function reconcileJobOutputsUnlocked(
   if (!ack.ok) {
     throw new Error('acknowledge_failed');
   }
+  forgetJobOutputImports(storage, job.id);
   invalidateStudioLibrary();
   return (await ack.json()) as JobView;
 }

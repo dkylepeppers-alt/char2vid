@@ -5,7 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveImportedOutput } from '../../apps/studio/src/features/jobs/job-output-imports';
+import {
+  forgetJobOutputImports,
+  rememberJobOutputImport,
+  resolveImportedOutput,
+} from '../../apps/studio/src/features/jobs/job-output-imports';
 import { reviseCharacter } from '../../packages/domain/src/characters/revisions';
 import {
   JOB_OUTPUT_IMPORT_MAP_KEY,
@@ -129,7 +133,9 @@ describe('job output reconcile', () => {
         reconcileJobOutputs(session, library as never, job, { storage }),
       ]);
       expect(importCount).toBe(1);
-      expect(storage.getItem(JOB_OUTPUT_IMPORT_MAP_KEY)).toContain(job.id);
+      expect(storage.getItem(JOB_OUTPUT_IMPORT_MAP_KEY) ?? '').not.toContain(
+        job.id,
+      );
       const character = await handle.library.getCharacter(created.characterId);
       const revision = await handle.library.getCharacterRevision(
         character!.currentRevisionId,
@@ -141,6 +147,22 @@ describe('job output reconcile', () => {
     } finally {
       await handle.close();
     }
+  });
+
+  it('forgets one job import map without dropping another job', () => {
+    const storage = memoryStorage();
+    rememberJobOutputImport(storage, 'job-a', 0, {
+      revisionId: 'rev-a',
+      sha256: 'aaa',
+    });
+    rememberJobOutputImport(storage, 'job-b', 0, {
+      revisionId: 'rev-b',
+      sha256: 'bbb',
+    });
+    forgetJobOutputImports(storage, 'job-a');
+    const raw = storage.getItem(JOB_OUTPUT_IMPORT_MAP_KEY) ?? '';
+    expect(raw).not.toContain('job-a');
+    expect(raw).toContain('job-b');
   });
 
   it('does not treat an unrelated same-hash library import as this job output', async () => {

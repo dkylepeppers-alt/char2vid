@@ -2,9 +2,15 @@ import type { ReferenceBinding } from '@char2vid/domain';
 
 export function omitReferenceBinding(
   bindings: readonly ReferenceBinding[],
-  assetRevisionId: string,
+  identity: Pick<ReferenceBinding, 'assetRevisionId' | 'ordinal'> &
+    Partial<Pick<ReferenceBinding, 'characterRevisionId'>>,
 ): ReferenceBinding[] {
-  return bindings.filter((item) => item.assetRevisionId !== assetRevisionId);
+  return bindings.filter(
+    (item) =>
+      item.ordinal !== identity.ordinal ||
+      item.assetRevisionId !== identity.assetRevisionId ||
+      item.characterRevisionId !== identity.characterRevisionId,
+  );
 }
 
 export function nextReferenceOrdinal(

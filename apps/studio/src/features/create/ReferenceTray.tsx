@@ -10,7 +10,7 @@ export function ReferenceTray({
   references: ReferenceBinding[];
   libraryAssets: AssetRecord[];
   onAttach: (asset: AssetRecord) => void;
-  onRemove: (assetRevisionId: string) => void;
+  onRemove: (binding: ReferenceBinding) => void;
 }) {
   const attached = new Set(references.map((item) => item.assetRevisionId));
   const available = libraryAssets.filter(
@@ -39,7 +39,7 @@ export function ReferenceTray({
               <button
                 type="button"
                 className="secondary-action"
-                onClick={() => onRemove(item.assetRevisionId)}
+                onClick={() => onRemove(item)}
               >
                 Remove
               </button>

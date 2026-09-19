@@ -319,25 +319,27 @@ export function CreatePage() {
             },
           ]);
         }}
-        onRemove={(assetRevisionId) => {
-          persistReferences(omitReferenceBinding(references, assetRevisionId));
+        onRemove={(binding) => {
+          persistReferences(omitReferenceBinding(references, binding));
         }}
       />
       <ReferenceAssignmentSheet
         selected={plan.selected}
         omitted={plan.omitted}
         issues={plan.issues}
-        onRoleChange={(assetRevisionId, role: ReferenceRole) => {
+        onRoleChange={(binding, role: ReferenceRole) => {
           persistReferences(
             references.map((item) =>
-              item.assetRevisionId === assetRevisionId
+              item.ordinal === binding.ordinal &&
+              item.assetRevisionId === binding.assetRevisionId &&
+              item.characterRevisionId === binding.characterRevisionId
                 ? { ...item, role }
                 : item,
             ),
           );
         }}
-        onOmit={(assetRevisionId) => {
-          persistReferences(omitReferenceBinding(references, assetRevisionId));
+        onOmit={(binding) => {
+          persistReferences(omitReferenceBinding(references, binding));
         }}
       />
       <ModelPicker

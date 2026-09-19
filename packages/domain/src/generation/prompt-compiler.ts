@@ -72,7 +72,8 @@ export function compileModules(modules: readonly PromptModule[]): string {
 }
 
 function hasOrdinalTag(text: string, tag: string): boolean {
-  return new RegExp(`(^|\\s)${tag}(?!\\d)`).test(text);
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`).test(text);
 }
 
 export function compilePrompt(input: CompilePromptInput): {

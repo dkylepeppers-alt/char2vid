@@ -66,6 +66,25 @@ export function rememberJobOutputImport(
   storage.setItem(JOB_OUTPUT_IMPORT_MAP_KEY, JSON.stringify(next));
 }
 
+export function forgetJobOutputImports(
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null,
+  jobId: string,
+): void {
+  if (!storage) {
+    return;
+  }
+  const prefix = `${jobId}:`;
+  const current = readJobOutputImportMap(storage);
+  const next = Object.fromEntries(
+    Object.entries(current).filter(([key]) => !key.startsWith(prefix)),
+  );
+  if (Object.keys(next).length === 0) {
+    storage.removeItem(JOB_OUTPUT_IMPORT_MAP_KEY);
+    return;
+  }
+  storage.setItem(JOB_OUTPUT_IMPORT_MAP_KEY, JSON.stringify(next));
+}
+
 export async function resolveImportedOutput(
   library: LibraryPort,
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null,
