@@ -17,6 +17,18 @@ The initial scaffold implements navigation and a recoverable text draft. Native 
 
 TypeScript 7.0.2 is the `tsc` compiler (`@typescript/native`). The `typescript` package name is the TypeScript 6 compatibility API (`@typescript/typescript6`) required by `typescript-eslint` until a release peers TypeScript 7. Keep both aliases; a single `typescript@7` install fails `npm ci` peer resolution and crashes eslint.
 
+## Nano-GPT MCP (Cursor / Claude Code)
+
+Project Cursor config lives in `.cursor/mcp.json`. It launches the official stdio server (`npx -y @nanogpt/mcp`) documented at [Nano-GPT MCP](https://docs.nano-gpt.com/integrations/mcp) and the [IDE JSON example](https://docs.nano-gpt.com/api-reference/miscellaneous/mcp-server). The package is not a workspace dependency; `npx` fetches it on demand. Node 22+ is required (this repo pins 24.x).
+
+Enable it:
+
+1. Create an API key at [nano-gpt.com/api](https://nano-gpt.com/api).
+2. Copy `.env.example` to `.env` (gitignored) and set `NANOGPT_API_KEY`, or export the same name in your shell / Cursor Cloud secrets. Do not put the key in a `VITE_*` variable or the studio bundle.
+3. Reload MCP servers in Cursor (Customize → MCP) and enable `nanogpt`. Claude Code can instead run `claude mcp add nanogpt --scope user --env NANOGPT_API_KEY=… -- npx -y @nanogpt/mcp`.
+
+Paid MCP tools (`nanogpt_chat`, image generation, search, scrape, and similar) deduct Nano-GPT balance. Model-listing tools are free. This MCP is agent/editor tooling only; studio generation still stores keys in the personal service and must not read this process env from the frontend. Cloud Agents also need the secret set in the environment and egress to `nano-gpt.com` (default `NANOGPT_BASE_URL`) plus the npm registry to download `@nanogpt/mcp`.
+
 ## Validation and APK downloads
 
 Pull requests run **Checks**, which validates the web application and calls the reusable Android workflow. The **ci-gate** job runs even after an upstream failure and succeeds only when both web and Android checks succeed. It has no path filter that could leave a required check permanently pending.

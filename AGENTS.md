@@ -28,6 +28,8 @@ npm run android:debug
 
 Read `docs/validation/android-foundation.md` for the pinned Android toolchain. Run native commands from the documented directory. Never commit local SDK paths, build output, `.env` secrets, signing keys, generated media, or databases. Commit source-controlled Android project changes and the Gradle wrapper together.
 
+The Nano-GPT MCP server is declared in `.cursor/mcp.json` (`npx -y @nanogpt/mcp`). Enable it with `NANOGPT_API_KEY` in the process environment or a gitignored `.env` — never `VITE_*` or the studio bundle. Paid MCP calls spend provider credits; do not use them in CI. See `docs/development/repository-setup.md`.
+
 `npm run typecheck` (`tsc --build`) uses TypeScript **7.0.2** from `@typescript/native`. The package named `typescript` is `@typescript/typescript6` so `typescript-eslint@8.70.0` can import a compiler API (TypeScript 7.0 does not ship one; published eslint peers remain `typescript <6.1.0`). Do not flatten those aliases to `typescript@7`, and do not use `--legacy-peer-deps` / `--force` to paper over the peer range. Drop the shim only after a typescript-eslint release peers TypeScript 7.
 
 ## Architectural boundaries
