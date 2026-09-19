@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-The initial scaffold implements navigation and a recoverable text draft. Native media storage, model discovery, provider jobs, and production editing remain in their roadmap tasks. No API key is needed for this scaffold.
+The studio on `main` already includes local library, durable jobs, characters/looks, and C2 Create compile/slot-attach. Production editing (M4) remains in later roadmap tasks. No API key is needed to browse the local library.
 
 `AGENTS.md` lists commands and architecture boundaries. `docs/validation/android-foundation.md` records the native toolchain and actual verification evidence.
 

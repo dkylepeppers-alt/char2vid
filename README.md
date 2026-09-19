@@ -2,7 +2,7 @@
 
 An Android-first media creation studio connecting **images → reusable characters → scenes → videos → finished productions**, with an organized library stored on the device and Nano-GPT as the generation provider.
 
-**Status (16 September 2026):** M1 local library (G1–G4), M2 through P5, and C1 characters/looks are on `main`. Issues [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7)–[#10](https://github.com/dkylepeppers-alt/char2vid/issues/10) remain as task trackers; [#10](https://github.com/dkylepeppers-alt/char2vid/issues/10) still covers physical package restore and C2+ scope. Connected Android tests prove native import/export/archives and job-output hash reconcile. Character-package JSON contracts run as JVM unit tests (`testDebugUnitTest`), not as the emulator `connectedDebugAndroidTest` job. Physical-device install, live HTTPS service deploy, Keystore round-trip, live catalog census, and paid Nano-GPT calls stay **UNVERIFIED**. Generate→slot attach is C2 workflow (not a paid-provider gate); the character→video pipeline (C2+) remains ahead.
+**Status (19 September 2026):** M1 local library (G1–G4), M2 through P5, C1 characters/looks, and C2 compile/slot-attach are on `main`. C1 [#10](https://github.com/dkylepeppers-alt/char2vid/issues/10) is closed. C2 landed in [#51](https://github.com/dkylepeppers-alt/char2vid/pull/51) and was hardened in [#58](https://github.com/dkylepeppers-alt/char2vid/pull/58). Character archives write and import schema v2 via [#57](https://github.com/dkylepeppers-alt/char2vid/pull/57). Issues [#7](https://github.com/dkylepeppers-alt/char2vid/issues/7)–[#9](https://github.com/dkylepeppers-alt/char2vid/issues/9) and [#11](https://github.com/dkylepeppers-alt/char2vid/issues/11) remain UNVERIFIED-gate trackers. Connected Android tests prove native import/export/archives and job-output hash reconcile. Character-package JSON contracts run as JVM unit tests (`testDebugUnitTest`), not as the emulator `connectedDebugAndroidTest` job. Physical-device install, live HTTPS service deploy, Keystore round-trip, live catalog census, and paid Nano-GPT calls stay **UNVERIFIED**. Generate→slot attach is implemented on Create and the character sheet; C3–C4 remain ahead.
 
 ## Develop and test
 
@@ -47,17 +47,18 @@ Pull requests run web and Android validation. Successful Android runs provide a 
 
 ## Current delivery
 
-| Task                                     | State          | Evidence     | Still UNVERIFIED                                                               |
-| ---------------------------------------- | -------------- | ------------ | ------------------------------------------------------------------------------ |
-| G1 Shared app / Android shell            | Closed (#1)    | #19, #27     | Physical APK install, back/rotation/TalkBack                                   |
-| G2 Crash-safe media storage              | Done on `main` | #28, #34     | Physical-device crash journal                                                  |
-| G3 Organization, playback, native export | Done on `main` | #29–#31, #38 | Physical MediaStore export                                                     |
-| G4 Portable archives                     | Done on `main` | #32, #38     | Physical archive round-trip                                                    |
-| P1 Catalog contracts                     | Done on `main` | #37          | Live catalog drift after 2026-09-14                                            |
-| P2 Auth service / transfers              | Done on `main` | #39          | HTTPS deploy, staging volume, live check-balance, Keystore                     |
-| P3 Model picker / serializers            | Done on `main` | #43          | Endpoint metadata fetch, catalog snapshot persistence, paid Nano-GPT           |
-| P4 Durable jobs                          | Done on `main` | #45          | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT                |
-| P5 Coverage / recovery                   | Done on `main` | #46          | Physical Android interruption, live catalog census, paid Nano-GPT              |
-| C1 Characters / looks                    | Done on `main` | #48          | Physical package restore; Generate→slot attach (deferred to C2); paid Nano-GPT |
+| Task                                     | State          | Evidence        | Still UNVERIFIED                                                     |
+| ---------------------------------------- | -------------- | --------------- | -------------------------------------------------------------------- |
+| G1 Shared app / Android shell            | Closed (#1)    | #19, #27        | Physical APK install, back/rotation/TalkBack                         |
+| G2 Crash-safe media storage              | Done on `main` | #28, #34        | Physical-device crash journal                                        |
+| G3 Organization, playback, native export | Done on `main` | #29–#31, #38    | Physical MediaStore export                                           |
+| G4 Portable archives                     | Done on `main` | #32, #38        | Physical archive round-trip                                          |
+| P1 Catalog contracts                     | Done on `main` | #37             | Live catalog drift after 2026-09-14                                  |
+| P2 Auth service / transfers              | Done on `main` | #39             | HTTPS deploy, staging volume, live check-balance, Keystore           |
+| P3 Model picker / serializers            | Done on `main` | #43             | Endpoint metadata fetch, catalog snapshot persistence, paid Nano-GPT |
+| P4 Durable jobs                          | Done on `main` | #45             | Physical Android suspend, HTTPS deploy, Keystore, paid Nano-GPT      |
+| P5 Coverage / recovery                   | Done on `main` | #46             | Physical Android interruption, live catalog census, paid Nano-GPT    |
+| C1 Characters / looks                    | Done on `main` | #48; #10 closed | Physical package restore; paid Nano-GPT                              |
+| C2 Compile / slot attach                 | Done on `main` | #51, #58        | Physical-device generation; paid Nano-GPT                            |
 
 The model counts and examples in the research are observations, not a model allowlist. No generation requests were made during planning, and no API keys or private media are included.

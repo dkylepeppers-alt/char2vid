@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { resolvePlatform } from '../../app/platform';
+import { collapseSecondaryServiceSetup } from '../library/media-import';
 import {
   nativeTokenForOrigin,
   normalizeServiceOrigin,
@@ -275,19 +276,46 @@ export function ServiceSettings() {
         id="service-origin"
         type="url"
         autoComplete="url"
+        enterKeyHint="done"
         placeholder="https://studio.example"
         value={origin}
         onChange={(event) => setOrigin(event.target.value)}
       />
 
-      <label htmlFor="service-setup-token">One-time setup token</label>
-      <input
-        id="service-setup-token"
-        type="password"
-        autoComplete="off"
-        value={setupToken}
-        onChange={(event) => setSetupToken(event.target.value)}
-      />
+      {collapseSecondaryServiceSetup(native ? 'android' : 'web') ? (
+        <details className="backup-details">
+          <summary>One-time service setup</summary>
+          <label htmlFor="service-setup-token">One-time setup token</label>
+          <input
+            id="service-setup-token"
+            type="password"
+            autoComplete="off"
+            value={setupToken}
+            onChange={(event) => setSetupToken(event.target.value)}
+          />
+          <div className="backup-actions">
+            <button
+              type="button"
+              className="secondary-action"
+              onClick={() => void onSetup()}
+              disabled={status.kind === 'working'}
+            >
+              Complete setup
+            </button>
+          </div>
+        </details>
+      ) : (
+        <>
+          <label htmlFor="service-setup-token">One-time setup token</label>
+          <input
+            id="service-setup-token"
+            type="password"
+            autoComplete="off"
+            value={setupToken}
+            onChange={(event) => setSetupToken(event.target.value)}
+          />
+        </>
+      )}
 
       <label htmlFor="service-login">Owner login</label>
       <input
@@ -307,14 +335,16 @@ export function ServiceSettings() {
       />
 
       <div className="backup-actions">
-        <button
-          type="button"
-          className="secondary-action"
-          onClick={() => void onSetup()}
-          disabled={status.kind === 'working'}
-        >
-          Complete setup
-        </button>
+        {collapseSecondaryServiceSetup(native ? 'android' : 'web') ? null : (
+          <button
+            type="button"
+            className="secondary-action"
+            onClick={() => void onSetup()}
+            disabled={status.kind === 'working'}
+          >
+            Complete setup
+          </button>
+        )}
         <button
           type="button"
           className="primary-action"
@@ -330,6 +360,7 @@ export function ServiceSettings() {
         id="service-api-key"
         type="password"
         autoComplete="off"
+        enterKeyHint="done"
         value={apiKey}
         onChange={(event) => setApiKey(event.target.value)}
       />
