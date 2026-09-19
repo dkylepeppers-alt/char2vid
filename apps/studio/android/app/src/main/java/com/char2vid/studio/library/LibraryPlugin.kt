@@ -1,6 +1,5 @@
 package com.char2vid.studio.library
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -78,24 +77,16 @@ class LibraryPlugin : Plugin() {
         if (call == null) {
             return
         }
-        if (result.resultCode != Activity.RESULT_OK) {
-            val empty = JSObject()
-            empty.put("status", "cancelled")
-            empty.put("assets", JSArray())
-            call.resolve(empty)
-            return
-        }
-        val uris = mutableListOf<Uri>()
         val data = result.data
         val clip = data?.clipData
-        if (clip != null) {
-            for (index in 0 until clip.itemCount) {
-                clip.getItemAt(index).uri?.let { uris.add(it) }
+        val clipUris =
+            if (clip != null) {
+                (0 until clip.itemCount).map { index -> clip.getItemAt(index).uri?.toString() }
+            } else {
+                null
             }
-        } else {
-            data?.data?.let { uris.add(it) }
-        }
-        if (uris.isEmpty()) {
+        val uris = DocumentPickerSelection.collectUris(clipUris, data?.data?.toString())
+        if (DocumentPickerSelection.cancelled(result.resultCode, uris)) {
             val empty = JSObject()
             empty.put("status", "cancelled")
             empty.put("assets", JSArray())
@@ -105,10 +96,11 @@ class LibraryPlugin : Plugin() {
         executor.execute {
             try {
                 val assets = JSArray()
-                for (uri in uris) {
+                for (uriString in uris) {
+                    val uri = Uri.parse(uriString)
                     val name = queryDisplayName(uri) ?: "import.bin"
                     val mime = resolveMime(uri, name)
-                    val asset = repo().importFromNativeUri(uri.toString(), name, mime)
+                    val asset = repo().importFromNativeUri(uriString, name, mime)
                     assets.put(jsFromJson(asset.toJson()))
                 }
                 val payload = JSObject()
@@ -569,20 +561,8 @@ class LibraryPlugin : Plugin() {
 
     private fun resolveMime(uri: Uri, name: String): String {
         val fromResolver = context.contentResolver.getType(uri)
-        if (!fromResolver.isNullOrBlank() && fromResolver != "application/octet-stream") {
-            return fromResolver
-        }
-        val lower = name.lowercase()
-        return when {
-            lower.endsWith(".png") -> "image/png"
-            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
-            lower.endsWith(".webp") -> "image/webp"
-            lower.endsWith(".gif") -> "image/gif"
-            lower.endsWith(".mp4") -> "video/mp4"
-            lower.endsWith(".webm") -> "video/webm"
-            lower.endsWith(".mp3") -> "audio/mpeg"
-            lower.endsWith(".wav") -> "audio/wav"
-            else -> fromResolver ?: "application/octet-stream"
+        return MediaMime.resolve(name, fromResolver) { ext ->
+            android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
         }
     }
 

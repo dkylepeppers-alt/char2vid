@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -88,5 +89,38 @@ class LibraryImportInstrumentedTest {
         val data = android.util.Base64.decode(chunk.getString("data"), android.util.Base64.NO_WRAP)
         assertTrue(data.isNotEmpty())
         reopened.closeRevisionRead(readId)
+    }
+
+    @Test
+    fun pickerSelectionImportsPhoneExtensionsWithResolvedKind() {
+        val payload = byteArrayOf(0x00, 0x01, 0x02, 0x03, 0x04)
+        val sources =
+            listOf(
+                "picker-voice.m4a" to "audio",
+                "picker-clip.mov" to "video",
+            )
+        val importedUris = mutableListOf<String>()
+        for ((name, expectedKind) in sources) {
+            val source = File(context.cacheDir, name)
+            source.writeBytes(payload)
+            importedUris.add(source.toURI().toString())
+            val mime = MediaMime.resolve(name, "application/octet-stream")
+            val imported = repo.importFromNativeUri(source.toURI().toString(), name, mime)
+            assertEquals(expectedKind, imported.kind)
+            assertEquals(mime, imported.mime)
+        }
+        val selected =
+            DocumentPickerSelection.collectUris(
+                importedUris,
+                "content://ignored",
+            )
+        assertEquals(importedUris, selected)
+        assertFalse(
+            DocumentPickerSelection.cancelled(
+                DocumentPickerSelection.RESULT_OK,
+                selected,
+            ),
+        )
+        assertTrue(DocumentPickerSelection.cancelled(0, selected))
     }
 }
