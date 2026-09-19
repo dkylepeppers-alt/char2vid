@@ -1,10 +1,16 @@
 package com.char2vid.studio.library
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONObject
 import java.util.concurrent.Executors
@@ -37,6 +43,81 @@ class LibraryPlugin : Plugin() {
             created.reconcileOnStart()
             repository = created
             return created
+        }
+    }
+
+    @PluginMethod
+    fun pickAndImport(call: PluginCall) {
+        val host = activity
+        if (host == null) {
+            call.reject("no foreground activity")
+            return
+        }
+        host.runOnUiThread {
+            try {
+                val intent =
+                    Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(
+                            Intent.EXTRA_MIME_TYPES,
+                            arrayOf("image/*", "video/*", "audio/*"),
+                        )
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                startActivityForResult(call, intent, "onPickMediaResult")
+            } catch (error: Exception) {
+                call.reject(error.message ?: "pickAndImport failed", error)
+            }
+        }
+    }
+
+    @ActivityCallback
+    private fun onPickMediaResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) {
+            return
+        }
+        if (result.resultCode != Activity.RESULT_OK) {
+            val empty = JSObject()
+            empty.put("status", "cancelled")
+            empty.put("assets", JSArray())
+            call.resolve(empty)
+            return
+        }
+        val uris = mutableListOf<Uri>()
+        val data = result.data
+        val clip = data?.clipData
+        if (clip != null) {
+            for (index in 0 until clip.itemCount) {
+                clip.getItemAt(index).uri?.let { uris.add(it) }
+            }
+        } else {
+            data?.data?.let { uris.add(it) }
+        }
+        if (uris.isEmpty()) {
+            val empty = JSObject()
+            empty.put("status", "cancelled")
+            empty.put("assets", JSArray())
+            call.resolve(empty)
+            return
+        }
+        executor.execute {
+            try {
+                val assets = JSArray()
+                for (uri in uris) {
+                    val name = queryDisplayName(uri) ?: "import.bin"
+                    val mime = resolveMime(uri, name)
+                    val asset = repo().importFromNativeUri(uri.toString(), name, mime)
+                    assets.put(jsFromJson(asset.toJson()))
+                }
+                val payload = JSObject()
+                payload.put("status", "imported")
+                payload.put("assets", assets)
+                call.resolve(payload)
+            } catch (error: Exception) {
+                call.reject(error.message ?: "pickAndImport failed", error)
+            }
         }
     }
 
@@ -463,6 +544,45 @@ class LibraryPlugin : Plugin() {
             } catch (error: Exception) {
                 call.reject(error.message ?: "referenceAvailability failed", error)
             }
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        val cursor =
+            context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) {
+                    return it.getString(index)
+                }
+            }
+        }
+        return uri.lastPathSegment
+    }
+
+    private fun resolveMime(uri: Uri, name: String): String {
+        val fromResolver = context.contentResolver.getType(uri)
+        if (!fromResolver.isNullOrBlank() && fromResolver != "application/octet-stream") {
+            return fromResolver
+        }
+        val lower = name.lowercase()
+        return when {
+            lower.endsWith(".png") -> "image/png"
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+            lower.endsWith(".webp") -> "image/webp"
+            lower.endsWith(".gif") -> "image/gif"
+            lower.endsWith(".mp4") -> "video/mp4"
+            lower.endsWith(".webm") -> "video/webm"
+            lower.endsWith(".mp3") -> "audio/mpeg"
+            lower.endsWith(".wav") -> "audio/wav"
+            else -> fromResolver ?: "application/octet-stream"
         }
     }
 

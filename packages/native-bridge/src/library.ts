@@ -33,6 +33,10 @@ interface Char2vidLibraryPlugin {
     data: string;
   }): Promise<void>;
   abandonByteImport(options: { writeId: string }): Promise<void>;
+  pickAndImport(): Promise<{
+    status: 'imported' | 'cancelled';
+    assets: AssetRecord[];
+  }>;
   getAsset(options: { id: string }): Promise<{ asset: AssetRecord | null }>;
   openRevisionRead(options: {
     revisionId: string;
@@ -326,4 +330,18 @@ export function getNativeLibrary(): LibraryPort {
 
 export function isNativeLibraryAvailable(): boolean {
   return isAndroidNative();
+}
+
+export async function pickAndImportNativeMedia(): Promise<{
+  status: 'imported' | 'cancelled';
+  assets: AssetRecord[];
+}> {
+  if (!isAndroidNative()) {
+    throw new Error('Native media import requires Android');
+  }
+  const result = await Char2vidLibrary.pickAndImport();
+  return {
+    status: result.status,
+    assets: (result.assets ?? []).map((asset) => parseAssetRecord(asset)),
+  };
 }
