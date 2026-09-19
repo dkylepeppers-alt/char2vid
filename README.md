@@ -13,7 +13,7 @@ npm ci
 npm run dev
 ```
 
-The web app can import and organize a local library without an API key. Image jobs submit through the personal service (fake provider in tests/CI). Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for verification. See [repository setup](docs/development/repository-setup.md) for dependencies, GitHub configuration, APK downloads, and signing; see [Android foundation evidence](docs/validation/android-foundation.md) for toolchain and device-check status.
+The web app can import and organize a local library without an API key. Image jobs submit through the personal service (fake provider in tests/CI). Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for verification. See [repository setup](docs/development/repository-setup.md) for dependencies, GitHub configuration, APK downloads, signing, and the optional Nano-GPT MCP for Cursor/Claude Code (`NANOGPT_API_KEY` in `.env`, never `VITE_*`); see [Android foundation evidence](docs/validation/android-foundation.md) for toolchain and device-check status.
 
 Pull requests run web and Android validation. Successful Android runs provide a debug APK artifact. Signed builds use the manually dispatched release workflow and user-supplied signing secrets.
 
