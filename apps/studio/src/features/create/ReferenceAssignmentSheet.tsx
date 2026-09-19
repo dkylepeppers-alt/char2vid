@@ -32,8 +32,8 @@ export function ReferenceAssignmentSheet({
   selected: ReferenceBinding[];
   omitted: ReferenceBinding[];
   issues: CapabilityIssue[];
-  onRoleChange?: (assetRevisionId: string, role: ReferenceRole) => void;
-  onOmit?: (assetRevisionId: string) => void;
+  onRoleChange?: (binding: ReferenceBinding, role: ReferenceRole) => void;
+  onOmit?: (binding: ReferenceBinding) => void;
 }) {
   const blocking = issues.filter((issue) => issue.severity === 'blocking');
   const advisory = issues.filter((issue) => issue.severity === 'advisory');
@@ -84,7 +84,7 @@ export function ReferenceAssignmentSheet({
                   disabled={!onRoleChange}
                   onChange={(event) => {
                     if (isRole(event.target.value)) {
-                      onRoleChange?.(item.assetRevisionId, event.target.value);
+                      onRoleChange?.(item, event.target.value);
                     }
                   }}
                 >
@@ -106,7 +106,7 @@ export function ReferenceAssignmentSheet({
                 <button
                   type="button"
                   className="secondary-action"
-                  onClick={() => onOmit(item.assetRevisionId)}
+                  onClick={() => onOmit(item)}
                 >
                   Omit
                 </button>

@@ -1,4 +1,4 @@
-import type { CharacterPort } from '@char2vid/domain/characters/port';
+import { type CharacterPort } from '@char2vid/domain/characters/port';
 import {
   parseCharacterRecord,
   parseCharacterRevision,
@@ -131,11 +131,13 @@ export interface MetaStore {
 
   /**
    * Atomically write a character pointer and its revision (create or advance).
-   * Prevents currentRevisionId orphans across crash boundaries.
+   * When `expectedCurrentRevisionId` is set, the live current-revision
+   * predicate runs inside this same write so a lost update is a conflict.
    */
   commitCharacterRevision(args: {
-    character: CharacterRecord;
+    character?: CharacterRecord;
     revision: CharacterRevision;
+    expectedCurrentRevisionId?: string | null;
   }): Promise<void>;
 
   putCharacter(character: CharacterRecord): Promise<void>;
@@ -924,28 +926,9 @@ export class LibraryEngine implements CharacterPort {
 
   async saveCharacterRevision(revision: CharacterRevision): Promise<void> {
     const next = parseCharacterRevision(revision);
-    const existing = await this.meta.getCharacterRevision(next.id);
-    if (existing) {
-      throw new Error('character revisions are immutable');
-    }
-    const character = await this.meta.getCharacter(next.characterId);
-    if (!character) {
-      throw new Error(`unknown character: ${next.characterId}`);
-    }
-    if (next.parentRevisionId) {
-      const parent = await this.meta.getCharacterRevision(
-        next.parentRevisionId,
-      );
-      if (!parent) {
-        throw new Error(`unknown parent revision: ${next.parentRevisionId}`);
-      }
-    }
     await this.meta.commitCharacterRevision({
-      character: {
-        ...character,
-        currentRevisionId: next.id,
-      },
       revision: next,
+      expectedCurrentRevisionId: next.parentRevisionId ?? null,
     });
   }
 

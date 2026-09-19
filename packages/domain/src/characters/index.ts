@@ -22,6 +22,7 @@ export {
   parseLookRevision,
 } from './schema';
 export type { CharacterPort, ReferenceAvailability } from './port';
+export { CHARACTER_REVISION_CONFLICT } from './port';
 export {
   acceptReference,
   addCandidateReference,

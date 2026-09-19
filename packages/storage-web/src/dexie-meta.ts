@@ -18,6 +18,7 @@ import type {
   PhysicalObject,
   RevisionRecord,
 } from './protocol';
+import { assertCharacterRevisionAdvance } from './character-revision-commit';
 
 type Char2vidDb = Dexie & {
   journal: EntityTable<JournalEntry, 'importId'>;
@@ -289,14 +290,54 @@ export class DexieMetaStore implements MetaStore {
   }
 
   async commitCharacterRevision(args: {
-    character: CharacterRecord;
+    character?: CharacterRecord;
     revision: CharacterRevision;
+    expectedCurrentRevisionId?: string | null;
   }): Promise<void> {
     await this.db.transaction(
       'rw',
       this.db.characters,
       this.db.characterRevisions,
       async () => {
+        if (args.expectedCurrentRevisionId !== undefined) {
+          const liveRow = await this.db.characters.get(
+            args.revision.characterId,
+          );
+          const existingRow = await this.db.characterRevisions.get(
+            args.revision.id,
+          );
+          const parentRow = args.revision.parentRevisionId
+            ? await this.db.characterRevisions.get(
+                args.revision.parentRevisionId,
+              )
+            : undefined;
+          const live = assertCharacterRevisionAdvance({
+            live: liveRow ? parseCharacterRecord(liveRow) : undefined,
+            existingRevision: existingRow
+              ? parseCharacterRevision(existingRow)
+              : undefined,
+            parentRevision: parentRow
+              ? parseCharacterRevision(parentRow)
+              : undefined,
+            revision: args.revision,
+            expectedCurrentRevisionId: args.expectedCurrentRevisionId,
+          });
+          await this.db.characterRevisions.put(
+            parseCharacterRevision(args.revision),
+          );
+          await this.db.characters.put(
+            parseCharacterRecord({
+              ...live,
+              currentRevisionId: args.revision.id,
+            }),
+          );
+          return;
+        }
+        if (!args.character) {
+          throw new Error(
+            'commitCharacterRevision requires character when creating',
+          );
+        }
         await this.db.characterRevisions.put(
           parseCharacterRevision(args.revision),
         );

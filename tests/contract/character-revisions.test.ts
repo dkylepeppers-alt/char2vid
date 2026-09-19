@@ -5,12 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { expect, it, describe } from 'vitest';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 
-import { reviseCharacter } from '../../packages/domain/src/characters/revisions';
+import { CHARACTER_REVISION_CONFLICT } from '../../packages/domain/src/characters/port';
 import {
   acceptReference,
   addCandidateReference,
   createInitialRevision,
   rejectReference,
+  reviseCharacter,
   selectCover,
 } from '../../packages/domain/src/characters/revisions';
 import { createLookRevision } from '../../packages/domain/src/characters/looks';
@@ -244,6 +245,59 @@ describe('persisted characters', () => {
       ]);
       parseCharacterRecord(character);
       parseCharacterRevision(revision);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('reports a conflict when two concurrent saves target the same current revision', async () => {
+    const png = await loadPng();
+    const handle = await openTestLibrary();
+    try {
+      const asset = await handle.library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'portrait.png',
+        mime: 'image/png',
+      });
+      const created = await handle.library.createCharacter({
+        name: 'Mira',
+        referenceRevisionId: asset.revisionId,
+      });
+      const current = await handle.library.getCharacterRevision(
+        created.revisionId,
+      );
+      const firstId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const secondId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      const results = await Promise.allSettled([
+        handle.library.saveCharacterRevision(
+          reviseCharacter(current!, {
+            id: firstId,
+            identityNotes: 'first concurrent edit',
+          }),
+        ),
+        handle.library.saveCharacterRevision(
+          reviseCharacter(current!, {
+            id: secondId,
+            identityNotes: 'second concurrent edit',
+          }),
+        ),
+      ]);
+      const fulfilled = results.filter((row) => row.status === 'fulfilled');
+      const rejected = results.filter((row) => row.status === 'rejected');
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({
+        message: expect.stringContaining(CHARACTER_REVISION_CONFLICT),
+      });
+      const character = await handle.library.getCharacter(created.characterId);
+      expect([firstId, secondId]).toContain(character?.currentRevisionId);
+      const winnerId = character!.currentRevisionId;
+      const loserId = winnerId === firstId ? secondId : firstId;
+      expect(await handle.library.getCharacterRevision(winnerId)).toBeDefined();
+      expect(
+        await handle.library.getCharacterRevision(loserId),
+      ).toBeUndefined();
     } finally {
       await handle.close();
     }

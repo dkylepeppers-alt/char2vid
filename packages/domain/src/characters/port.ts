@@ -6,6 +6,8 @@ import type {
 
 export type ReferenceAvailability = 'available' | 'missing';
 
+export const CHARACTER_REVISION_CONFLICT = 'character_revision_conflict';
+
 export interface CharacterPort {
   createCharacter(input: {
     name: string;

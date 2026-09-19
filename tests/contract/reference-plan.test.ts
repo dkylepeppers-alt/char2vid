@@ -208,6 +208,28 @@ describe('reference plan', () => {
     ).toBe(true);
   });
 
+  it('matches catalog extension tokens such as png against image/png MIME values', () => {
+    const result = planReferences({
+      requested: [
+        binding({ assetRevisionId: 'png', ordinal: 0 }),
+        binding({ assetRevisionId: 'webp', ordinal: 1 }),
+      ],
+      maxItems: 2,
+      supportedRoles: ['identity'],
+      inputFormats: ['png', 'jpeg'],
+      mimeByRevisionId: {
+        png: 'image/png',
+        webp: 'image/webp',
+      },
+    });
+    expect(result.selected.map((item) => item.assetRevisionId)).toEqual([
+      'png',
+    ]);
+    expect(result.omitted.map((item) => item.assetRevisionId)).toEqual([
+      'webp',
+    ]);
+  });
+
   it('treats a missing input limit as unknown rather than unlimited', () => {
     const result = planReferences({
       requested: [
@@ -273,6 +295,38 @@ describe('reference plan', () => {
         (issue) =>
           issue.code === 'provider_url_identity' &&
           issue.severity === 'blocking',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not collapse distinct bindings that reuse one asset past maxItems', () => {
+    const requested = [
+      binding({
+        assetRevisionId: 'shared',
+        characterRevisionId: 'c1',
+        role: 'identity',
+        ordinal: 0,
+      }),
+      binding({
+        assetRevisionId: 'shared',
+        characterRevisionId: 'c2',
+        role: 'look',
+        ordinal: 1,
+      }),
+    ];
+    const result = planReferences({
+      requested,
+      maxItems: 1,
+      supportedRoles: ['identity', 'look'],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.omitted).toHaveLength(1);
+    expect(result.selected[0]?.characterRevisionId).toBe('c1');
+    expect(result.omitted[0]?.characterRevisionId).toBe('c2');
+    expect(
+      result.issues.some(
+        (issue) =>
+          issue.code === 'reference_capacity' && issue.severity === 'blocking',
       ),
     ).toBe(true);
   });

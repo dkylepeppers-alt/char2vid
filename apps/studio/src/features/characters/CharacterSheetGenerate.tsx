@@ -16,6 +16,7 @@ import {
   syncStudioJobs,
 } from '../jobs/job-sync';
 import { getStudioLibrary } from '../library/library-session';
+import { findLibraryAssetByRevisionId } from '../jobs/find-library-asset';
 import {
   clearDraftClientRequestId,
   createSubmitGate,
@@ -54,6 +55,10 @@ export function CharacterSheetGenerate({
   const [view, setView] = useState('front');
   const [submitState, setSubmitState] = useState<string | null>(null);
   const [serviceReady, setServiceReady] = useState(false);
+  const [mimeByRevisionId, setMimeByRevisionId] = useState<
+    Readonly<Record<string, string>>
+  >({});
+  const [identityMimeReady, setIdentityMimeReady] = useState(!identity);
   const submitGate = useRef(createSubmitGate());
 
   useEffect(() => {
@@ -101,6 +106,38 @@ export function CharacterSheetGenerate({
     };
   }, []);
 
+  useEffect(() => {
+    if (!identity) {
+      setMimeByRevisionId({});
+      setIdentityMimeReady(true);
+      return;
+    }
+    let cancelled = false;
+    setIdentityMimeReady(false);
+    void getStudioLibrary()
+      .then((library) =>
+        findLibraryAssetByRevisionId(library, identity.assetRevisionId),
+      )
+      .then((asset) => {
+        if (cancelled) {
+          return;
+        }
+        setMimeByRevisionId(
+          asset ? { [identity.assetRevisionId]: asset.mime } : {},
+        );
+        setIdentityMimeReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMimeByRevisionId({});
+          setIdentityMimeReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [identity]);
+
   const selected = models.find((model) => model.id === selectedId) ?? null;
   const prompt =
     mode === 'sheet'
@@ -139,8 +176,9 @@ export function CharacterSheetGenerate({
         operation: OPERATION,
         model: selected,
         parameters,
+        mimeByRevisionId,
       }),
-    [parameters, references, selected],
+    [mimeByRevisionId, parameters, references, selected],
   );
   const preview = useMemo(() => {
     if (!selected) return null;
@@ -279,6 +317,7 @@ export function CharacterSheetGenerate({
         disabled={
           !serviceReady ||
           !selected ||
+          !identityMimeReady ||
           plan.selected.length === 0 ||
           plan.issues.some((issue) => issue.severity === 'blocking') ||
           submitState === 'working'

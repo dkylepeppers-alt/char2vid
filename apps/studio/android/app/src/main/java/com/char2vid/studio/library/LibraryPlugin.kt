@@ -68,6 +68,83 @@ class LibraryPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun beginByteImport(call: PluginCall) {
+        executor.execute {
+            try {
+                call.resolve(jsFromJson(repo().beginByteImport()))
+            } catch (error: Exception) {
+                call.reject(error.message ?: "beginByteImport failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun appendByteImportChunk(call: PluginCall) {
+        val writeId = call.getString("writeId")
+        val data = call.getString("data")
+        if (writeId.isNullOrBlank()) {
+            call.reject("appendByteImportChunk requires writeId")
+            return
+        }
+        if (data.isNullOrBlank()) {
+            call.reject("appendByteImportChunk requires data")
+            return
+        }
+        executor.execute {
+            try {
+                repo().appendByteImportChunk(writeId, data)
+                call.resolve(JSObject())
+            } catch (error: Exception) {
+                call.reject(error.message ?: "appendByteImportChunk failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun abandonByteImport(call: PluginCall) {
+        val writeId = call.getString("writeId")
+        if (writeId.isNullOrBlank()) {
+            call.reject("abandonByteImport requires writeId")
+            return
+        }
+        executor.execute {
+            try {
+                repo().abandonByteImport(writeId)
+                call.resolve(JSObject())
+            } catch (error: Exception) {
+                call.reject(error.message ?: "abandonByteImport failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun importFromBytes(call: PluginCall) {
+        val data = call.getString("data")
+        val name = call.getString("name")
+        val mime = call.getString("mime")
+        if (data.isNullOrBlank()) {
+            call.reject("importFromBytes requires data")
+            return
+        }
+        if (name.isNullOrBlank()) {
+            call.reject("importFromBytes requires name")
+            return
+        }
+        if (mime.isNullOrBlank()) {
+            call.reject("importFromBytes requires mime")
+            return
+        }
+        executor.execute {
+            try {
+                val asset = repo().importFromBytes(data, name, mime)
+                call.resolve(jsFromJson(asset.toJson()))
+            } catch (error: Exception) {
+                call.reject(error.message ?: "importFromBytes failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
     fun getAsset(call: PluginCall) {
         val id = call.getString("id")
         if (id.isNullOrBlank()) {

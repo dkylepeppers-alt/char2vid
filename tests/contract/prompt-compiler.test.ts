@@ -39,6 +39,46 @@ describe('prompt compiler', () => {
     expect(result.finalText).not.toContain('red jacket');
   });
 
+  it('appends only missing ordinal tags for verified adapter syntax', () => {
+    const second: ReferenceBinding = {
+      assetRevisionId: 'portrait-2',
+      role: 'identity',
+      characterRevisionId: 'cr-mira-2',
+      ordinal: 1,
+    };
+    const result = compilePrompt({
+      acceptedText: 'wave hello @0',
+      bindings: [subject, second],
+      adapterSyntax: { kind: 'ordinal-mention' },
+    });
+    expect(result.finalText).toBe('wave hello @0\n@1');
+    expect(result.finalText.match(/@0/g)).toEqual(['@0']);
+  });
+
+  it('counts punctuation-adjacent ordinal mentions without treating identifier neighbors as tags', () => {
+    const parenthetical = compilePrompt({
+      acceptedText: 'keep (@0) in frame',
+      bindings: [subject],
+      adapterSyntax: { kind: 'ordinal-mention' },
+    });
+    expect(parenthetical.finalText).toBe('keep (@0) in frame');
+    expect(parenthetical.finalText.match(/@0/g)).toEqual(['@0']);
+
+    const trailingPunctuation = compilePrompt({
+      acceptedText: 'wave at @0.',
+      bindings: [subject],
+      adapterSyntax: { kind: 'ordinal-mention' },
+    });
+    expect(trailingPunctuation.finalText).toBe('wave at @0.');
+
+    const identifierNeighbor = compilePrompt({
+      acceptedText: 'keep email@0 and @0foo out',
+      bindings: [subject],
+      adapterSyntax: { kind: 'ordinal-mention' },
+    });
+    expect(identifierNeighbor.finalText).toBe('keep email@0 and @0foo out\n@0');
+  });
+
   it('adds only verified adapter binding syntax', () => {
     const without = compilePrompt({
       acceptedText: 'wave hello',

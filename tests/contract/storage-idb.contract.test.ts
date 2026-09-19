@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { CHARACTER_REVISION_CONFLICT } from '../../packages/domain/src/characters/port';
+import { reviseCharacter } from '../../packages/domain/src/characters/revisions';
 import {
   createIdbBlobFileStore,
   openWebLibrary,
@@ -131,6 +133,59 @@ describe('storage contract (IndexedDB blob fallback)', () => {
       expect((await second.storageUsage()).originals).toBe(png.byteLength);
     } finally {
       await second.close();
+    }
+  });
+
+  it('reports a conflict when two concurrent IDB saves target the same current revision', async () => {
+    const png = await loadPng();
+    const dbName = `char2vid-idb-rev-${crypto.randomUUID()}`;
+    const blobDbName = `${dbName}-blobs`;
+    openedDbNames.push(dbName, blobDbName);
+    const files = await createIdbBlobFileStore(32 * 1024 * 1024, blobDbName);
+    const library = await openWebLibrary({ dbName, files });
+    try {
+      const asset = await library.importMedia({
+        kind: 'browser-file',
+        handle: png,
+        name: 'portrait.png',
+        mime: 'image/png',
+      });
+      const created = await library.createCharacter({
+        name: 'Mira',
+        referenceRevisionId: asset.revisionId,
+      });
+      const current = await library.getCharacterRevision(created.revisionId);
+      const firstId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const secondId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      const results = await Promise.allSettled([
+        library.saveCharacterRevision(
+          reviseCharacter(current!, {
+            id: firstId,
+            identityNotes: 'first concurrent edit',
+          }),
+        ),
+        library.saveCharacterRevision(
+          reviseCharacter(current!, {
+            id: secondId,
+            identityNotes: 'second concurrent edit',
+          }),
+        ),
+      ]);
+      const fulfilled = results.filter((row) => row.status === 'fulfilled');
+      const rejected = results.filter((row) => row.status === 'rejected');
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({
+        message: expect.stringContaining(CHARACTER_REVISION_CONFLICT),
+      });
+      const character = await library.getCharacter(created.characterId);
+      expect([firstId, secondId]).toContain(character?.currentRevisionId);
+      const winnerId = character!.currentRevisionId;
+      const loserId = winnerId === firstId ? secondId : firstId;
+      expect(await library.getCharacterRevision(winnerId)).toBeDefined();
+      expect(await library.getCharacterRevision(loserId)).toBeUndefined();
+    } finally {
+      await library.close();
     }
   });
 });

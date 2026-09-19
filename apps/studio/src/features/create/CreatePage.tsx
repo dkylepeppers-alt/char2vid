@@ -35,6 +35,10 @@ import { ModelControls } from './ModelControls';
 import { MODEL_PAGE_SIZE, ModelPicker, type ModelFilter } from './ModelPicker';
 import { planStudioReferences } from './plan-create-references';
 import { PromptPreview } from './PromptPreview';
+import {
+  nextReferenceOrdinal,
+  omitReferenceBinding,
+} from './reference-bindings';
 import { ReferenceAssignmentSheet } from './ReferenceAssignmentSheet';
 import { ReferenceTray } from './ReferenceTray';
 
@@ -311,37 +315,31 @@ export function CreatePage() {
             {
               assetRevisionId: asset.revisionId,
               role: 'identity',
-              ordinal: references.length,
+              ordinal: nextReferenceOrdinal(references),
             },
           ]);
         }}
-        onRemove={(assetRevisionId) => {
-          persistReferences(
-            references
-              .filter((item) => item.assetRevisionId !== assetRevisionId)
-              .map((item, ordinal) => ({ ...item, ordinal })),
-          );
+        onRemove={(binding) => {
+          persistReferences(omitReferenceBinding(references, binding));
         }}
       />
       <ReferenceAssignmentSheet
         selected={plan.selected}
         omitted={plan.omitted}
         issues={plan.issues}
-        onRoleChange={(assetRevisionId, role: ReferenceRole) => {
+        onRoleChange={(binding, role: ReferenceRole) => {
           persistReferences(
             references.map((item) =>
-              item.assetRevisionId === assetRevisionId
+              item.ordinal === binding.ordinal &&
+              item.assetRevisionId === binding.assetRevisionId &&
+              item.characterRevisionId === binding.characterRevisionId
                 ? { ...item, role }
                 : item,
             ),
           );
         }}
-        onOmit={(assetRevisionId) => {
-          persistReferences(
-            references
-              .filter((item) => item.assetRevisionId !== assetRevisionId)
-              .map((item, ordinal) => ({ ...item, ordinal })),
-          );
+        onOmit={(binding) => {
+          persistReferences(omitReferenceBinding(references, binding));
         }}
       />
       <ModelPicker
