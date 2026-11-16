@@ -8,7 +8,7 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:${char2vidAgpVersion}"
-        classpath 'com.google.gms:google-services:4.5.0'
+        classpath 'com.google.gms:google-services:4.6.0'
         // AGP 9 bundles Kotlin; pin a current KGP so Room/KSP stay on a known compiler.
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${char2vidKotlinVersion}"
         classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${char2vidKspVersion}"
